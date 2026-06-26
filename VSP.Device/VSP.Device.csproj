@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VSP.Core\VSP.Core.csproj" />
+    <ProjectReference Include="..\VSP.Domain\VSP.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

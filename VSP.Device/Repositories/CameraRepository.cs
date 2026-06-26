@@ -25,7 +25,6 @@ public class CameraRepository : ICameraRepository
     public void Update(Camera camera)
     {
         var index = _cameras.FindIndex(x => x.Id == camera.Id);
-
         if (index >= 0)
             _cameras[index] = camera;
     }

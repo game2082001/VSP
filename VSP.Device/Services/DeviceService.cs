@@ -5,25 +5,25 @@ namespace VSP.Device.Services;
 
 public class DeviceService
 {
-    private readonly ICameraRepository _repository;
+    private readonly ICameraRepository _cameraRepository;
 
-    public DeviceService(ICameraRepository repository)
+    public DeviceService(ICameraRepository cameraRepository)
     {
-        _repository = repository;
+        _cameraRepository = cameraRepository;
     }
 
-    public IEnumerable<Camera> GetAllCamera()
+    public IEnumerable<Camera> GetAllCameras()
     {
-        return _repository.GetAll();
+        return _cameraRepository.GetAll();
     }
 
     public void AddCamera(Camera camera)
     {
-        _repository.Add(camera);
+        _cameraRepository.Add(camera);
     }
 
     public void DeleteCamera(Guid id)
     {
-        _repository.Delete(id);
+        _cameraRepository.Delete(id);
     }
 }
