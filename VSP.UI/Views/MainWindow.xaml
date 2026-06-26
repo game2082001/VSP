@@ -30,9 +30,12 @@
                 Background="#2D2D30"/>
 
         <!-- Content -->
-        <Border Grid.Row="1"
+        <ContentControl x:Name="MainContent"
+                Grid.Row="1"
                 Grid.Column="1"
-                Background="#1E1E1E"/>
+                Background="#1E1E1E"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"/>
 
         <!-- Status -->
         <Border Grid.Row="2"
