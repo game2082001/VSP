@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="VSP.Core/VSP.Core.csproj" />
+  <Project Path="VSP.Device/VSP.Device.csproj" />
+  <Project Path="VSP.Player/VSP.Player.csproj" />
+  <Project Path="VSP.UI/VSP.UI.csproj" />
+</Solution>

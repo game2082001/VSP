@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="VSP.Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VSP.Core\VSP.Core.csproj" />
+    <ProjectReference Include="..\VSP.Device\VSP.Device.csproj" />
+    <ProjectReference Include="..\VSP.Player\VSP.Player.csproj" />
+  </ItemGroup>
+
+</Project>
