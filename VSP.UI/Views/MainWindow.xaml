@@ -30,11 +30,35 @@
          Grid.Column="0"
          ItemsSource="{Binding Navigation}"
          SelectedItem="{Binding SelectedItem}"
-         DisplayMemberPath="Title"
          Background="#2D2D30"
-         Foreground="White"
          BorderThickness="0"
-         FontSize="18"/>
+         Padding="8">
+
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Height="44" Margin="0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="42"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                           Text="{Binding Icon}"
+                           Foreground="#B0B0B0"
+                           FontSize="18"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"/>
+
+                        <TextBlock Grid.Column="1"
+                           Text="{Binding Title}"
+                           Foreground="White"
+                           FontSize="16"
+                           VerticalAlignment="Center"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+
+        </ListBox>
 
         <!-- Content -->
         <ContentControl x:Name="MainContent"

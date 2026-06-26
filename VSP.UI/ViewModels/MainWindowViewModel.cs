@@ -6,7 +6,7 @@ namespace VSP.UI.ViewModels;
 
 public class MainWindowViewModel : ObservableObject
 {
-    public ObservableCollection<NavigationItem> Navigation { get; }
+    public ObservableCollection<NavigationItem> Navigation { get; } = new();
 
     private NavigationItem? _selectedItem;
 
@@ -32,38 +32,40 @@ public class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel()
     {
-        Navigation = new ObservableCollection<NavigationItem>
+        Navigation.Add(new NavigationItem
         {
-            new()
-            {
-                Title="Dashboard",
-                View=new DashboardView()
-            },
+            Title = "Dashboard",
+            Icon = "Home",
+            View = new DashboardView()
+        });
 
-            new()
-            {
-                Title="Live View",
-                View=new LiveView()
-            },
+        Navigation.Add(new NavigationItem
+        {
+            Title = "Live View",
+            Icon = "Video",
+            View = new LiveView()
+        });
 
-            new()
-            {
-                Title="Playback",
-                View=new PlaybackView()
-            },
+        Navigation.Add(new NavigationItem
+        {
+            Title = "Playback",
+            Icon = "PlayCircle",
+            View = new PlaybackView()
+        });
 
-            new()
-            {
-                Title="Devices",
-                View=new DeviceView()
-            },
+        Navigation.Add(new NavigationItem
+        {
+            Title = "Devices",
+            Icon = "Server",
+            View = new DeviceView()
+        });
 
-            new()
-            {
-                Title="Settings",
-                View=new SettingsView()
-            }
-        };
+        Navigation.Add(new NavigationItem
+        {
+            Title = "Settings",
+            Icon = "Cog",
+            View = new SettingsView()
+        });
 
         SelectedItem = Navigation[0];
     }
