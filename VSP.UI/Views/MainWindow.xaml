@@ -25,17 +25,22 @@
                 Background="#252526"/>
 
         <!-- Navigation -->
-        <Border Grid.Row="1"
-                Grid.Column="0"
-                Background="#2D2D30"/>
+
+        <ListBox Grid.Row="1"
+         Grid.Column="0"
+         ItemsSource="{Binding Navigation}"
+         SelectedItem="{Binding SelectedItem}"
+         DisplayMemberPath="Title"
+         Background="#2D2D30"
+         Foreground="White"
+         BorderThickness="0"
+         FontSize="18"/>
 
         <!-- Content -->
         <ContentControl x:Name="MainContent"
                 Grid.Row="1"
                 Grid.Column="1"
-                Background="#1E1E1E"
-                HorizontalContentAlignment="Stretch"
-                VerticalContentAlignment="Stretch"/>
+                Content="{Binding CurrentView}"/>
 
         <!-- Status -->
         <Border Grid.Row="2"

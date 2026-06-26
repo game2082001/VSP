@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using VSP.UI.ViewModels;
 
 namespace VSP.UI.Views;
 
@@ -8,6 +9,6 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        MainContent.Content = new DashboardView();
+        DataContext = new MainWindowViewModel();
     }
 }
