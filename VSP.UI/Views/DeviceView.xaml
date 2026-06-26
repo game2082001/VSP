@@ -10,41 +10,109 @@
 
 	<Grid Background="#1E1E1E" Margin="20">
 		<Grid.RowDefinitions>
-			<RowDefinition Height="50"/>
+			<RowDefinition Height="60"/>
 			<RowDefinition Height="*"/>
 		</Grid.RowDefinitions>
 
-		<TextBlock Text="Device Manager"
-                   Foreground="White"
-                   FontSize="28"
-                   FontWeight="SemiBold"
-                   VerticalAlignment="Center"/>
+		<!-- Toolbar -->
+		<DockPanel Grid.Row="0" Margin="0,8,0,12">
+			<StackPanel Orientation="Horizontal">
+				<Button Content="＋ 新增" Width="90" Margin="0,0,8,0"/>
+				<Button Content="✏ 編輯" Width="90" Margin="0,0,8,0"/>
+				<Button Content="🗑 刪除" Width="90" Margin="0,0,8,0"/>
+				<Button Content="🔄 重新整理" Width="110"/>
+			</StackPanel>
 
-		<DataGrid Grid.Row="1"
-                  ItemsSource="{Binding Devices}"
-                  AutoGenerateColumns="False"
-                  Background="#252526"
-                  Foreground="White"
-                  RowBackground="#1E1E1E"
-                  AlternatingRowBackground="#252526"
-                  GridLinesVisibility="Horizontal"
-                  HeadersVisibility="Column"
-                  BorderBrush="#3E3E42"
-                  BorderThickness="1">
+			<TextBox Width="220"
+                     Height="34"
+                     HorizontalAlignment="Right"
+                     VerticalAlignment="Center"
+                     Text="搜尋..."
+                     Margin="20,0,0,0"/>
+		</DockPanel>
 
-			<DataGrid.Columns>
-				<DataGridTextColumn Header="名稱"
-                                    Binding="{Binding Name}"
-                                    Width="200"/>
+		<!-- Device Manager Main Area -->
+		<Grid Grid.Row="1">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="260"/>
+				<ColumnDefinition Width="8"/>
+				<ColumnDefinition Width="*"/>
+			</Grid.ColumnDefinitions>
 
-				<DataGridTextColumn Header="IP"
-                                    Binding="{Binding IP}"
-                                    Width="200"/>
+			<!-- Left Explorer -->
+			<Border Grid.Column="0"
+                    Background="#252526"
+                    BorderBrush="#3E3E42"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="14">
 
-				<DataGridTextColumn Header="品牌"
-                                    Binding="{Binding Brand}"
-                                    Width="200"/>
-			</DataGrid.Columns>
-		</DataGrid>
+				<StackPanel>
+					<TextBlock Text="Device Explorer"
+                               Foreground="White"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,16"/>
+
+					<TextBlock Text="▼ Demo Workspace"
+                               Foreground="White"
+                               FontSize="15"
+                               Margin="0,4"/>
+
+					<TextBlock Text="   ▼ Main Site"
+                               Foreground="#D0D0D0"
+                               FontSize="14"
+                               Margin="0,4"/>
+
+					<TextBlock Text="      ▼ Building A"
+                               Foreground="#D0D0D0"
+                               FontSize="14"
+                               Margin="0,4"/>
+
+					<TextBlock Text="         1F"
+                               Foreground="#AFAFAF"
+                               FontSize="14"
+                               Margin="0,4"/>
+
+					<TextBlock Text="         2F"
+                               Foreground="#AFAFAF"
+                               FontSize="14"
+                               Margin="0,4"/>
+
+					<TextBlock Text="         Parking"
+                               Foreground="#AFAFAF"
+                               FontSize="14"
+                               Margin="0,4"/>
+				</StackPanel>
+			</Border>
+
+			<!-- Right Camera List -->
+			<DataGrid Grid.Column="2"
+                      ItemsSource="{Binding Devices}"
+                      AutoGenerateColumns="False"
+                      Background="#252526"
+                      Foreground="White"
+                      RowBackground="#1E1E1E"
+                      AlternatingRowBackground="#252526"
+                      GridLinesVisibility="Horizontal"
+                      HeadersVisibility="Column"
+                      BorderBrush="#3E3E42"
+                      BorderThickness="1">
+
+				<DataGrid.Columns>
+					<DataGridTextColumn Header="名稱"
+                                        Binding="{Binding Name}"
+                                        Width="200"/>
+
+					<DataGridTextColumn Header="IP"
+                                        Binding="{Binding IP}"
+                                        Width="200"/>
+
+					<DataGridTextColumn Header="品牌"
+                                        Binding="{Binding Brand}"
+                                        Width="200"/>
+				</DataGrid.Columns>
+			</DataGrid>
+		</Grid>
 	</Grid>
 </UserControl>
