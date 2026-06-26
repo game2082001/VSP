@@ -3,13 +3,18 @@ using System.Windows;
 using System.Windows.Input;
 using VSP.Core.Commands;
 using VSP.Core.MVVM;
+using VSP.Device.Services;
+using VSP.Domain.Entities;
+using VSP.Domain.Enums;
 using VSP.UI.Views;
 
 namespace VSP.UI.ViewModels;
 
 public class DeviceViewModel : ObservableObject
 {
-    public ObservableCollection<DeviceItem> Devices { get; }
+    private readonly DeviceService _deviceService = new();
+
+    public ObservableCollection<Camera> Devices { get; } = new();
 
     public ICommand AddDeviceCommand { get; }
     public ICommand EditDeviceCommand { get; }
@@ -18,53 +23,66 @@ public class DeviceViewModel : ObservableObject
 
     public DeviceViewModel()
     {
-        Devices = new ObservableCollection<DeviceItem>
-        {
-            new DeviceItem { Name = "Cam01", IP = "192.168.1.101", Brand = "Hikvision" },
-            new DeviceItem { Name = "Cam02", IP = "192.168.1.102", Brand = "Dahua" },
-            new DeviceItem { Name = "Cam03", IP = "192.168.1.103", Brand = "ONVIF" }
-        };
-
         AddDeviceCommand = new RelayCommand(AddDevice);
         EditDeviceCommand = new RelayCommand(EditDevice);
         DeleteDeviceCommand = new RelayCommand(DeleteDevice);
-        RefreshCommand = new RelayCommand(Refresh);
+        RefreshCommand = new RelayCommand(LoadDevices);
+
+        LoadDevices();
+    }
+
+    private void LoadDevices()
+    {
+        Devices.Clear();
+
+        foreach (var camera in _deviceService.GetAllCameras())
+        {
+            Devices.Add(camera);
+        }
     }
 
     private void AddDevice()
     {
-        var window = new Views.AddDeviceWindow();
+        var window = new AddDeviceWindow();
 
         if (window.ShowDialog() == true)
         {
-            Devices.Add(new DeviceItem
+            var camera = new Camera
             {
                 Name = window.DeviceName,
-                IP = window.IpAddress,
-                Brand = window.Brand
-            });
+                IpAddress = window.IpAddress,
+                Brand = ParseBrand(window.Brand),
+                Username = window.Username,
+                Password = window.Password,
+                RtspUrl = window.RtspUrl,
+                Status = CameraStatus.Offline
+            };
+
+            _deviceService.AddCamera(camera);
+
+            LoadDevices();
         }
     }
 
     private void EditDevice()
     {
-        MessageBox.Show("編輯設備", "VSP");
+        MessageBox.Show("編輯設備功能下一個 Sprint 製作。", "VSP");
     }
 
     private void DeleteDevice()
     {
-        MessageBox.Show("刪除設備", "VSP");
+        MessageBox.Show("刪除設備功能下一個 Sprint 製作。", "VSP");
     }
 
-    private void Refresh()
+    private CameraBrand ParseBrand(string brand)
     {
-        MessageBox.Show("重新整理設備", "VSP");
+        return brand switch
+        {
+            "Hikvision" => CameraBrand.Hikvision,
+            "Dahua" => CameraBrand.Dahua,
+            "ONVIF" => CameraBrand.ONVIF,
+            "RTSP" => CameraBrand.RTSP,
+            _ => CameraBrand.Unknown
+        };
     }
-}
-
-public class DeviceItem
-{
-    public string Name { get; set; } = "";
-    public string IP { get; set; } = "";
-    public string Brand { get; set; } = "";
 }
