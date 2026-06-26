@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using VSP.Core.Commands;
 using VSP.Core.MVVM;
+using VSP.UI.Views;
 
 namespace VSP.UI.ViewModels;
 
@@ -32,7 +33,17 @@ public class DeviceViewModel : ObservableObject
 
     private void AddDevice()
     {
-        MessageBox.Show("新增設備", "VSP");
+        var window = new Views.AddDeviceWindow();
+
+        if (window.ShowDialog() == true)
+        {
+            Devices.Add(new DeviceItem
+            {
+                Name = window.DeviceName,
+                IP = window.IpAddress,
+                Brand = window.Brand
+            });
+        }
     }
 
     private void EditDevice()

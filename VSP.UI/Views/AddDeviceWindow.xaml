@@ -1,0 +1,69 @@
+﻿<Window x:Class="VSP.UI.Views.AddDeviceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="新增設備"
+        Width="520"
+        Height="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E"
+        ResizeMode="NoResize">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="56"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="新增設備"
+                   Foreground="White"
+                   FontSize="26"
+                   FontWeight="SemiBold"/>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="44"/>
+                <RowDefinition Height="44"/>
+                <RowDefinition Height="44"/>
+                <RowDefinition Height="44"/>
+                <RowDefinition Height="44"/>
+                <RowDefinition Height="44"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="名稱" Foreground="White" Grid.Row="0" VerticalAlignment="Center"/>
+            <TextBox x:Name="NameTextBox" Grid.Row="0" Grid.Column="1"/>
+
+            <TextBlock Text="IP" Foreground="White" Grid.Row="1" VerticalAlignment="Center"/>
+            <TextBox x:Name="IpTextBox" Grid.Row="1" Grid.Column="1"/>
+
+            <TextBlock Text="品牌" Foreground="White" Grid.Row="2" VerticalAlignment="Center"/>
+            <ComboBox x:Name="BrandComboBox" Grid.Row="2" Grid.Column="1">
+                <ComboBoxItem Content="Hikvision"/>
+                <ComboBoxItem Content="Dahua"/>
+                <ComboBoxItem Content="ONVIF"/>
+                <ComboBoxItem Content="RTSP"/>
+            </ComboBox>
+
+            <TextBlock Text="帳號" Foreground="White" Grid.Row="3" VerticalAlignment="Center"/>
+            <TextBox x:Name="UsernameTextBox" Grid.Row="3" Grid.Column="1"/>
+
+            <TextBlock Text="密碼" Foreground="White" Grid.Row="4" VerticalAlignment="Center"/>
+            <PasswordBox x:Name="PasswordBox" Grid.Row="4" Grid.Column="1"/>
+
+            <TextBlock Text="RTSP URL" Foreground="White" Grid.Row="5" VerticalAlignment="Center"/>
+            <TextBox x:Name="RtspTextBox" Grid.Row="5" Grid.Column="1"/>
+        </Grid>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button Content="取消" Width="90" Margin="0,0,10,0" Click="Cancel_Click"/>
+            <Button Content="確定" Width="90" Click="Ok_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
