@@ -1,0 +1,14 @@
+﻿<UserControl x:Class="VSP.UI.Controls.TitleBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="#252526">
+        <TextBlock Text="VSP"
+                   Foreground="White"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"
+                   Margin="16,0"/>
+    </Grid>
+
+</UserControl>

@@ -1,0 +1,21 @@
+﻿<UserControl x:Class="VSP.UI.Controls.NavigationBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Background="#2D2D30">
+        <TextBlock Text="VSP"
+                   Foreground="White"
+                   FontSize="26"
+                   FontWeight="Bold"
+                   Margin="20,24,20,30"/>
+
+        <Button Content="Dashboard"/>
+        <Button Content="Live View"/>
+        <Button Content="Playback"/>
+        <Button Content="Device"/>
+        <Button Content="Video Wall"/>
+        <Button Content="Backup"/>
+        <Button Content="Settings"/>
+    </StackPanel>
+
+</UserControl>
