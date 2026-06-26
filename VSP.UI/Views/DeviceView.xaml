@@ -17,10 +17,24 @@
 		<!-- Toolbar -->
 		<DockPanel Grid.Row="0" Margin="0,8,0,12">
 			<StackPanel Orientation="Horizontal">
-				<Button Content="＋ 新增" Width="90" Margin="0,0,8,0"/>
-				<Button Content="✏ 編輯" Width="90" Margin="0,0,8,0"/>
-				<Button Content="🗑 刪除" Width="90" Margin="0,0,8,0"/>
-				<Button Content="🔄 重新整理" Width="110"/>
+				<Button Content="＋ 新增"
+						Width="90"
+						Margin="0,0,8,0"
+						Command="{Binding AddDeviceCommand}"/>
+
+				<Button Content="✏ 編輯"
+						Width="90"
+						Margin="0,0,8,0"
+						Command="{Binding EditDeviceCommand}"/>
+
+				<Button Content="🗑 刪除"
+						Width="90"
+						Margin="0,0,8,0"
+						Command="{Binding DeleteDeviceCommand}"/>
+
+				<Button Content="🔄 重新整理"
+						Width="110"
+						Command="{Binding RefreshCommand}"/>
 			</StackPanel>
 
 			<TextBox Width="220"
