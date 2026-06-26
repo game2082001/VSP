@@ -10,7 +10,7 @@ public class Camera
 
     public string IpAddress { get; set; } = "";
 
-    public CameraBrand Brand { get; set; } = "";
+    public CameraBrand Brand { get; set; } = CameraBrand.Unknown;
 
     public string Username { get; set; } = "";
 
@@ -22,7 +22,7 @@ public class Camera
 
     public string RtspUrl { get; set; } = "";
 
-    public CameraStatus Status { get; set; }
+    public CameraStatus Status { get; set; } = CameraStatus.Offline;
 
     public bool Recording { get; set; }
 
