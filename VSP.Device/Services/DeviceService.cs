@@ -1,16 +1,17 @@
-﻿using VSP.Device.Interfaces;
-using VSP.Device.Repositories;
-using VSP.Domain.Entities;
+﻿using VSP.Domain.Entities;
+using VSP.Infrastructure.Database;
+using VSP.Infrastructure.Repositories;
 
 namespace VSP.Device.Services;
 
 public class DeviceService
 {
-    private readonly ICameraRepository _cameraRepository;
+    private readonly SQLiteCameraRepository _cameraRepository;
 
     public DeviceService()
     {
-        _cameraRepository = new CameraRepository();
+        var databaseService = new DatabaseService();
+        _cameraRepository = new SQLiteCameraRepository(databaseService);
     }
 
     public IEnumerable<Camera> GetAllCameras()
@@ -21,20 +22,5 @@ public class DeviceService
     public void AddCamera(Camera camera)
     {
         _cameraRepository.Add(camera);
-    }
-
-    public void UpdateCamera(Camera camera)
-    {
-        _cameraRepository.Update(camera);
-    }
-
-    public void DeleteCamera(Guid id)
-    {
-        _cameraRepository.Delete(id);
-    }
-
-    public Camera? GetCamera(Guid id)
-    {
-        return _cameraRepository.GetById(id);
     }
 }

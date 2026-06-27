@@ -14,7 +14,6 @@
     <Folder Include="Settings\" />
     <Folder Include="SDK\" />
     <Folder Include="ONVIF\" />
-    <Folder Include="Repositories\" />
   </ItemGroup>
 
   <ItemGroup>

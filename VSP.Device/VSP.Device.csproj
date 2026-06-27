@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\VSP.Core\VSP.Core.csproj" />
     <ProjectReference Include="..\VSP.Domain\VSP.Domain.csproj" />
+    <ProjectReference Include="..\VSP.Infrastructure\VSP.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
