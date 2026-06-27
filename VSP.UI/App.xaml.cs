@@ -13,5 +13,6 @@ public partial class App : Application
         var initializer = new DatabaseInitializer(databaseService);
 
         initializer.Initialize();
+
     }
 }
