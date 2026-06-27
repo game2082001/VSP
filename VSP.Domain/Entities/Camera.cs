@@ -12,6 +12,8 @@ public class Camera
 
     public CameraBrand Brand { get; set; } = CameraBrand.Unknown;
 
+    public DeviceConnectionType ConnectionType { get; set; } = DeviceConnectionType.Unknown;
+
     public string Model { get; set; } = "";
 
     public string Location { get; set; } = "";

@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using System.Net;
+using System.Text.RegularExpressions;
+using System.Windows;
 using System.Windows.Controls;
 using VSP.Domain.Entities;
 
@@ -60,21 +62,58 @@ public partial class AddDeviceWindow : Window
         Password = PasswordBox.Password;
         RtspUrl = RtspTextBox.Text.Trim();
 
-        if (!int.TryParse(HttpPortTextBox.Text.Trim(), out var httpPort))
+        // ===== 必填欄位 =====
+
+        if (string.IsNullOrWhiteSpace(DeviceName))
         {
-            MessageBox.Show("HTTP Port 請輸入數字。", "VSP");
+            MessageBox.Show("請輸入設備名稱。", "VSP");
+            NameTextBox.Focus();
             return;
         }
 
-        if (!int.TryParse(RtspPortTextBox.Text.Trim(), out var rtspPort))
+        if (string.IsNullOrWhiteSpace(IpAddress))
         {
-            MessageBox.Show("RTSP Port 請輸入數字。", "VSP");
+            MessageBox.Show("請輸入 IP 位址。", "VSP");
+            IpTextBox.Focus();
             return;
         }
 
-        if (!int.TryParse(SdkPortTextBox.Text.Trim(), out var sdkPort))
+        // ===== IP 驗證 =====
+
+        if (!IsValidIPv4(IpAddress))
         {
-            MessageBox.Show("SDK Port 請輸入數字。", "VSP");
+            MessageBox.Show("IP 位址格式錯誤。", "VSP");
+            IpTextBox.Focus();
+            IpTextBox.SelectAll();
+            return;
+        }
+
+        // ===== Port 驗證 =====
+
+        if (!int.TryParse(HttpPortTextBox.Text.Trim(), out var httpPort)
+            || httpPort < 1 || httpPort > 65535)
+        {
+            MessageBox.Show("HTTP Port 必須介於 1~65535。", "VSP");
+            HttpPortTextBox.Focus();
+            HttpPortTextBox.SelectAll();
+            return;
+        }
+
+        if (!int.TryParse(RtspPortTextBox.Text.Trim(), out var rtspPort)
+            || rtspPort < 1 || rtspPort > 65535)
+        {
+            MessageBox.Show("RTSP Port 必須介於 1~65535。", "VSP");
+            RtspPortTextBox.Focus();
+            RtspPortTextBox.SelectAll();
+            return;
+        }
+
+        if (!int.TryParse(SdkPortTextBox.Text.Trim(), out var sdkPort)
+            || sdkPort < 1 || sdkPort > 65535)
+        {
+            MessageBox.Show("SDK Port 必須介於 1~65535。", "VSP");
+            SdkPortTextBox.Focus();
+            SdkPortTextBox.SelectAll();
             return;
         }
 
@@ -82,14 +121,31 @@ public partial class AddDeviceWindow : Window
         RtspPort = rtspPort;
         SdkPort = sdkPort;
 
-        if (string.IsNullOrWhiteSpace(DeviceName) || string.IsNullOrWhiteSpace(IpAddress))
-        {
-            MessageBox.Show("請輸入設備名稱與 IP。", "VSP");
-            return;
-        }
-
         DialogResult = true;
         Close();
+    }
+
+    private bool IsValidIPv4(string ip)
+    {
+        if (string.IsNullOrWhiteSpace(ip))
+            return false;
+
+        // 必須是 x.x.x.x
+        if (!Regex.IsMatch(ip, @"^(\d{1,3}\.){3}\d{1,3}$"))
+            return false;
+
+        string[] parts = ip.Split('.');
+
+        foreach (string part in parts)
+        {
+            if (!int.TryParse(part, out int value))
+                return false;
+
+            if (value < 0 || value > 255)
+                return false;
+        }
+
+        return IPAddress.TryParse(ip, out _);
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)

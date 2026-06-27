@@ -24,7 +24,7 @@ public class SQLiteCameraRepository
         command.CommandText = @"
 INSERT INTO Camera
 (
-    Id, Name, IpAddress, Brand,
+    Id, Name, IpAddress, Brand, ConnectionType,
     Model, Location,
     HttpPort, RtspPort, SdkPort,
     Username, Password, RtspUrl,
@@ -33,7 +33,7 @@ INSERT INTO Camera
 )
 VALUES
 (
-    $Id, $Name, $IpAddress, $Brand,
+    $Id, $Name, $IpAddress, $Brand, $ConnectionType,
     $Model, $Location,
     $HttpPort, $RtspPort, $SdkPort,
     $Username, $Password, $RtspUrl,
@@ -65,18 +65,19 @@ VALUES
                 Name = reader.GetString(1),
                 IpAddress = reader.GetString(2),
                 Brand = (CameraBrand)reader.GetInt32(3),
-                Model = reader.IsDBNull(4) ? "" : reader.GetString(4),
-                Location = reader.IsDBNull(5) ? "" : reader.GetString(5),
-                HttpPort = reader.IsDBNull(6) ? 80 : reader.GetInt32(6),
-                RtspPort = reader.IsDBNull(7) ? 554 : reader.GetInt32(7),
-                SdkPort = reader.IsDBNull(8) ? 8000 : reader.GetInt32(8),
-                Username = reader.IsDBNull(9) ? "" : reader.GetString(9),
-                Password = reader.IsDBNull(10) ? "" : reader.GetString(10),
-                RtspUrl = reader.IsDBNull(11) ? "" : reader.GetString(11),
-                Status = reader.IsDBNull(12) ? CameraStatus.Offline : (CameraStatus)reader.GetInt32(12),
-                Recording = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
-                CreateTime = reader.IsDBNull(14) ? DateTime.Now : DateTime.Parse(reader.GetString(14)),
-                LastModifyTime = reader.IsDBNull(15) ? DateTime.Now : DateTime.Parse(reader.GetString(15))
+                ConnectionType = (DeviceConnectionType)reader.GetInt32(4),
+                Model = reader.IsDBNull(5) ? "" : reader.GetString(5),
+                Location = reader.IsDBNull(6) ? "" : reader.GetString(6),
+                HttpPort = reader.IsDBNull(7) ? 80 : reader.GetInt32(7),
+                RtspPort = reader.IsDBNull(8) ? 554 : reader.GetInt32(8),
+                SdkPort = reader.IsDBNull(9) ? 8000 : reader.GetInt32(9),
+                Username = reader.IsDBNull(10) ? "" : reader.GetString(10),
+                Password = reader.IsDBNull(11) ? "" : reader.GetString(11),
+                RtspUrl = reader.IsDBNull(12) ? "" : reader.GetString(12),
+                Status = reader.IsDBNull(13) ? CameraStatus.Offline : (CameraStatus)reader.GetInt32(13),
+                Recording = !reader.IsDBNull(14) && reader.GetInt32(14) == 1,
+                CreateTime = reader.IsDBNull(15) ? DateTime.Now : DateTime.Parse(reader.GetString(15)),
+                LastModifyTime = reader.IsDBNull(16) ? DateTime.Now : DateTime.Parse(reader.GetString(16))
             });
         }
 
@@ -98,6 +99,7 @@ SET
     Name = $Name,
     IpAddress = $IpAddress,
     Brand = $Brand,
+    ConnectionType = $ConnectionType,
     Model = $Model,
     Location = $Location,
     HttpPort = $HttpPort,
@@ -139,6 +141,7 @@ WHERE Id = $Id;
         command.Parameters.AddWithValue("$Name", camera.Name);
         command.Parameters.AddWithValue("$IpAddress", camera.IpAddress);
         command.Parameters.AddWithValue("$Brand", (int)camera.Brand);
+        command.Parameters.AddWithValue("$ConnectionType", (int)camera.ConnectionType);
         command.Parameters.AddWithValue("$Model", camera.Model);
         command.Parameters.AddWithValue("$Location", camera.Location);
         command.Parameters.AddWithValue("$HttpPort", camera.HttpPort);

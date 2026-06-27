@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS Camera
     Name TEXT NOT NULL,
     IpAddress TEXT NOT NULL,
     Brand INTEGER NOT NULL,
+    ConnectionType INTEGER NOT NULL,
 
     Model TEXT,
     Location TEXT,
