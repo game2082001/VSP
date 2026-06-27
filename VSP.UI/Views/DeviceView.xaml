@@ -103,6 +103,7 @@
 			<!-- Right Camera List -->
 			<DataGrid Grid.Column="2"
                       ItemsSource="{Binding Devices}"
+                      SelectedItem="{Binding SelectedDevice}"
                       AutoGenerateColumns="False"
                       Background="#252526"
                       Foreground="White"

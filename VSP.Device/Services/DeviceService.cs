@@ -23,4 +23,8 @@ public class DeviceService
     {
         _cameraRepository.Add(camera);
     }
+    public void DeleteCamera(Guid id)
+    {
+        _cameraRepository.Delete(id);
+    }
 }

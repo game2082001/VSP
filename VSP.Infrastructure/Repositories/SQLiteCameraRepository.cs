@@ -92,6 +92,23 @@ VALUES
             });
         }
 
+
         return cameras;
+    }
+    public void Delete(Guid id)
+    {
+        using var connection = _databaseService.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+
+        command.CommandText = @"
+DELETE FROM Camera
+WHERE Id = $Id;
+";
+
+        command.Parameters.AddWithValue("$Id", id.ToString());
+
+        command.ExecuteNonQuery();
     }
 }

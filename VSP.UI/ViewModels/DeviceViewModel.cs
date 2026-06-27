@@ -16,6 +16,14 @@ public class DeviceViewModel : ObservableObject
 
     public ObservableCollection<Camera> Devices { get; } = new();
 
+    private Camera? _selectedDevice;
+
+    public Camera? SelectedDevice
+    {
+        get => _selectedDevice;
+        set => SetProperty(ref _selectedDevice, value);
+    }
+
     public ICommand AddDeviceCommand { get; }
     public ICommand EditDeviceCommand { get; }
     public ICommand DeleteDeviceCommand { get; }
@@ -71,7 +79,24 @@ public class DeviceViewModel : ObservableObject
 
     private void DeleteDevice()
     {
-        MessageBox.Show("刪除設備功能下一個 Sprint 製作。", "VSP");
+        if (SelectedDevice == null)
+        {
+            MessageBox.Show("請先選擇要刪除的設備。", "VSP");
+            return;
+        }
+
+        var result = MessageBox.Show(
+            $"確定要刪除設備「{SelectedDevice.Name}」嗎？",
+            "VSP",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        _deviceService.DeleteCamera(SelectedDevice.Id);
+
+        LoadDevices();
     }
 
     private CameraBrand ParseBrand(string brand)
