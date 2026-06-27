@@ -12,13 +12,19 @@ public class Camera
 
     public CameraBrand Brand { get; set; } = CameraBrand.Unknown;
 
-    public string Username { get; set; } = "";
+    public string Model { get; set; } = "";
 
-    public string Password { get; set; } = "";
+    public string Location { get; set; } = "";
 
     public int HttpPort { get; set; } = 80;
 
     public int RtspPort { get; set; } = 554;
+
+    public int SdkPort { get; set; } = 8000;
+
+    public string Username { get; set; } = "";
+
+    public string Password { get; set; } = "";
 
     public string RtspUrl { get; set; } = "";
 
@@ -27,4 +33,6 @@ public class Camera
     public bool Recording { get; set; }
 
     public DateTime CreateTime { get; set; } = DateTime.Now;
+
+    public DateTime LastModifyTime { get; set; } = DateTime.Now;
 }

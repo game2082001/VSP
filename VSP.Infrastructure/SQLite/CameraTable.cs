@@ -13,18 +13,27 @@ CREATE TABLE IF NOT EXISTS Camera
     Name TEXT NOT NULL,
     IpAddress TEXT NOT NULL,
     Brand INTEGER NOT NULL,
+
+    Model TEXT,
+    Location TEXT,
+
+    HttpPort INTEGER,
+    RtspPort INTEGER,
+    SdkPort INTEGER,
+
     Username TEXT,
     Password TEXT,
     RtspUrl TEXT,
+
     Status INTEGER,
     Recording INTEGER,
-    CreateTime TEXT
+
+    CreateTime TEXT,
+    LastModifyTime TEXT
 );";
 
         using var command = connection.CreateCommand();
-
         command.CommandText = sql;
-
         command.ExecuteNonQuery();
     }
 }

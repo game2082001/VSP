@@ -82,18 +82,20 @@
                                    Grid.Row="2"
                                    Grid.Column="3"
                                    Style="{StaticResource VspFieldLabel}"/>
-						<TextBox Grid.Row="2"
-                                 Grid.Column="4"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <TextBox x:Name="ModelTextBox"
+									Grid.Row="2"
+									Grid.Column="4"
+									Style="{StaticResource VspTextBox}"/>
 
-						<TextBlock Text="位置"
+                        <TextBlock Text="位置"
                                    Grid.Row="3"
                                    Style="{StaticResource VspFieldLabel}"/>
-						<TextBox Grid.Row="3"
-                                 Grid.Column="1"
-                                 Grid.ColumnSpan="4"
-                                 Style="{StaticResource VspTextBox}"/>
-					</Grid>
+                        <TextBox x:Name="LocationTextBox"
+									Grid.Row="3"
+									Grid.Column="1"
+									Grid.ColumnSpan="4"
+									Style="{StaticResource VspTextBox}"/>
+                    </Grid>
 				</Border>
 
 				<!-- 網路設定 -->
@@ -120,28 +122,31 @@
 						<TextBlock Text="HTTP Port"
                                    Grid.Row="1"
                                    Style="{StaticResource VspFieldLabel}"/>
-						<TextBox Text="80"
-                                 Grid.Row="1"
-                                 Grid.Column="1"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <TextBox x:Name="HttpPortTextBox"
+									Text="80"
+									Grid.Row="1"
+									Grid.Column="1"
+									Style="{StaticResource VspTextBox}"/>
 
-						<TextBlock Text="RTSP Port"
+                        <TextBlock Text="RTSP Port"
                                    Grid.Row="1"
                                    Grid.Column="3"
                                    Style="{StaticResource VspFieldLabel}"/>
-						<TextBox Text="554"
-                                 Grid.Row="1"
-                                 Grid.Column="4"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <TextBox x:Name="RtspPortTextBox"
+									Text="554"
+									Grid.Row="1"
+									Grid.Column="4"
+									Style="{StaticResource VspTextBox}"/>
 
-						<TextBlock Text="SDK Port"
+                        <TextBlock Text="SDK Port"
                                    Grid.Row="2"
                                    Style="{StaticResource VspFieldLabel}"/>
-						<TextBox Text="8000"
-                                 Grid.Row="2"
-                                 Grid.Column="1"
-                                 Style="{StaticResource VspTextBox}"/>
-					</Grid>
+                        <TextBox x:Name="SdkPortTextBox"
+									Text="8000"
+									Grid.Row="2"
+									Grid.Column="1"
+									Style="{StaticResource VspTextBox}"/>
+                    </Grid>
 				</Border>
 
 				<!-- 登入資訊 -->

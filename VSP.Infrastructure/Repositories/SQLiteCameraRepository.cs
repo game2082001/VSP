@@ -24,42 +24,24 @@ public class SQLiteCameraRepository
         command.CommandText = @"
 INSERT INTO Camera
 (
-    Id,
-    Name,
-    IpAddress,
-    Brand,
-    Username,
-    Password,
-    RtspUrl,
-    Status,
-    Recording,
-    CreateTime
+    Id, Name, IpAddress, Brand,
+    Model, Location,
+    HttpPort, RtspPort, SdkPort,
+    Username, Password, RtspUrl,
+    Status, Recording,
+    CreateTime, LastModifyTime
 )
 VALUES
 (
-    $Id,
-    $Name,
-    $IpAddress,
-    $Brand,
-    $Username,
-    $Password,
-    $RtspUrl,
-    $Status,
-    $Recording,
-    $CreateTime
+    $Id, $Name, $IpAddress, $Brand,
+    $Model, $Location,
+    $HttpPort, $RtspPort, $SdkPort,
+    $Username, $Password, $RtspUrl,
+    $Status, $Recording,
+    $CreateTime, $LastModifyTime
 );";
 
-        command.Parameters.AddWithValue("$Id", camera.Id.ToString());
-        command.Parameters.AddWithValue("$Name", camera.Name);
-        command.Parameters.AddWithValue("$IpAddress", camera.IpAddress);
-        command.Parameters.AddWithValue("$Brand", (int)camera.Brand);
-        command.Parameters.AddWithValue("$Username", camera.Username);
-        command.Parameters.AddWithValue("$Password", camera.Password);
-        command.Parameters.AddWithValue("$RtspUrl", camera.RtspUrl);
-        command.Parameters.AddWithValue("$Status", (int)camera.Status);
-        command.Parameters.AddWithValue("$Recording", camera.Recording ? 1 : 0);
-        command.Parameters.AddWithValue("$CreateTime", camera.CreateTime.ToString("O"));
-
+        FillParameters(command, camera);
         command.ExecuteNonQuery();
     }
 
@@ -83,18 +65,58 @@ VALUES
                 Name = reader.GetString(1),
                 IpAddress = reader.GetString(2),
                 Brand = (CameraBrand)reader.GetInt32(3),
-                Username = reader.IsDBNull(4) ? "" : reader.GetString(4),
-                Password = reader.IsDBNull(5) ? "" : reader.GetString(5),
-                RtspUrl = reader.IsDBNull(6) ? "" : reader.GetString(6),
-                Status = reader.IsDBNull(7) ? CameraStatus.Offline : (CameraStatus)reader.GetInt32(7),
-                Recording = !reader.IsDBNull(8) && reader.GetInt32(8) == 1,
-                CreateTime = reader.IsDBNull(9) ? DateTime.Now : DateTime.Parse(reader.GetString(9))
+                Model = reader.IsDBNull(4) ? "" : reader.GetString(4),
+                Location = reader.IsDBNull(5) ? "" : reader.GetString(5),
+                HttpPort = reader.IsDBNull(6) ? 80 : reader.GetInt32(6),
+                RtspPort = reader.IsDBNull(7) ? 554 : reader.GetInt32(7),
+                SdkPort = reader.IsDBNull(8) ? 8000 : reader.GetInt32(8),
+                Username = reader.IsDBNull(9) ? "" : reader.GetString(9),
+                Password = reader.IsDBNull(10) ? "" : reader.GetString(10),
+                RtspUrl = reader.IsDBNull(11) ? "" : reader.GetString(11),
+                Status = reader.IsDBNull(12) ? CameraStatus.Offline : (CameraStatus)reader.GetInt32(12),
+                Recording = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
+                CreateTime = reader.IsDBNull(14) ? DateTime.Now : DateTime.Parse(reader.GetString(14)),
+                LastModifyTime = reader.IsDBNull(15) ? DateTime.Now : DateTime.Parse(reader.GetString(15))
             });
         }
 
-
         return cameras;
     }
+
+    public void Update(Camera camera)
+    {
+        camera.LastModifyTime = DateTime.Now;
+
+        using var connection = _databaseService.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+
+        command.CommandText = @"
+UPDATE Camera
+SET
+    Name = $Name,
+    IpAddress = $IpAddress,
+    Brand = $Brand,
+    Model = $Model,
+    Location = $Location,
+    HttpPort = $HttpPort,
+    RtspPort = $RtspPort,
+    SdkPort = $SdkPort,
+    Username = $Username,
+    Password = $Password,
+    RtspUrl = $RtspUrl,
+    Status = $Status,
+    Recording = $Recording,
+    CreateTime = $CreateTime,
+    LastModifyTime = $LastModifyTime
+WHERE Id = $Id;
+";
+
+        FillParameters(command, camera);
+        command.ExecuteNonQuery();
+    }
+
     public void Delete(Guid id)
     {
         using var connection = _databaseService.CreateConnection();
@@ -108,7 +130,26 @@ WHERE Id = $Id;
 ";
 
         command.Parameters.AddWithValue("$Id", id.ToString());
-
         command.ExecuteNonQuery();
+    }
+
+    private static void FillParameters(SqliteCommand command, Camera camera)
+    {
+        command.Parameters.AddWithValue("$Id", camera.Id.ToString());
+        command.Parameters.AddWithValue("$Name", camera.Name);
+        command.Parameters.AddWithValue("$IpAddress", camera.IpAddress);
+        command.Parameters.AddWithValue("$Brand", (int)camera.Brand);
+        command.Parameters.AddWithValue("$Model", camera.Model);
+        command.Parameters.AddWithValue("$Location", camera.Location);
+        command.Parameters.AddWithValue("$HttpPort", camera.HttpPort);
+        command.Parameters.AddWithValue("$RtspPort", camera.RtspPort);
+        command.Parameters.AddWithValue("$SdkPort", camera.SdkPort);
+        command.Parameters.AddWithValue("$Username", camera.Username);
+        command.Parameters.AddWithValue("$Password", camera.Password);
+        command.Parameters.AddWithValue("$RtspUrl", camera.RtspUrl);
+        command.Parameters.AddWithValue("$Status", (int)camera.Status);
+        command.Parameters.AddWithValue("$Recording", camera.Recording ? 1 : 0);
+        command.Parameters.AddWithValue("$CreateTime", camera.CreateTime.ToString("O"));
+        command.Parameters.AddWithValue("$LastModifyTime", camera.LastModifyTime.ToString("O"));
     }
 }

@@ -60,6 +60,11 @@ public class DeviceViewModel : ObservableObject
                 Name = window.DeviceName,
                 IpAddress = window.IpAddress,
                 Brand = ParseBrand(window.Brand),
+                Model = window.Model,
+                Location = window.Location,
+                HttpPort = window.HttpPort,
+                RtspPort = window.RtspPort,
+                SdkPort = window.SdkPort,
                 Username = window.Username,
                 Password = window.Password,
                 RtspUrl = window.RtspUrl,
@@ -74,7 +79,32 @@ public class DeviceViewModel : ObservableObject
 
     private void EditDevice()
     {
-        MessageBox.Show("編輯設備功能下一個 Sprint 製作。", "VSP");
+        if (SelectedDevice == null)
+        {
+            MessageBox.Show("請先選擇要編輯的設備。", "VSP");
+            return;
+        }
+
+        var window = new AddDeviceWindow(SelectedDevice);
+
+        if (window.ShowDialog() == true)
+        {
+            SelectedDevice.Name = window.DeviceName;
+            SelectedDevice.IpAddress = window.IpAddress;
+            SelectedDevice.Brand = ParseBrand(window.Brand);
+            SelectedDevice.Model = window.Model;
+            SelectedDevice.Location = window.Location;
+            SelectedDevice.HttpPort = window.HttpPort;
+            SelectedDevice.RtspPort = window.RtspPort;
+            SelectedDevice.SdkPort = window.SdkPort;
+            SelectedDevice.Username = window.Username;
+            SelectedDevice.Password = window.Password;
+            SelectedDevice.RtspUrl = window.RtspUrl;
+
+            _deviceService.UpdateCamera(SelectedDevice);
+
+            LoadDevices();
+        }
     }
 
     private void DeleteDevice()
