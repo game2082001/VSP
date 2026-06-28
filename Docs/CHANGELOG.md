@@ -68,3 +68,94 @@ Files:
 
 Reviewed:
 2026-06-28
+
+-----
+# Changelog
+
+---
+
+## 2026-06-28
+
+### Sprint 1 - Task 3
+### Device Center - Add Device
+
+Status:
+Completed
+
+Summary:
+
+- 完成 Device Center Add Device 流程
+- Add Device 按鈕已綁定 AddDeviceCommand
+- 使用既有 AddDeviceWindow，不新增新視窗
+- Save 後透過 DeviceService.AddCamera() 寫入 SQLite
+- 新增完成後重新載入 Device List
+- 自動選取剛新增的 Camera
+- Device Detail 同步顯示新增資料
+
+Architecture:
+
+- 維持 MVVM
+- ViewModel 不直接存取 SQLite
+- Repository Pattern 不變
+- SQLite Schema 無修改
+- Driver Framework 無修改
+
+Not Included:
+
+- Edit
+- Delete
+- Search
+- Filter
+- Connection Test
+- Real-time Validation
+
+Verified:
+
+✓ Add Device
+✓ SQLite Save
+✓ Refresh Device List
+✓ Detail Binding
+
+---
+## 2026-06-28
+
+### Sprint 1 - Task 4
+### Device Center - Edit Device
+
+Status:
+Completed
+
+Summary:
+
+- 完成 Device Center Edit Device 流程
+- 新增 Edit Device 按鈕
+- Edit Device 使用既有 AddDeviceWindow(Camera)
+- 視窗自動載入目前 Camera 資料
+- Save 後透過 DeviceService.UpdateCamera() 更新 SQLite
+- 更新完成重新載入 Device List
+- 自動重新選取修改後 Camera
+- Device Detail 同步更新
+
+Architecture:
+
+- 維持 MVVM
+- ViewModel 不直接操作 SQLite
+- Repository Pattern 不變
+- SQLite Schema 無修改
+- Driver Framework 無修改
+
+Not Included:
+
+- Delete Device
+- Search
+- Filter
+- Connection Test
+- Real-time Validation
+
+Verified:
+
+✓ Edit Device
+✓ SQLite Update
+✓ Reload Device List
+✓ Auto Select Updated Camera
+✓ Device Detail Refresh

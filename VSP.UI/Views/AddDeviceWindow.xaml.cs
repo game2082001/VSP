@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,6 +11,7 @@ public partial class AddDeviceWindow : Window
     public string DeviceName { get; private set; } = "";
     public string IpAddress { get; private set; } = "";
     public string Brand { get; private set; } = "";
+    public string ConnectionType { get; private set; } = "";
     public string Model { get; private set; } = "";
     public string Location { get; private set; } = "";
     public int HttpPort { get; private set; } = 80;
@@ -24,11 +25,12 @@ public partial class AddDeviceWindow : Window
     {
         InitializeComponent();
         BrandComboBox.SelectedIndex = 0;
+        ConnectionTypeComboBox.SelectedIndex = 0;
     }
 
     public AddDeviceWindow(Camera camera) : this()
     {
-        Title = "編輯設備";
+        Title = "Edit Device";
 
         NameTextBox.Text = camera.Name;
         IpTextBox.Text = camera.IpAddress;
@@ -49,6 +51,15 @@ public partial class AddDeviceWindow : Window
                 break;
             }
         }
+
+        foreach (ComboBoxItem item in ConnectionTypeComboBox.Items)
+        {
+            if ((item.Content?.ToString() ?? "") == camera.ConnectionType.ToString())
+            {
+                ConnectionTypeComboBox.SelectedItem = item;
+                break;
+            }
+        }
     }
 
     private void Ok_Click(object sender, RoutedEventArgs e)
@@ -56,44 +67,39 @@ public partial class AddDeviceWindow : Window
         DeviceName = NameTextBox.Text.Trim();
         IpAddress = IpTextBox.Text.Trim();
         Brand = ((ComboBoxItem)BrandComboBox.SelectedItem).Content.ToString() ?? "";
+        ConnectionType = ((ComboBoxItem)ConnectionTypeComboBox.SelectedItem).Content.ToString() ?? "";
         Model = ModelTextBox.Text.Trim();
         Location = LocationTextBox.Text.Trim();
         Username = UsernameTextBox.Text.Trim();
         Password = PasswordBox.Password;
         RtspUrl = RtspTextBox.Text.Trim();
 
-        // ===== 必填欄位 =====
-
         if (string.IsNullOrWhiteSpace(DeviceName))
         {
-            MessageBox.Show("請輸入設備名稱。", "VSP");
+            MessageBox.Show("Please enter a device name.", "VSP");
             NameTextBox.Focus();
             return;
         }
 
         if (string.IsNullOrWhiteSpace(IpAddress))
         {
-            MessageBox.Show("請輸入 IP 位址。", "VSP");
+            MessageBox.Show("Please enter an IP address.", "VSP");
             IpTextBox.Focus();
             return;
         }
 
-        // ===== IP 驗證 =====
-
         if (!IsValidIPv4(IpAddress))
         {
-            MessageBox.Show("IP 位址格式錯誤。", "VSP");
+            MessageBox.Show("Invalid IP address format.", "VSP");
             IpTextBox.Focus();
             IpTextBox.SelectAll();
             return;
         }
 
-        // ===== Port 驗證 =====
-
         if (!int.TryParse(HttpPortTextBox.Text.Trim(), out var httpPort)
             || httpPort < 1 || httpPort > 65535)
         {
-            MessageBox.Show("HTTP Port 必須介於 1~65535。", "VSP");
+            MessageBox.Show("HTTP Port must be between 1 and 65535.", "VSP");
             HttpPortTextBox.Focus();
             HttpPortTextBox.SelectAll();
             return;
@@ -102,7 +108,7 @@ public partial class AddDeviceWindow : Window
         if (!int.TryParse(RtspPortTextBox.Text.Trim(), out var rtspPort)
             || rtspPort < 1 || rtspPort > 65535)
         {
-            MessageBox.Show("RTSP Port 必須介於 1~65535。", "VSP");
+            MessageBox.Show("RTSP Port must be between 1 and 65535.", "VSP");
             RtspPortTextBox.Focus();
             RtspPortTextBox.SelectAll();
             return;
@@ -111,7 +117,7 @@ public partial class AddDeviceWindow : Window
         if (!int.TryParse(SdkPortTextBox.Text.Trim(), out var sdkPort)
             || sdkPort < 1 || sdkPort > 65535)
         {
-            MessageBox.Show("SDK Port 必須介於 1~65535。", "VSP");
+            MessageBox.Show("SDK Port must be between 1 and 65535.", "VSP");
             SdkPortTextBox.Focus();
             SdkPortTextBox.SelectAll();
             return;
@@ -125,12 +131,11 @@ public partial class AddDeviceWindow : Window
         Close();
     }
 
-    private bool IsValidIPv4(string ip)
+    private static bool IsValidIPv4(string ip)
     {
         if (string.IsNullOrWhiteSpace(ip))
             return false;
 
-        // 必須是 x.x.x.x
         if (!Regex.IsMatch(ip, @"^(\d{1,3}\.){3}\d{1,3}$"))
             return false;
 

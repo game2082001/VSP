@@ -32,11 +32,18 @@
 
                     <Button Content="Add Device"
                             Style="{StaticResource PrimaryButton}"
-                            Margin="0,0,8,0"/>
+                            Margin="0,0,8,0"
+                            Command="{Binding AddDeviceCommand}"/>
+
+                    <Button Content="Edit Device"
+                            Style="{StaticResource SecondaryButton}"
+                            Margin="0,0,8,0"
+                            Command="{Binding EditDeviceCommand}"/>
 
                     <Button Content="Delete"
                             Style="{StaticResource DangerButton}"
-                            Margin="0,0,8,0"/>
+                            Margin="0,0,8,0"
+                            Command="{Binding DeleteDeviceCommand}"/>
 
                     <Button Content="Refresh"
                             Style="{StaticResource SecondaryButton}"
