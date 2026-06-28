@@ -273,11 +273,13 @@ Sprint 1
 
 目前工作：
 
-S1-1 Device List
+✅ S1-1 Device List
+
+
+✅ S1-2 Device Detail
+Completed
 
 下一步：
-
-S1-2 Device Editor
 
 S1-3 CRUD
 

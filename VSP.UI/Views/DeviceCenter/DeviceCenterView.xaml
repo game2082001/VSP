@@ -125,13 +125,38 @@
                     CornerRadius="8"
                     Padding="20">
                 <StackPanel>
-                    <TextBlock Text="Device Editor"
+                    <TextBlock Text="Device Detail"
                                Style="{StaticResource VspSectionTitle}"/>
 
-                    <TextBlock Text="Editor placeholder."
-                               Foreground="#B0B0B0"
-                               FontSize="15"
-                               Margin="0,12,0,0"/>
+                    <Grid Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="32"/>
+                            <RowDefinition Height="32"/>
+                            <RowDefinition Height="32"/>
+                            <RowDefinition Height="32"/>
+                            <RowDefinition Height="32"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Foreground="#B0B0B0"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedDevice.Name, TargetNullValue=-}" Foreground="White"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Brand" Foreground="#B0B0B0"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDevice.Brand, TargetNullValue=-}" Foreground="White"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Model" Foreground="#B0B0B0"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedDevice.Model, TargetNullValue=-}" Foreground="White"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="IP" Foreground="#B0B0B0"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedDevice.IpAddress, TargetNullValue=-}" Foreground="White"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Connection" Foreground="#B0B0B0"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedDevice.ConnectionType, TargetNullValue=-}" Foreground="White"/>
+                    </Grid>
                 </StackPanel>
             </Border>
         </Grid>
