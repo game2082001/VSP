@@ -159,3 +159,29 @@ Verified:
 ✓ Reload Device List
 ✓ Auto Select Updated Camera
 ✓ Device Detail Refresh
+
+---
+
+## 2026-06-28
+
+### S1-5 Delete Device
+
+完成 Device 刪除流程。
+
+新增：
+
+- DeleteDeviceCommand
+- Delete 確認對話框
+- DeviceService.DeleteCamera()
+- 刪除後重新 LoadDevices()
+- 自動更新 SelectedDevice
+- Device Detail 同步刷新
+
+遵守：
+
+- 不修改 Architecture
+- 不修改 Repository
+- 不修改 SQLite Schema
+- 不新增 DeleteView
+- 不新增 DeleteDialog
+- 不新增 DeleteService
