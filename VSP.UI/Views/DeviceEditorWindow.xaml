@@ -1,0 +1,13 @@
+﻿<Window x:Class="VSP.UI.Views.DeviceEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Device Editor"
+        Width="1200"
+        Height="780"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid>
+
+    </Grid>
+
+</Window>

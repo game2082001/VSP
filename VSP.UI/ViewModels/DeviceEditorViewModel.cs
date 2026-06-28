@@ -1,0 +1,8 @@
+﻿using VSP.Core.MVVM;
+
+namespace VSP.UI.ViewModels;
+
+public class DeviceEditorViewModel : ObservableObject
+{
+
+}
