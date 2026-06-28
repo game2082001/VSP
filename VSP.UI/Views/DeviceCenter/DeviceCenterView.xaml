@@ -67,9 +67,35 @@
                     CornerRadius="8"
                     Padding="16">
                 <DockPanel LastChildFill="True">
-                    <TextBlock DockPanel.Dock="Top"
-                               Text="Device List"
-                               Style="{StaticResource VspSectionTitle}"/>
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock Text="Device List"
+                                   Style="{StaticResource VspSectionTitle}"/>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="80"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource VspTextBox}"
+                                     VerticalContentAlignment="Center"
+                                     Margin="0,0,8,0"/>
+
+                            <Button Grid.Column="1"
+                                    Content="Search"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding SearchCommand}"
+                                    Margin="0,0,8,0"/>
+
+                            <Button Grid.Column="2"
+                                    Content="Clear"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding ClearSearchCommand}"/>
+                        </Grid>
+                    </StackPanel>
 
                     <TextBlock DockPanel.Dock="Bottom"
                                Text="No camera data available."

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
@@ -14,6 +15,7 @@ namespace VSP.UI.ViewModels;
 public class DeviceCenterViewModel : ObservableObject
 {
     private readonly DeviceService _deviceService = new();
+    private readonly List<Camera> _allDevices = new();
 
     public ObservableCollection<Camera> Devices { get; } = new();
 
@@ -31,12 +33,27 @@ public class DeviceCenterViewModel : ObservableObject
         private set => SetProperty(ref _statusMessage, value);
     }
 
+    private string _searchKeyword = "";
+    public string SearchKeyword
+    {
+        get => _searchKeyword;
+        set
+        {
+            if (SetProperty(ref _searchKeyword, value))
+            {
+                ApplySearch();
+            }
+        }
+    }
+
     public int DeviceCount => Devices.Count;
 
     public ICommand AddDeviceCommand { get; }
     public ICommand EditDeviceCommand { get; }
     public ICommand DeleteDeviceCommand { get; }
     public ICommand RefreshCommand { get; }
+    public ICommand SearchCommand { get; }
+    public ICommand ClearSearchCommand { get; }
 
     public DeviceCenterViewModel()
     {
@@ -44,24 +61,66 @@ public class DeviceCenterViewModel : ObservableObject
         EditDeviceCommand = new RelayCommand(EditDevice);
         DeleteDeviceCommand = new RelayCommand(DeleteDevice);
         RefreshCommand = new RelayCommand(LoadDevices);
+        SearchCommand = new RelayCommand(ApplySearch);
+        ClearSearchCommand = new RelayCommand(ClearSearch);
         LoadDevices();
     }
 
     private void LoadDevices()
     {
+        _allDevices.Clear();
+        _allDevices.AddRange(_deviceService.GetAllCameras());
+        ApplySearch();
+    }
+
+    private void ApplySearch()
+    {
+        var keyword = SearchKeyword.Trim();
+        var currentSelectedId = SelectedDevice?.Id;
+
+        IEnumerable<Camera> filteredDevices = _allDevices;
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            filteredDevices = _allDevices.Where(camera =>
+                ContainsIgnoreCase(camera.Name, keyword)
+                || ContainsIgnoreCase(camera.IpAddress, keyword)
+                || ContainsIgnoreCase(camera.Brand.ToString(), keyword)
+                || ContainsIgnoreCase(camera.Model, keyword));
+        }
+
         Devices.Clear();
 
-        foreach (var camera in _deviceService.GetAllCameras())
+        foreach (var camera in filteredDevices)
         {
             Devices.Add(camera);
         }
 
-        SelectedDevice = Devices.Count > 0 ? Devices[0] : null;
-        StatusMessage = Devices.Count == 0
-            ? "No cameras found."
-            : $"Loaded {Devices.Count} camera(s).";
+        if (Devices.Count == 0)
+        {
+            SelectedDevice = null;
+            StatusMessage = string.IsNullOrWhiteSpace(keyword)
+                ? "No cameras found."
+                : "No matching devices found.";
+        }
+        else
+        {
+            SelectedDevice = currentSelectedId.HasValue
+                ? Devices.FirstOrDefault(x => x.Id == currentSelectedId.Value) ?? Devices[0]
+                : Devices[0];
+
+            StatusMessage = string.IsNullOrWhiteSpace(keyword)
+                ? $"Loaded {Devices.Count} camera(s)."
+                : $"Found {Devices.Count} matching device(s).";
+        }
 
         OnPropertyChanged(nameof(DeviceCount));
+    }
+
+    private void ClearSearch()
+    {
+        SearchKeyword = string.Empty;
+        ApplySearch();
     }
 
     private void AddDevice()
@@ -151,6 +210,11 @@ public class DeviceCenterViewModel : ObservableObject
         _deviceService.DeleteCamera(SelectedDevice.Id);
         LoadDevices();
         SelectedDevice = Devices.Count > 0 ? Devices[0] : null;
+    }
+
+    private static bool ContainsIgnoreCase(string value, string keyword)
+    {
+        return value.Contains(keyword, StringComparison.OrdinalIgnoreCase);
     }
 
     private static CameraBrand ParseBrand(string brand)
