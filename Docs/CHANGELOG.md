@@ -185,3 +185,41 @@ Verified:
 - 不新增 DeleteView
 - 不新增 DeleteDialog
 - 不新增 DeleteService
+
+----
+# Changelog
+
+---
+
+## [Unreleased]
+
+### Added
+
+#### Sprint 1 - S1-6 Search Device
+
+完成 DeviceCenter 搜尋功能。
+
+內容：
+
+- 新增 Search TextBox
+- 新增 Search Button
+- 新增 Clear Button
+- SearchKeyword 即時搜尋（TextChanged）
+- 支援 Name 搜尋
+- 支援 IP 搜尋
+- 支援 Brand 搜尋
+- 支援 Model 搜尋
+- 搜尋大小寫不區分
+- 使用記憶體資料 (_allDevices) 進行篩選
+- 新增 ApplySearch()
+- 保留目前 SelectedDevice
+- 無搜尋結果時顯示 No matching devices found.
+- Clear 後恢復完整 Device List
+
+Architecture：
+
+- 不修改 Repository
+- 不修改 SQLite Schema
+- 不修改 Driver Framework
+- 不新增 SQL Query
+- Search 僅於 ViewModel 記憶體完成 Filter

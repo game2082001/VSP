@@ -353,14 +353,14 @@ Mobile
 - ✅ S1-3 Add Device
 - ✅ S1-4 Edit Device
 - ✅ S1-5 Delete Device
+- ✅ S1-6 Search
 
 ### 下一步
 
-- ⏳ S1-6 Search
+- ⏳ S1-7 Filter
 
 ### 後續
 
-- S1-7 Filter
 - S1-8 Connection Test
 
 ---

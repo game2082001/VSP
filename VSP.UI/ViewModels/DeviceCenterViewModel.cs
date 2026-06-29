@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
@@ -14,10 +14,22 @@ namespace VSP.UI.ViewModels;
 
 public class DeviceCenterViewModel : ObservableObject
 {
+    private const string AllOption = "All";
+
     private readonly DeviceService _deviceService = new();
     private readonly List<Camera> _allDevices = new();
 
     public ObservableCollection<Camera> Devices { get; } = new();
+
+    public IReadOnlyList<string> BrandOptions { get; } =
+        new[] { AllOption }
+            .Concat(Enum.GetNames<CameraBrand>())
+            .ToArray();
+
+    public IReadOnlyList<string> ConnectionOptions { get; } =
+        new[] { AllOption }
+            .Concat(Enum.GetNames<DeviceConnectionType>())
+            .ToArray();
 
     private Camera? _selectedDevice;
     public Camera? SelectedDevice
@@ -40,6 +52,32 @@ public class DeviceCenterViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _searchKeyword, value))
+            {
+                ApplySearch();
+            }
+        }
+    }
+
+    private string _selectedBrand = AllOption;
+    public string SelectedBrand
+    {
+        get => _selectedBrand;
+        set
+        {
+            if (SetProperty(ref _selectedBrand, value))
+            {
+                ApplySearch();
+            }
+        }
+    }
+
+    private string _selectedConnection = AllOption;
+    public string SelectedConnection
+    {
+        get => _selectedConnection;
+        set
+        {
+            if (SetProperty(ref _selectedConnection, value))
             {
                 ApplySearch();
             }
@@ -80,9 +118,21 @@ public class DeviceCenterViewModel : ObservableObject
 
         IEnumerable<Camera> filteredDevices = _allDevices;
 
+        if (!string.Equals(SelectedBrand, AllOption, StringComparison.OrdinalIgnoreCase))
+        {
+            filteredDevices = filteredDevices.Where(camera =>
+                string.Equals(camera.Brand.ToString(), SelectedBrand, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.Equals(SelectedConnection, AllOption, StringComparison.OrdinalIgnoreCase))
+        {
+            filteredDevices = filteredDevices.Where(camera =>
+                string.Equals(camera.ConnectionType.ToString(), SelectedConnection, StringComparison.OrdinalIgnoreCase));
+        }
+
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            filteredDevices = _allDevices.Where(camera =>
+            filteredDevices = filteredDevices.Where(camera =>
                 ContainsIgnoreCase(camera.Name, keyword)
                 || ContainsIgnoreCase(camera.IpAddress, keyword)
                 || ContainsIgnoreCase(camera.Brand.ToString(), keyword)
@@ -100,6 +150,8 @@ public class DeviceCenterViewModel : ObservableObject
         {
             SelectedDevice = null;
             StatusMessage = string.IsNullOrWhiteSpace(keyword)
+                && string.Equals(SelectedBrand, AllOption, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(SelectedConnection, AllOption, StringComparison.OrdinalIgnoreCase)
                 ? "No cameras found."
                 : "No matching devices found.";
         }
@@ -110,6 +162,8 @@ public class DeviceCenterViewModel : ObservableObject
                 : Devices[0];
 
             StatusMessage = string.IsNullOrWhiteSpace(keyword)
+                && string.Equals(SelectedBrand, AllOption, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(SelectedConnection, AllOption, StringComparison.OrdinalIgnoreCase)
                 ? $"Loaded {Devices.Count} camera(s)."
                 : $"Found {Devices.Count} matching device(s).";
         }
@@ -119,6 +173,8 @@ public class DeviceCenterViewModel : ObservableObject
 
     private void ClearSearch()
     {
+        SelectedBrand = AllOption;
+        SelectedConnection = AllOption;
         SearchKeyword = string.Empty;
         ApplySearch();
     }
