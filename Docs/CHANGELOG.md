@@ -223,3 +223,24 @@ Architecture：
 - 不修改 Driver Framework
 - 不新增 SQL Query
 - Search 僅於 ViewModel 記憶體完成 Filter
+
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+#### S1-7 Filter Device
+
+- 新增 Device Brand Filter（All + CameraBrand）
+- 新增 Connection Filter（All + DeviceConnectionType）
+- Filter 與 Search 共用同一套記憶體篩選流程
+- Search 改為 Filter 後執行
+- 不重新查詢 SQLite
+- 新增 BrandOptions 與 ConnectionOptions
+- 新增 SelectedBrand、SelectedConnection
+- Clear Search 同時重設 Search、Brand Filter、Connection Filter
+- 無修改 Repository
+- 無修改 SQLite Schema
+- 無修改 Driver Framework
+- Build Success（0 Error / 7 Existing Warnings）
