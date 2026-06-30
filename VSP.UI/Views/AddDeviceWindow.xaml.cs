@@ -11,6 +11,7 @@ public partial class AddDeviceWindow : Window
 {
     private static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(255, 107, 107));
     private static readonly Thickness ErrorBorderThickness = new(1.5);
+    private bool _isInitialized;
 
     public string DeviceName { get; private set; } = "";
     public string IpAddress { get; private set; } = "";
@@ -30,6 +31,7 @@ public partial class AddDeviceWindow : Window
         InitializeComponent();
         BrandComboBox.SelectedIndex = 0;
         ConnectionTypeComboBox.SelectedIndex = 0;
+        _isInitialized = true;
         ValidateAllInputs();
     }
 
@@ -172,21 +174,41 @@ public partial class AddDeviceWindow : Window
 
     private void ValidationInputChanged(object sender, TextChangedEventArgs e)
     {
+        if (!_isInitialized)
+        {
+            return;
+        }
+
         ValidateAllInputs();
     }
 
     private void ValidationSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!_isInitialized)
+        {
+            return;
+        }
+
         ValidateAllInputs();
     }
 
     private void ValidationPasswordChanged(object sender, RoutedEventArgs e)
     {
+        if (!_isInitialized)
+        {
+            return;
+        }
+
         ValidateAllInputs();
     }
 
     private void ValidateAllInputs()
     {
+        if (!_isInitialized)
+        {
+            return;
+        }
+
         var isNameValid = ValidateRequiredTextBox(NameTextBox, NameErrorTextBlock, "Name is required.");
         var isIpValid = ValidateIpAddress();
         var isConnectionTypeValid = ValidateConnectionType();
@@ -207,7 +229,7 @@ public partial class AddDeviceWindow : Window
             isRtspUrlValid;
     }
 
-    private bool ValidateRequiredTextBox(TextBox textBox, TextBlock errorTextBlock, string errorMessage)
+    private bool ValidateRequiredTextBox(TextBox textBox, TextBlock? errorTextBlock, string errorMessage)
     {
         var isValid = !string.IsNullOrWhiteSpace(textBox.Text);
         SetValidationState(textBox, errorTextBlock, isValid, errorMessage);
@@ -242,7 +264,7 @@ public partial class AddDeviceWindow : Window
         return isValid;
     }
 
-    private bool ValidatePortTextBox(TextBox textBox, TextBlock errorTextBlock)
+    private bool ValidatePortTextBox(TextBox textBox, TextBlock? errorTextBlock)
     {
         var text = textBox.Text.Trim();
         var isValid = int.TryParse(text, out var port) && port >= 1 && port <= 65535;
@@ -277,8 +299,13 @@ public partial class AddDeviceWindow : Window
         return true;
     }
 
-    private static void SetValidationState(Control control, TextBlock errorTextBlock, bool isValid, string errorMessage)
+    private static void SetValidationState(Control control, TextBlock? errorTextBlock, bool isValid, string errorMessage)
     {
+        if (control is null || errorTextBlock is null)
+        {
+            return;
+        }
+
         if (isValid)
         {
             control.ClearValue(BorderBrushProperty);
