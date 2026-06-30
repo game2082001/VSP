@@ -266,3 +266,14 @@ Architecture：
 - Added HTTP / SDK / RTSP Port range validation.
 - Added RTSP URL validation for RTSP devices.
 - Save is blocked when validation fails.
+
+----
+## [Unreleased]
+
+### Added
+- S1-10 Realtime Validation
+  - Added realtime validation for Add/Edit Device dialog.
+  - Save button is enabled only when all required fields are valid.
+  - Validation messages are displayed below each invalid field.
+  - Invalid controls are highlighted immediately while typing.
+  - Existing S1-9 final validation before save is retained.

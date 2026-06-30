@@ -1,13 +1,17 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using VSP.Domain.Entities;
 
 namespace VSP.UI.Views;
 
 public partial class AddDeviceWindow : Window
 {
+    private static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(255, 107, 107));
+    private static readonly Thickness ErrorBorderThickness = new(1.5);
+
     public string DeviceName { get; private set; } = "";
     public string IpAddress { get; private set; } = "";
     public string Brand { get; private set; } = "";
@@ -26,6 +30,7 @@ public partial class AddDeviceWindow : Window
         InitializeComponent();
         BrandComboBox.SelectedIndex = 0;
         ConnectionTypeComboBox.SelectedIndex = 0;
+        ValidateAllInputs();
     }
 
     public AddDeviceWindow(Camera camera) : this()
@@ -60,6 +65,8 @@ public partial class AddDeviceWindow : Window
                 break;
             }
         }
+
+        ValidateAllInputs();
     }
 
     private void Ok_Click(object sender, RoutedEventArgs e)
@@ -161,6 +168,130 @@ public partial class AddDeviceWindow : Window
 
         DialogResult = true;
         Close();
+    }
+
+    private void ValidationInputChanged(object sender, TextChangedEventArgs e)
+    {
+        ValidateAllInputs();
+    }
+
+    private void ValidationSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        ValidateAllInputs();
+    }
+
+    private void ValidationPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        ValidateAllInputs();
+    }
+
+    private void ValidateAllInputs()
+    {
+        var isNameValid = ValidateRequiredTextBox(NameTextBox, NameErrorTextBlock, "Name is required.");
+        var isIpValid = ValidateIpAddress();
+        var isConnectionTypeValid = ValidateConnectionType();
+        var isHttpPortValid = ValidatePortTextBox(HttpPortTextBox, HttpPortErrorTextBlock);
+        var isRtspPortValid = ValidatePortTextBox(RtspPortTextBox, RtspPortErrorTextBlock);
+        var isSdkPortValid = ValidatePortTextBox(SdkPortTextBox, SdkPortErrorTextBlock);
+        var isUsernameValid = ValidateRequiredTextBox(UsernameTextBox, UsernameErrorTextBlock, "Username is required.");
+        var isRtspUrlValid = ValidateRtspUrl();
+
+        SaveButton.IsEnabled =
+            isNameValid &&
+            isIpValid &&
+            isConnectionTypeValid &&
+            isHttpPortValid &&
+            isRtspPortValid &&
+            isSdkPortValid &&
+            isUsernameValid &&
+            isRtspUrlValid;
+    }
+
+    private bool ValidateRequiredTextBox(TextBox textBox, TextBlock errorTextBlock, string errorMessage)
+    {
+        var isValid = !string.IsNullOrWhiteSpace(textBox.Text);
+        SetValidationState(textBox, errorTextBlock, isValid, errorMessage);
+        return isValid;
+    }
+
+    private bool ValidateIpAddress()
+    {
+        var ipAddress = IpTextBox.Text.Trim();
+
+        if (string.IsNullOrWhiteSpace(ipAddress))
+        {
+            SetValidationState(IpTextBox, IpErrorTextBlock, false, "IP Address is required.");
+            return false;
+        }
+
+        if (!IsValidIPv4(ipAddress))
+        {
+            SetValidationState(IpTextBox, IpErrorTextBlock, false, "Invalid IPv4 address.");
+            return false;
+        }
+
+        SetValidationState(IpTextBox, IpErrorTextBlock, true, "");
+        return true;
+    }
+
+    private bool ValidateConnectionType()
+    {
+        var connectionType = ((ComboBoxItem?)ConnectionTypeComboBox.SelectedItem)?.Content?.ToString() ?? "";
+        var isValid = !string.IsNullOrWhiteSpace(connectionType);
+        SetValidationState(ConnectionTypeComboBox, ConnectionTypeErrorTextBlock, isValid, "Connection Type is required.");
+        return isValid;
+    }
+
+    private bool ValidatePortTextBox(TextBox textBox, TextBlock errorTextBlock)
+    {
+        var text = textBox.Text.Trim();
+        var isValid = int.TryParse(text, out var port) && port >= 1 && port <= 65535;
+        SetValidationState(textBox, errorTextBlock, isValid, "Port must be between 1 and 65535.");
+        return isValid;
+    }
+
+    private bool ValidateRtspUrl()
+    {
+        var brand = ((ComboBoxItem?)BrandComboBox.SelectedItem)?.Content?.ToString() ?? "";
+        var rtspUrl = RtspTextBox.Text.Trim();
+
+        if (!string.Equals(brand, "RTSP", System.StringComparison.OrdinalIgnoreCase))
+        {
+            SetValidationState(RtspTextBox, RtspErrorTextBlock, true, "");
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(rtspUrl))
+        {
+            SetValidationState(RtspTextBox, RtspErrorTextBlock, false, "RTSP URL is required.");
+            return false;
+        }
+
+        if (!rtspUrl.StartsWith("rtsp://", System.StringComparison.OrdinalIgnoreCase))
+        {
+            SetValidationState(RtspTextBox, RtspErrorTextBlock, false, "RTSP URL must begin with rtsp://");
+            return false;
+        }
+
+        SetValidationState(RtspTextBox, RtspErrorTextBlock, true, "");
+        return true;
+    }
+
+    private static void SetValidationState(Control control, TextBlock errorTextBlock, bool isValid, string errorMessage)
+    {
+        if (isValid)
+        {
+            control.ClearValue(BorderBrushProperty);
+            control.ClearValue(BorderThicknessProperty);
+            errorTextBlock.Text = "";
+            errorTextBlock.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        control.BorderBrush = ErrorBrush;
+        control.BorderThickness = ErrorBorderThickness;
+        errorTextBlock.Text = errorMessage;
+        errorTextBlock.Visibility = Visibility.Visible;
     }
 
     private static bool IsValidIPv4(string ip)

@@ -357,10 +357,11 @@ Mobile
 - ✅ S1-7 Filter
 - ✅ S1-8 Connection Test
 - ✅ S1-9 Device Validation
+- ✅ S1-10 Import / Export Device
 
 ### 下一步
 
-- ⏳ S1-10 Import / Export Device
+- ⏳ S1-11 Driver Profile
 
 
 

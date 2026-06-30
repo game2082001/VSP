@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Add Device"
         Width="720"
-        Height="680"
+        Height="760"
         WindowStartupLocation="CenterOwner"
         Background="#1E1E1E"
         ResizeMode="NoResize">
@@ -28,9 +28,9 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="32"/>
-                            <RowDefinition Height="44"/>
-                            <RowDefinition Height="44"/>
-                            <RowDefinition Height="44"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Grid.ColumnDefinitions>
@@ -48,10 +48,17 @@
                         <TextBlock Text="Name"
                                    Grid.Row="1"
                                    Style="{StaticResource VspFieldLabel}"/>
-                        <TextBox x:Name="NameTextBox"
-                                 Grid.Row="1"
-                                 Grid.Column="1"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <StackPanel Grid.Row="1"
+                                    Grid.Column="1">
+                            <TextBox x:Name="NameTextBox"
+                                     Style="{StaticResource VspTextBox}"
+                                     TextChanged="ValidationInputChanged"/>
+                            <TextBlock x:Name="NameErrorTextBlock"
+                                       Margin="2,4,0,0"
+                                       Foreground="#FF6B6B"
+                                       FontSize="12"
+                                       Visibility="Collapsed"/>
+                        </StackPanel>
 
                         <TextBlock Text="Brand"
                                    Grid.Row="1"
@@ -60,7 +67,8 @@
                         <ComboBox x:Name="BrandComboBox"
                                   Grid.Row="1"
                                   Grid.Column="4"
-                                  Style="{StaticResource VspComboBox}">
+                                  Style="{StaticResource VspComboBox}"
+                                  SelectionChanged="ValidationSelectionChanged">
                             <ComboBoxItem Content="Hikvision"/>
                             <ComboBoxItem Content="Dahua"/>
                             <ComboBoxItem Content="ONVIF"/>
@@ -70,10 +78,17 @@
                         <TextBlock Text="IP Address"
                                    Grid.Row="2"
                                    Style="{StaticResource VspFieldLabel}"/>
-                        <TextBox x:Name="IpTextBox"
-                                 Grid.Row="2"
-                                 Grid.Column="1"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <StackPanel Grid.Row="2"
+                                    Grid.Column="1">
+                            <TextBox x:Name="IpTextBox"
+                                     Style="{StaticResource VspTextBox}"
+                                     TextChanged="ValidationInputChanged"/>
+                            <TextBlock x:Name="IpErrorTextBlock"
+                                       Margin="2,4,0,0"
+                                       Foreground="#FF6B6B"
+                                       FontSize="12"
+                                       Visibility="Collapsed"/>
+                        </StackPanel>
 
                         <TextBlock Text="Model"
                                    Grid.Row="2"
@@ -82,7 +97,8 @@
                         <TextBox x:Name="ModelTextBox"
                                  Grid.Row="2"
                                  Grid.Column="4"
-                                 Style="{StaticResource VspTextBox}"/>
+                                 Style="{StaticResource VspTextBox}"
+                                 TextChanged="ValidationInputChanged"/>
 
                         <TextBlock Text="Location"
                                    Grid.Row="3"
@@ -90,23 +106,31 @@
                         <TextBox x:Name="LocationTextBox"
                                  Grid.Row="3"
                                  Grid.Column="1"
-                                 Style="{StaticResource VspTextBox}"/>
+                                 Style="{StaticResource VspTextBox}"
+                                 TextChanged="ValidationInputChanged"/>
 
                         <TextBlock Text="Connection Type"
                                    Grid.Row="3"
                                    Grid.Column="3"
                                    Style="{StaticResource VspFieldLabel}"/>
-                        <ComboBox x:Name="ConnectionTypeComboBox"
-                                  Grid.Row="3"
-                                  Grid.Column="4"
-                                  Style="{StaticResource VspComboBox}">
-                            <ComboBoxItem Content="HikvisionISAPI"/>
-                            <ComboBoxItem Content="HikvisionSDK"/>
-                            <ComboBoxItem Content="DahuaNetSDK"/>
-                            <ComboBoxItem Content="ONVIF"/>
-                            <ComboBoxItem Content="RTSP"/>
-                            <ComboBoxItem Content="AxisVAPIX"/>
-                        </ComboBox>
+                        <StackPanel Grid.Row="3"
+                                    Grid.Column="4">
+                            <ComboBox x:Name="ConnectionTypeComboBox"
+                                      Style="{StaticResource VspComboBox}"
+                                      SelectionChanged="ValidationSelectionChanged">
+                                <ComboBoxItem Content="HikvisionISAPI"/>
+                                <ComboBoxItem Content="HikvisionSDK"/>
+                                <ComboBoxItem Content="DahuaNetSDK"/>
+                                <ComboBoxItem Content="ONVIF"/>
+                                <ComboBoxItem Content="RTSP"/>
+                                <ComboBoxItem Content="AxisVAPIX"/>
+                            </ComboBox>
+                            <TextBlock x:Name="ConnectionTypeErrorTextBlock"
+                                       Margin="2,4,0,0"
+                                       Foreground="#FF6B6B"
+                                       FontSize="12"
+                                       Visibility="Collapsed"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -114,8 +138,8 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="32"/>
-                            <RowDefinition Height="44"/>
-                            <RowDefinition Height="44"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Grid.ColumnDefinitions>
@@ -133,30 +157,51 @@
                         <TextBlock Text="HTTP Port"
                                    Grid.Row="1"
                                    Style="{StaticResource VspFieldLabel}"/>
-                        <TextBox x:Name="HttpPortTextBox"
-                                 Text="80"
-                                 Grid.Row="1"
-                                 Grid.Column="1"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <StackPanel Grid.Row="1"
+                                    Grid.Column="1">
+                            <TextBox x:Name="HttpPortTextBox"
+                                     Text="80"
+                                     Style="{StaticResource VspTextBox}"
+                                     TextChanged="ValidationInputChanged"/>
+                            <TextBlock x:Name="HttpPortErrorTextBlock"
+                                       Margin="2,4,0,0"
+                                       Foreground="#FF6B6B"
+                                       FontSize="12"
+                                       Visibility="Collapsed"/>
+                        </StackPanel>
 
                         <TextBlock Text="RTSP Port"
                                    Grid.Row="1"
                                    Grid.Column="3"
                                    Style="{StaticResource VspFieldLabel}"/>
-                        <TextBox x:Name="RtspPortTextBox"
-                                 Text="554"
-                                 Grid.Row="1"
-                                 Grid.Column="4"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <StackPanel Grid.Row="1"
+                                    Grid.Column="4">
+                            <TextBox x:Name="RtspPortTextBox"
+                                     Text="554"
+                                     Style="{StaticResource VspTextBox}"
+                                     TextChanged="ValidationInputChanged"/>
+                            <TextBlock x:Name="RtspPortErrorTextBlock"
+                                       Margin="2,4,0,0"
+                                       Foreground="#FF6B6B"
+                                       FontSize="12"
+                                       Visibility="Collapsed"/>
+                        </StackPanel>
 
                         <TextBlock Text="SDK Port"
                                    Grid.Row="2"
                                    Style="{StaticResource VspFieldLabel}"/>
-                        <TextBox x:Name="SdkPortTextBox"
-                                 Text="8000"
-                                 Grid.Row="2"
-                                 Grid.Column="1"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <StackPanel Grid.Row="2"
+                                    Grid.Column="1">
+                            <TextBox x:Name="SdkPortTextBox"
+                                     Text="8000"
+                                     Style="{StaticResource VspTextBox}"
+                                     TextChanged="ValidationInputChanged"/>
+                            <TextBlock x:Name="SdkPortErrorTextBlock"
+                                       Margin="2,4,0,0"
+                                       Foreground="#FF6B6B"
+                                       FontSize="12"
+                                       Visibility="Collapsed"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -164,7 +209,7 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="32"/>
-                            <RowDefinition Height="44"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Grid.ColumnDefinitions>
@@ -182,10 +227,17 @@
                         <TextBlock Text="Username"
                                    Grid.Row="1"
                                    Style="{StaticResource VspFieldLabel}"/>
-                        <TextBox x:Name="UsernameTextBox"
-                                 Grid.Row="1"
-                                 Grid.Column="1"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <StackPanel Grid.Row="1"
+                                    Grid.Column="1">
+                            <TextBox x:Name="UsernameTextBox"
+                                     Style="{StaticResource VspTextBox}"
+                                     TextChanged="ValidationInputChanged"/>
+                            <TextBlock x:Name="UsernameErrorTextBlock"
+                                       Margin="2,4,0,0"
+                                       Foreground="#FF6B6B"
+                                       FontSize="12"
+                                       Visibility="Collapsed"/>
+                        </StackPanel>
 
                         <TextBlock Text="Password"
                                    Grid.Row="1"
@@ -194,7 +246,8 @@
                         <PasswordBox x:Name="PasswordBox"
                                      Grid.Row="1"
                                      Grid.Column="4"
-                                     Style="{StaticResource VspPasswordBox}"/>
+                                     Style="{StaticResource VspPasswordBox}"
+                                     PasswordChanged="ValidationPasswordChanged"/>
                     </Grid>
                 </Border>
 
@@ -202,7 +255,7 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="32"/>
-                            <RowDefinition Height="44"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <Grid.ColumnDefinitions>
@@ -217,10 +270,17 @@
                         <TextBlock Text="RTSP URL"
                                    Grid.Row="1"
                                    Style="{StaticResource VspFieldLabel}"/>
-                        <TextBox x:Name="RtspTextBox"
-                                 Grid.Row="1"
-                                 Grid.Column="1"
-                                 Style="{StaticResource VspTextBox}"/>
+                        <StackPanel Grid.Row="1"
+                                    Grid.Column="1">
+                            <TextBox x:Name="RtspTextBox"
+                                     Style="{StaticResource VspTextBox}"
+                                     TextChanged="ValidationInputChanged"/>
+                            <TextBlock x:Name="RtspErrorTextBlock"
+                                       Margin="2,4,0,0"
+                                       Foreground="#FF6B6B"
+                                       FontSize="12"
+                                       Visibility="Collapsed"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </StackPanel>
@@ -235,8 +295,10 @@
                     Margin="0,0,10,0"
                     Click="Cancel_Click"/>
 
-            <Button Content="Save"
+            <Button x:Name="SaveButton"
+                    Content="Save"
                     Style="{StaticResource PrimaryButton}"
+                    IsEnabled="False"
                     Click="Ok_Click"/>
         </StackPanel>
     </Grid>
