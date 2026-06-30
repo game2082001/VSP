@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -66,8 +66,8 @@ public partial class AddDeviceWindow : Window
     {
         DeviceName = NameTextBox.Text.Trim();
         IpAddress = IpTextBox.Text.Trim();
-        Brand = ((ComboBoxItem)BrandComboBox.SelectedItem).Content.ToString() ?? "";
-        ConnectionType = ((ComboBoxItem)ConnectionTypeComboBox.SelectedItem).Content.ToString() ?? "";
+        Brand = ((ComboBoxItem?)BrandComboBox.SelectedItem)?.Content?.ToString() ?? "";
+        ConnectionType = ((ComboBoxItem?)ConnectionTypeComboBox.SelectedItem)?.Content?.ToString() ?? "";
         Model = ModelTextBox.Text.Trim();
         Location = LocationTextBox.Text.Trim();
         Username = UsernameTextBox.Text.Trim();
@@ -85,6 +85,20 @@ public partial class AddDeviceWindow : Window
         {
             MessageBox.Show("Please enter an IP address.", "VSP");
             IpTextBox.Focus();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Username))
+        {
+            MessageBox.Show("Please enter a username.", "VSP");
+            UsernameTextBox.Focus();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ConnectionType))
+        {
+            MessageBox.Show("Please select a connection type.", "VSP");
+            ConnectionTypeComboBox.Focus();
             return;
         }
 
@@ -121,6 +135,24 @@ public partial class AddDeviceWindow : Window
             SdkPortTextBox.Focus();
             SdkPortTextBox.SelectAll();
             return;
+        }
+
+        if (string.Equals(Brand, "RTSP", System.StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(RtspUrl))
+            {
+                MessageBox.Show("RTSP URL is required when Brand is RTSP.", "VSP");
+                RtspTextBox.Focus();
+                return;
+            }
+
+            if (!RtspUrl.StartsWith("rtsp://", System.StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("RTSP URL must begin with rtsp://.", "VSP");
+                RtspTextBox.Focus();
+                RtspTextBox.SelectAll();
+                return;
+            }
         }
 
         HttpPort = httpPort;
