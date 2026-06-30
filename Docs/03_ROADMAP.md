@@ -356,10 +356,11 @@ Mobile
 - ✅ S1-6 Search
 - ✅ S1-7 Filter
 - ✅ S1-8 Connection Test
+- ✅ S1-9 Device Validation
 
 ### 下一步
 
-- ⏳ S1-9 Device Validation
+- ⏳ S1-10 Import / Export Device
 
 
 

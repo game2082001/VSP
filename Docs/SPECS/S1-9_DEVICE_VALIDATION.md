@@ -126,3 +126,141 @@ Do NOT modify
 ✓ Build Success
 
 ✓ 0 Error
+
+# Sprint 1-9
+
+## Device Validation
+
+Status
+
+Completed
+
+---
+
+## Goal
+
+Validate Add/Edit Device input before saving.
+
+Prevent invalid data from reaching DeviceService.
+
+---
+
+## Scope
+
+Completed
+
+### Required Fields
+
+- Name
+- IP Address
+- Username
+- Connection Type
+
+### IPv4 Validation
+
+Support IPv4 only.
+
+Reject invalid IP address.
+
+### Port Validation
+
+Validate:
+
+- HTTP Port
+- SDK Port
+- RTSP Port
+
+Range:
+
+1 ~ 65535
+
+### RTSP Validation
+
+When Brand = RTSP
+
+- RTSP URL is required.
+- Must start with:
+
+rtsp://
+
+### Save Validation
+
+Validation is performed before calling DeviceService.
+
+Validation failure:
+
+- MessageBox
+- Focus invalid control
+- Cancel Save
+
+---
+
+## Files Changed
+
+- AddDeviceWindow.xaml.cs
+
+---
+
+## Files NOT Changed
+
+- MainWindow
+- Repository
+- SQLite Schema
+- Driver Framework
+- DeviceService
+
+---
+
+## Validation Flow
+
+User Click Save
+
+↓
+
+Required Fields
+
+↓
+
+IPv4 Validation
+
+↓
+
+Port Validation
+
+↓
+
+RTSP Validation
+
+↓
+
+Call DeviceService
+
+↓
+
+Save SQLite
+
+---
+
+## Acceptance
+
+✓ Required field validation
+
+✓ IPv4 validation
+
+✓ Port validation
+
+✓ RTSP URL validation
+
+✓ Add/Edit share same validation
+
+✓ Validation before DeviceService
+
+✓ Build Success
+
+✓ 0 Errors
+
+---
+
+Status
+
+Completed

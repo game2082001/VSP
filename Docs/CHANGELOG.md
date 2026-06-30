@@ -254,3 +254,15 @@ Architecture：
 - Connected Device Center to existing DriverFactory workflow.
 - Test now calls IDeviceDriver.TestConnection(Camera).
 - Displays Connection Success / Connection Failed / Driver not implemented.
+
+---
+## [v0.2] - 2026-06-30
+
+### Added
+- S1-9 Device Validation completed.
+- Added validation before calling DeviceService.
+- Required field validation for Name, IP Address, Username and Connection Type.
+- Added IPv4 validation.
+- Added HTTP / SDK / RTSP Port range validation.
+- Added RTSP URL validation for RTSP devices.
+- Save is blocked when validation fails.
