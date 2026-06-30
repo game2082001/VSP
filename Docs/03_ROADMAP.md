@@ -355,10 +355,11 @@ Mobile
 - ✅ S1-5 Delete Device
 - ✅ S1-6 Search
 - ✅ S1-7 Filter
+- ✅ S1-8 Connection Test
 
 ### 下一步
 
-- ⏳ S1-8 Connection Test
+- ⏳ S1-9 Device Validation
 
 
 

@@ -244,3 +244,13 @@ Architecture：
 - 無修改 SQLite Schema
 - 無修改 Driver Framework
 - Build Success（0 Error / 7 Existing Warnings）
+
+---
+## [v0.2] - 2026-06-30
+
+### Added
+- S1-8 Connection Test completed.
+- Added Connection Test button in Device Center.
+- Connected Device Center to existing DriverFactory workflow.
+- Test now calls IDeviceDriver.TestConnection(Camera).
+- Displays Connection Success / Connection Failed / Driver not implemented.

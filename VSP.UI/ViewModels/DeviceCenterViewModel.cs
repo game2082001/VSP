@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Input;
 using VSP.Core.Commands;
 using VSP.Core.MVVM;
+using VSP.Device.Drivers;
 using VSP.Device.Services;
 using VSP.Domain.Entities;
 using VSP.Domain.Enums;
@@ -92,6 +93,7 @@ public class DeviceCenterViewModel : ObservableObject
     public ICommand RefreshCommand { get; }
     public ICommand SearchCommand { get; }
     public ICommand ClearSearchCommand { get; }
+    public ICommand TestConnectionCommand { get; }
 
     public DeviceCenterViewModel()
     {
@@ -101,6 +103,7 @@ public class DeviceCenterViewModel : ObservableObject
         RefreshCommand = new RelayCommand(LoadDevices);
         SearchCommand = new RelayCommand(ApplySearch);
         ClearSearchCommand = new RelayCommand(ClearSearch);
+        TestConnectionCommand = new RelayCommand(TestConnection);
         LoadDevices();
     }
 
@@ -266,6 +269,46 @@ public class DeviceCenterViewModel : ObservableObject
         _deviceService.DeleteCamera(SelectedDevice.Id);
         LoadDevices();
         SelectedDevice = Devices.Count > 0 ? Devices[0] : null;
+    }
+
+    private void TestConnection()
+    {
+        if (SelectedDevice == null)
+        {
+            MessageBox.Show("Please select a device.", "VSP");
+            return;
+        }
+
+        var driver = DriverFactory.CreateCameraDriver(SelectedDevice.ConnectionType);
+        var result = driver.TestConnection(SelectedDevice);
+
+        if (result)
+        {
+            MessageBox.Show("Connection Success", "VSP");
+            return;
+        }
+
+        if (IsDriverImplemented(SelectedDevice.ConnectionType))
+        {
+            MessageBox.Show("Connection Failed", "VSP");
+            return;
+        }
+
+        MessageBox.Show("Driver not implemented.", "VSP");
+    }
+
+    private static bool IsDriverImplemented(DeviceConnectionType connectionType)
+    {
+        return connectionType switch
+        {
+            DeviceConnectionType.HikvisionISAPI => false,
+            DeviceConnectionType.HikvisionSDK => false,
+            DeviceConnectionType.DahuaNetSDK => false,
+            DeviceConnectionType.ONVIF => false,
+            DeviceConnectionType.RTSP => false,
+            DeviceConnectionType.AxisVAPIX => false,
+            _ => false
+        };
     }
 
     private static bool ContainsIgnoreCase(string value, string keyword)

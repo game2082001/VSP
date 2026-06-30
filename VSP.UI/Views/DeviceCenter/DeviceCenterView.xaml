@@ -45,6 +45,11 @@
                             Margin="0,0,8,0"
                             Command="{Binding DeleteDeviceCommand}"/>
 
+                    <Button Content="Test"
+                            Style="{StaticResource SecondaryButton}"
+                            Margin="0,0,8,0"
+                            Command="{Binding TestConnectionCommand}"/>
+
                     <Button Content="Refresh"
                             Style="{StaticResource SecondaryButton}"
                             Command="{Binding RefreshCommand}"/>
