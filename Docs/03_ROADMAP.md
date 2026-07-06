@@ -1,429 +1,341 @@
-# VSP Development Roadmap
+﻿# VSP Product Roadmap
 
-Version: 2.1
+?嚗?.0
 
-Last Updated: 2026-06-28
-
----
-
-# 一、Roadmap 目的
-
-本文件定義 VSP 的整體開發方向。
-
-所有 Sprint、Spec 與功能開發皆以本文件為依據。
-
-若需求變更，必須先更新 Roadmap，再開始實作。
+?敺?堆?2026-07-01
 
 ---
 
-# 二、開發原則
+# 銝????荔?Vision嚗?
+VSP嚗ideo Surveillance Platform嚗璅???憟?璆剔? Video Management System嚗MS嚗?
+?Ｗ?閮剛???嚗?
+- 璅∠???Modular嚗?- ?蝬剛風嚗aintainable嚗?- ??游?嚗calable嚗?- 憭????Multi Vendor嚗?- ?平?函蔡嚗ommercial Ready嚗?
+---
 
-VSP 採 Sprint 開發模式。
-
-每個 Sprint 必須：
-
-- 有明確目標
-- 有獨立 Spec
-- 可獨立驗收
-- Build 0 Error
-- 通過 Code Review
-- 更新文件
+# 鈭??祈???
+| Version | Status | 隤芣? |
+|---------|--------|------|
+| v0.1 Alpha | ?銝?| Enterprise Device Center |
+| v0.2 Alpha | Planned | Live View |
+| v0.3 Beta | Planned | Playback |
+| v0.4 Beta | Planned | Event Center |
+| v0.5 RC | Planned | Driver Framework |
+| v1.0 Release | Planned | Enterprise Release |
 
 ---
 
-# 三、目前版本
+# 銝ilestone
 
-目前版本：
+## M1 - Enterprise Device Center嚗??
 
-**v0.2（Development）**
+Status嚗??In Progress
 
-目前完成：
-
-- Project Architecture
-- SQLite Repository
-- Driver Framework Skeleton
-- Device Entity
-- Device Service
-- Main Window
-- Workspace
-- Device Center UI
-
----
-
-# 四、Version Roadmap
-
-## v0.3
-
-完成 Device Center MVP
-
-包含：
-
-- Device List
-- Device Detail
-- Add Device
-- Edit Device
-- Delete Device
+?批捆嚗?
+- Device CRUD
 - Search
 - Filter
-- Connection Test
+- Import
+- Export
+- Batch Edit
+- Batch Connection Test
+- Device Group
+- Favorite
+- Device Status
+- Device Log
 
 ---
 
-## v0.4
+## M2 - Live View
 
-完成 Live View
+Status嚗lanned
 
----
-
-## v0.5
-
-完成 Playback
-
----
-
-## v0.6
-
-完成 Recording
-
----
-
-## v0.7
-
-完成 Event Center
-
----
-
-## v0.8
-
-完成 AI Framework
-
----
-
-## v0.9
-
-完成整體系統整合
-
----
-
-## v1.0
-
-正式 Release
-
----
-
-# 五、Sprint 規劃
-
----
-
-## Sprint 1
-
-主題：
-
-Device Center
-
-目標：
-
-完成 Device Center MVP。
-
-### S1-1 Device List
-
-- Device 清單
-- 選取
-- Reload
-
-### S1-2 Device Detail
-
-- Detail Binding
-
-### S1-3 Add Device
-
-- Add Device
-- Save SQLite
-- Reload
-- Auto Select
-
-### S1-4 Edit Device
-
-- Edit Device
-- Update SQLite
-- Reload
-- Auto Select
-
-### S1-5 Delete Device
-
-- Delete Confirm
-- Delete SQLite
-- Reload
-- Auto Select
-
-### S1-6 Search
-
-- Name
-- IP
-- Brand
-- Model
-
-### S1-7 Filter
-
-- Brand
-- Connection Type
-- Status
-
-### S1-8 Connection Test
-
-- Driver Connection
-- Timeout
-- Result Display
-
----
-
-## Sprint 2
-
-主題：
-
-Live View
-
-包含：
-
-- Workspace
-- Video Player
-- Layout
-- Snapshot
-- Full Screen
+?批捆嚗?
+- RTSP
+- ONVIF
+- Single View
 - Multi View
+- Layout
+- PTZ
+- Snapshot
+- Digital Zoom
 
 ---
 
-## Sprint 3
+## M3 - Playback
 
-主題：
+Status嚗lanned
 
-Playback
-
-包含：
-
+?批捆嚗?
 - Timeline
+- Playback
 - Search
 - Export
-- Download
 - Bookmark
 
 ---
 
-## Sprint 4
+## M4 - Event Center
 
-主題：
+Status嚗lanned
 
-Recording
-
-包含：
-
-- Recording Plan
-- Recording Status
-- Disk
-- Storage
-
----
-
-## Sprint 5
-
-主題：
-
-Driver Framework
-
-包含：
-
-- Driver Manager
-- Driver Factory
-- RTSP Driver
-- ONVIF Driver
-- Hikvision Driver
-- Dahua Driver
-
----
-
-## Sprint 6
-
-主題：
-
-AI Framework
-
-包含：
-
-- Motion Detection
-- Object Detection
-- Face Detection
-- Vehicle Detection
+?批捆嚗?
+- Motion
+- Alarm
+- Face
+- Vehicle
+- ANPR
 - Metadata
 
 ---
 
-# 六、未來功能
+## M5 - Driver Framework
 
-Version 1.x
+Status嚗lanned
 
-- Alarm Center
-- Map
-- User Role
-- Multi Site
-- Door Controller
-- NVR Cluster
-- Web Client
-- Mobile App
-
----
-
-# 七、每個 Sprint 必須包含
-
-每個 Sprint 必須完成：
-
-- Spec
-- Task Plan
-- Checklist
-- Code Review
-- Suggested Commit Message
-- CHANGELOG 更新
-
-Git Commit 由 User 執行。
+?批捆嚗?
+- RTSP
+- ONVIF
+- Hikvision SDK
+- Dahua SDK
+- VIVOTEK SDK
+- Axis SDK
 
 ---
 
-# 八、Definition of Done
+## M6 - Enterprise
 
-每個 Sprint 完成必須符合：
+Status嚗lanned
 
-- ☑ Build Success
-- ☑ Build 0 Error
-- ☑ 功能完成
-- ☑ 通過測試
-- ☑ 通過 Review
-- ☑ 更新 Spec
-- ☑ 更新 CHANGELOG
-- ☑ 更新 Roadmap
-- ☑ User Git Commit
-
----
-
-# 九、Priority
-
-## Priority 1
-
-Device Center
-
-Live View
+?批捆嚗?
+- User
+- Role
+- Permission
+- Audit Log
+- Backup
+- Restore
+- License
+- Plugin
+- Notification
+- Health Monitor
 
 ---
 
-## Priority 2
+# ????潮脣漲
 
-Playback
+## EPIC-01 Device Management
 
-Recording
+### Device CRUD
 
----
-
-## Priority 3
-
-Driver Framework
-
-AI Framework
-
----
-
-## Priority 4
-
-Alarm
-
-Map
-
-Mobile
+| Task | Status |
+|------|--------|
+| Task-101 Device List | ??|
+| Task-102 Device Detail | ??|
+| Task-103 Add Device | ??|
+| Task-104 Edit Device | ??|
+| Task-105 Delete Device | ??|
 
 ---
 
-# 十、目前 Sprint
+### Search & Filter
 
-目前：
-
-## Sprint 1
-
-### 已完成
-
-- ✅ S1-1 Device List
-- ✅ S1-2 Device Detail
-- ✅ S1-3 Add Device
-- ✅ S1-4 Edit Device
-- ✅ S1-5 Delete Device
-- ✅ S1-6 Search
-- ✅ S1-7 Filter
-- ✅ S1-8 Connection Test
-- ✅ S1-9 Device Validation
-- ✅ S1-10 Import / Export Device
-
-### 下一步
-
-- ⏳ S1-11 Driver Profile
-
-
+| Task | Status |
+|------|--------|
+| Task-106 Search | ??|
+| Task-107 Filter | ??|
 
 ---
 
-# 十一、文件更新規則
+### Connection
 
-若修改：
-
-## Architecture
-
-更新：
-
-- Docs/01_ARCHITECTURE.md
+| Task | Status |
+|------|--------|
+| Task-108 Connection Test | ??|
+| Task-109 Input Validation | ??|
+| Task-110 Realtime Validation | ??|
 
 ---
 
-若修改：
+### Device Import
 
-## Coding Rules
-
-更新：
-
-- Docs/02_CODING_RULES.md
-
----
-
-若完成：
-
-## Sprint
-
-更新：
-
-- Docs/SPECS/*
-- Docs/CHANGELOG.md
-- Docs/03_ROADMAP.md
+| Task | Status |
+|------|--------|
+| Task-111A Import Framework | Completed |
+| Task-111B CSV Parser | Completed |
+| Task-111C Excel Parser | Completed |
+| Task-111D Parser Unit Test | Completed |
+| Task-111E Validation Engine | Completed |
+| Task-111F Duplicate Checker | Completed |
+| Task-111G Import Pipeline Service | Completed |
+| Task-112 Import Wizard | Planned |
+| Task-113 SQLite Import | Planned |
 
 ---
 
-# 十二、版本規劃
+### Device Management
 
-目前：
-
-v0.2
-
-目前 Sprint：
-
-Sprint 1
-
-下一版本：
-
-v0.3
-
-Release 條件：
-
-完成 Sprint 1 所有功能。
+Planned嚗?
+- Batch Edit
+- Batch Connection Test
+- Export
+- Device Group
+- Favorite
+- Device Status
+- Device Log
 
 ---
 
-# Revision History
+# 鈭?極雿?Current嚗?
+Current Milestone嚗?
+> M1 Enterprise Device Center
 
-| Version | Date | Summary |
-|----------|------------|----------------------------------------------|
-| 2.1 | 2026-06-28 | 更新 Sprint 1 Roadmap，拆分 Add/Edit/Delete/Search/Filter/Connection Test，調整 Version Roadmap 與 Definition of Done。 |
-| 2.0 | 2026-06-28 | 建立 VSP 完整開發 Roadmap。 |
+Current Epic嚗?
+> EPIC-01 Device Management
+
+Current Feature嚗?
+> Device Import
+
+Current Task嚗?
+> Task-112 Import Wizard
+
+---
+
+# ?准?銝甇伐?Next嚗?
+摰???嚗?
+```text
+Task-112 Import Wizard
+        ??Task-113 SQLite Import
+        ??Task-114 Device Export
+        ??Task-115 Batch Edit
+        ??Task-116 Batch Connection Test
+```
+
+---
+
+# 銝ersion Goal
+
+## v0.1 Alpha
+
+摰?嚗?
+- Enterprise Device Center
+
+?澆?璇辣嚗?
+- Device CRUD
+- Search
+- Filter
+- Import
+- Export
+- Batch Edit
+- Batch Connection Test
+
+---
+
+## v0.2 Alpha
+
+摰?嚗?
+- Live View MVP
+
+---
+
+## v0.3 Beta
+
+摰?嚗?
+- Playback
+
+---
+
+## v0.4 Beta
+
+摰?嚗?
+- Event Center
+
+---
+
+## v0.5 RC
+
+摰?嚗?
+- Driver Framework
+
+---
+
+## v1.0 Release
+
+摰?嚗?
+- Enterprise Feature
+- Multi Vendor Driver
+- Plugin Framework
+- License
+- User Management
+
+---
+
+# ?怒oadmap 蝬剛風閬?
+
+瘥?????Task嚗odex 敹?嚗?
+?湔嚗?
+- Current Task
+- Task Status
+
+瘥?????Milestone嚗odex 敹?嚗?
+?湔嚗?
+- Milestone Status
+- Version Goal
+
+Roadmap ?湔撅祆 Task 摰????典???
+銝?蝑? User ????
+---
+
+# 銋???澆???
+VSP ?∠嚗?
+- Specification Driven Development
+- Architecture First
+- Documentation First
+- Review Before Completion
+
+瘥?Task ?賢???
+
+Spec
+
+??
+Task Plan
+
+??
+Approval
+
+??
+Coding
+
+??
+Build
+
+??
+Documentation
+
+??
+Review
+
+??
+Git
+
+??
+Done
+
+Roadmap 瘞賊?靽???啁???
+---
+
+# ?roject Progress
+
+Current Milestone嚗?
+M1 - Enterprise Device Center
+
+Current Progress嚗?
+62%
+
+?湔閬?嚗?
+瘥?????Task嚗?
+敹??郊?湔嚗?
+- Current Task
+- Progress
+- Milestone Status
+
+銝?蝑? User ????
+---

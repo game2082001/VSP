@@ -1,28 +1,33 @@
 # VSP Development Guide
 
-Version: 1.0
+版本：1.0
 
-Last Updated: 2026-06-30
-
----
-
-# 1. Purpose
-
-本文件定義 VSP 的開發規範。
-
-所有新功能、Bug 修正、重構與版本發布皆應遵循本文件。
+最後更新：2026-07-01
 
 ---
 
-# 2. Development Workflow
+# 一、目的
 
-所有功能皆遵循下列流程：
+本文件定義 VSP 的開發流程、Coding 流程、Review 流程與文件管理規範。
 
-Requirement
+所有參與 VSP 開發的人員（包含 AI）皆須遵守。
 
-↓
+---
 
-Specification (Spec)
+# 二、開發原則
+
+VSP 採用：
+
+- Spec First
+- Architecture First
+- Review First
+- Documentation First
+
+Coding 永遠不是第一步。
+
+任何新功能皆必須先完成：
+
+Spec
 
 ↓
 
@@ -30,428 +35,549 @@ Task Plan
 
 ↓
 
-Architecture Review
+Approval
 
 ↓
 
-Implementation
+Coding
 
-↓
+---
 
-Build
+# 三、標準開發流程
 
-↓
+每個 Task 必須依照以下流程：
 
-Code Review
-
-↓
-
-Testing
-
-↓
-
+```text
+Read PROJECT.md
+        ↓
+Development Standard Updated?
+        │
+        ├── Yes
+        │      ↓
+        │ Read Core Documents
+        │
+        └── No
+               ↓
+Read Current Task Spec
+        ↓
+Task Plan
+        ↓
+User Approval
+        ↓
+Coding
+        ↓
+Self Build
+        ↓
+Self Check
+        ↓
 Documentation Update
+        ↓
+Diff
+        ↓
+Architecture Review
+        ↓
+Suggested Git Commit
+        ↓
+User Commit
+        ↓
+Task Completed
+```
+
+不得跳步。
+
+---
+
+# 四、Task Plan 規範
+
+開始 Coding 前，必須提出 Task Plan。
+
+至少包含：
+
+1. 本次目標
+2. 預計新增檔案
+3. 預計修改檔案
+4. 每個檔案用途
+5. 是否修改 MainWindow
+6. 是否修改 Repository
+7. 是否修改 SQLite Schema
+8. 是否修改 Driver Framework
+9. 是否修改 DeviceService
+10. 是否符合目前 Architecture
+11. 預估影響範圍
+
+未經 Approval，不得開始 Coding。
+
+---
+
+# 五、Coding Policy
+
+Coding 必須遵守：
+
+- 小步提交
+- 不超出 Scope
+- 不修改無關程式
+- 保持可讀性
+- 保持一致命名
+
+禁止：
+
+- 一次修改大量模組
+- 偷加功能
+- 偷改 Architecture
+- 偷改 UI
+
+---
+
+# 六、Scope Protection
+
+若 Task Spec 未提及：
+
+不得修改：
+
+- MainWindow
+- DeviceCenter
+- Repository
+- SQLite Schema
+- Driver Framework
+- DeviceService
+
+若確實需要修改：
+
+流程：
+
+```text
+停止 Coding
+
+↓
+
+更新 Task Plan
+
+↓
+
+重新 Approval
+
+↓
+
+再開始 Coding
+```
+
+---
+
+# 七、Build Policy
+
+每個 Task 完成後：
+
+必須：
+
+- Build Success
+- Error = 0
+
+Warning：
+
+若新增 Warning
+
+必須說明原因。
+
+Build 未成功：
+
+不得交付。
+
+---
+
+# 八、Documentation Policy
+
+Documentation 屬於 Implementation 的一部分。
+
+每完成一個 Task，
+
+Codex 必須自動更新：
+
+- Docs/CHANGELOG.md
+- Docs/03_ROADMAP.md
+- Current Task Spec
+
+若符合條件：
+
+更新：
+
+- Docs/PROJECT.md
+- Docs/STATUS.md
+- Docs/KNOWN_ISSUES.md
+
+不得等待 User 提醒。
+
+---
+
+# 九、Documentation Ownership
+
+ChatGPT：
+
+負責：
+
+- Spec
+- Architecture
+- Review
+
+Codex：
+
+負責：
+
+- Coding
+- Build
+- Documentation Update
+- Suggested Git Commit
+
+User：
+
+負責：
+
+- Approval
+- Testing
+- Git Commit
+
+---
+
+# 十、Diff Policy
+
+完成 Coding 後：
+
+必須提供：
+
+- 實際新增檔案
+- 實際修改檔案
+- 完整 Diff
+- Build Result
+- Error
+- Warning
+- 是否符合 Spec
+- 是否修改 Scope 外內容
+
+不得只說：
+
+「完成了」。
+
+---
+
+# 十一、Review Policy
+
+Review 必須包含：
+
+Architecture
+
+↓
+
+MVVM
+
+↓
+
+Scope
+
+↓
+
+Code Quality
+
+↓
+
+Future Extension
+
+↓
+
+Documentation
 
 ↓
 
 Git Commit
 
-不得跳過任何步驟。
+全部確認後，
+
+Task 才可完成。
 
 ---
 
-# 3. Project Structure
+# 十二、Risk Report
 
-VSP
+每個 Task 完成後，
 
-├── Domain
+Developer 必須提供：
 
-├── Application
+```text
+Risk Report
 
-├── Infrastructure
+目前風險：
 
-├── Driver
+...
 
-├── UI
+尚未完成：
 
-├── Resources
+...
 
-├── Docs
+目前限制：
 
-└── Tests
+...
 
-每個資料夾均有單一責任。
+建議：
 
-不得跨 Layer。
+...
 
----
+例如：
+Risk Report
 
-# 4. Architecture Rules
+目前風險：
 
-Architecture：
+無
 
-View
+尚未完成：
 
-↓
+Validation
 
-ViewModel
+Duplicate Check
 
-↓
+SQLite Import
 
-Application Service
+建議：
 
-↓
+Task-111E Validation Engine
 
-Repository
-
-↓
-
-SQLite
-
-Driver：
-
-View
-
-↓
-
-ViewModel
-
-↓
-
-Application Service
-
-↓
-
-Driver Factory
-
-↓
-
-IDeviceDriver
-
-↓
-
-Vendor Driver
-
-↓
-
-SDK / Protocol
-
-禁止：
-
-ViewModel → SQLite
-
-ViewModel → SDK
-
-Repository → Driver
-
-View → Business Logic
+Risk Report 屬於 Task Summary 的一部分
 
 ---
 
-# 5. MVVM Rules
+# 十三、Task Completion Policy
 
-View
+Task 必須符合：
 
-僅負責：
+✅ Build Success
 
-- UI
-- Binding
-- Style
-- Animation
+✅ Error = 0
+
+✅ Warning 已說明
+
+✅ Documentation Updated
+
+✅ Diff 已提供
+
+✅ Review Completed
+
+✅ Suggested Git Commit 已提供
+
+✅ User 完成 Commit
+
+否則：
+
+只能標示：
+
+```text
+Coding Completed
+
+Waiting Review
+```
+
+不得標示：
+
+```text
+Task Completed
+```
+
+---
+
+# 十四、Git Policy
+
+Codex：
 
 不得：
 
-- SQL
-- SDK
-- Business Logic
+- git add
+- git commit
+- git push
 
-ViewModel
+Codex 只能提供：
 
-負責：
-
-- Command
-- ObservableProperty
-- Application Service 呼叫
-
-不得：
-
-- SQLite
-- Vendor SDK
-- MessageBox（除非 UI Framework 限制）
-
----
-
-# 6. Repository Rules
-
-Repository：
-
-僅負責：
-
-- CRUD
-- SQL
-- Transaction
-
-不得：
-
-- Validation
-- Driver
-- Network
-
----
-
-# 7. Driver Rules
-
-所有設備均透過：
-
-DriverFactory
-
-↓
-
-IDeviceDriver
-
-↓
-
-Vendor Driver
-
-新增品牌時：
-
-只新增 Driver。
-
-不得修改 Device Center。
-
----
-
-# 8. Validation Rules
-
-Validation 必須可重複使用。
+Suggested Commit：
 
 例如：
 
-DeviceValidationService
+```bash
+git commit -m "feat(import): add csv import parser"
+```
 
-↓
+Git 操作全部由 User 執行。
 
-Add Device
+---
+# 十五、Next Suggested Task
 
-↓
+每個 Task 完成後，
 
-Edit Device
+Developer 必須主動提出：
 
-↓
+- 下一個建議 Task
+- 建議原因
+- 預估修改檔案
+- 是否需要新的 Spec
 
-Import Device
-
-↓
-
-Batch Edit
-
-不得重複撰寫相同 Validation。
+Developer 不得等待 User 詢問「下一步」。
 
 ---
 
-# 9. UI Rules
+# 十六、No Reminder Policy
 
-所有 UI 必須共用 Style。
-
-包含：
-
-- Button
-- ComboBox
-- TextBox
-- Dialog
-- ListView
-- DataGrid
-
-不得自行建立不同風格。
-
----
-
-# 10. Naming Rules
-
-Class
-
-PascalCase
-
-Property
-
-PascalCase
-
-Method
-
-PascalCase
-
-Private Field
-
-_camelCase
-
-Interface
-
-IXXXX
-
-Async Method
-
-XXXXAsync
-
-Boolean
-
-IsXXX
-
-CanXXX
-
-HasXXX
-
----
-
-# 11. Git Rules
-
-Commit 格式：
-
-feat(module): description
-
-fix(module): description
-
-refactor(module): description
-
-docs: description
-
-test: description
+Codex 不得等待 User 提醒：
 
 例如：
 
-feat(device-center): complete S1-11 Device Import
+- 更新 CHANGELOG
+- 更新 ROADMAP
+- 更新 Task Spec
+- 提供 Git Commit
+- 提供 Build Result
 
-fix(driver): fix hikvision login timeout
+以上皆屬於 Task 的一部分。
 
-docs: update roadmap
-
----
-
-# 12. Documentation Rules
-
-每完成一個 Sprint 必須更新：
-
-Docs/CHANGELOG.md
-
-Docs/03_ROADMAP.md
-
-Docs/SPECS/
-
-不得省略。
+應自動完成。
 
 ---
 
-# 13. Build Rules
+# 十七、Task Summary
 
-每次 Build：
+每個 Task 完成後，
 
-必須：
+Developer 必須提供：
 
-Build Success
+```text
+==========================
 
-Error：
+Task Summary
 
-0
+==========================
 
-Warning：
+Task
 
-必須確認來源。
+Status
 
----
+Build
 
-# 14. Code Review Checklist
+Error
 
-每次 Review 必須確認：
+Warning
 
-□ Build Success
+Documentation
 
-□ 0 Error
+Architecture Review
 
-□ Warning 已確認
+Risk Report
 
-□ 符合 Spec
+Next Suggested Task
 
-□ 未修改 Scope 外內容
+Suggested Git Commit
 
-□ 未破壞 Architecture
-
-□ MVVM 正確
-
-□ Repository 正確
-
-□ Driver 正確
-
-□ 文件更新
-
-□ Git Commit
+==========================
 
 ---
 
-# 15. Sprint Completion Checklist
+# 十八、Definition of Done
 
-每個 Sprint 必須完成：
+只有符合以下全部條件：
 
-✓ Spec
+- Build Success
+- Error = 0
+- Documentation 完成
+- Review 完成
+- Git Commit 已提供
+- User 完成 Commit
 
-✓ Task Plan
-
-✓ Coding
-
-✓ Build
-
-✓ Review
-
-✓ Testing
-
-✓ CHANGELOG
-
-✓ ROADMAP
-
-✓ SPEC Completion
-
-✓ Git Commit
+Task 才算真正完成。
 
 ---
 
-# 16. Technical Debt Policy
+# 十九、Version Policy
 
-禁止：
+流程規範若有重大修改：
 
-為了趕功能而破壞 Architecture。
+Version：
 
-若需暫時實作：
+1.0
 
-必須建立 TODO 並加入 Roadmap。
+↓
 
-不得永久保留 Hack Code。
+1.1
 
----
+↓
 
-# 17. Future Expansion
+2.0
 
-VSP 必須支援：
+不得直接覆蓋既有規範。
 
-Camera
-
-NVR
-
-Door Controller
-
-AI Box
-
-Decoder
-
-Display
-
-IoT Device
-
-CMS
-
-任何新功能皆不得限制未來擴充。
+所有變更皆須記錄於 CHANGELOG。
 
 ---
 
-# Revision History
+# 二十、開發理念
 
-| Version | Date | Summary |
-|----------|------------|------------------------------|
-| 1.0 | 2026-06-30 | 建立 Development Guide |
+VSP 是一套商業產品。
+
+開發優先順序：
+
+Architecture
+
+↓
+
+Maintainability
+
+↓
+
+Scalability
+
+↓
+
+Quality
+
+↓
+
+Performance
+
+↓
+
+Development Speed
+
+品質永遠優先於開發速度。
+
+---
+
+# 二十一、Development Standard Change Policy
+
+Development Standard 更新時，
+
+Developer 必須重新閱讀所有核心文件。
+
+核心文件如下：
+
+- PROJECT.md
+- 01_ARCHITECTURE.md
+- 02_CODING_RULES.md
+- 03_ROADMAP.md
+- 04_DEVELOPMENT_GUIDE.md
+- DEVELOPMENT_ROLES.md
+
+閱讀完成後，
+
+Developer 必須：
+
+- 確認已理解最新規範
+- 說明本次更新重點
+- 確認後續將依照最新規範開發
+
+不得直接開始 Coding。
+
+---
+
+若僅為一般 Feature 或 Task 開發，
+
+且 Development Standard 未更新，
+
+Developer 不需重新閱讀全部文件。
+
+僅需閱讀：
+
+```text
+PROJECT.md
+        ↓
+Current Task Spec

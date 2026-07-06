@@ -2,6 +2,7 @@
   <Project Path="VSP.Common/VSP.Common.csproj" Id="d5ed23ad-544d-4f3a-82b5-9c9baa941fcf" />
   <Project Path="VSP.Core/VSP.Core.csproj" />
   <Project Path="VSP.Device/VSP.Device.csproj" />
+  <Project Path="VSP.Tests/VSP.Tests.csproj" />
   <Project Path="VSP.Domain/VSP.Domain.csproj" Id="84cad68c-afd9-45d1-a923-ba2b7537f2fd" />
   <Project Path="VSP.Infrastructure/VSP.Infrastructure.csproj" Id="ecd47a36-dded-478e-ba1b-f36acebacad9" />
   <Project Path="VSP.Player/VSP.Player.csproj" />

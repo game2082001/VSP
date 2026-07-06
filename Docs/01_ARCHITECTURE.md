@@ -1,90 +1,101 @@
 # VSP Architecture
 
-Version: 2.0
+版本：1.0
 
-Last Updated: 2026-06-28
-
----
-
-# 一、架構目標
-
-VSP（Video Surveillance Platform）採用模組化架構設計。
-
-本架構主要目標：
-
-- 高擴充性（Scalability）
-- 高維護性（Maintainability）
-- 高可讀性（Readability）
-- 高穩定性（Stability）
-
-VSP 並非 Demo，而是長期維護的商業產品。
+最後更新：2026-07-01
 
 ---
 
-# 二、架構設計原則
+# 一、目的
 
-VSP 採用 Lite Clean Architecture。
+本文件定義 VSP 的整體系統架構。
 
-核心原則：
+所有新功能必須遵循本架構。
 
+若 Architecture 有重大修改，必須更新本文件。
+
+---
+
+# 二、Architecture Goal
+
+VSP 採用：
+
+- Modular
+- Layered Architecture
 - MVVM
 - Repository Pattern
-- Service Layer
-- Driver Framework
-- Dependency Injection
-- High Cohesion
-- Low Coupling
+- Service-Oriented Design
 
-任何新功能不得破壞以上原則。
+設計目標：
+
+- 易於維護
+- 易於測試
+- 易於擴充
+- 避免高耦合
 
 ---
 
-# 三、Solution 架構
+# 三、Solution Structure
 
-目前 Solution：
-
-```
-
+```text
 VSP.sln
 
-│
-
-├── VSP.UI
-
-├── VSP.Device
-
 ├── VSP.Domain
-
+├── VSP.Device
 ├── VSP.Infrastructure
-
-├── VSP.Player
-
-├── VSP.Core
-
-└── VSP.Common
-
+├── VSP.UI
+├── VSP.Tests
+└── Docs
 ```
 
 ---
 
-# 四、各 Project 職責
+# 四、Layer Architecture
+
+```text
+Presentation (UI)
+
+↓
+
+ViewModel
+
+↓
+
+Application Service
+
+↓
+
+Repository / Driver
+
+↓
+
+SQLite / Device SDK
+```
+
+依賴方向只能往下。
+
+不得反向依賴。
+
+---
+
+# 五、Project Responsibilities
 
 ## VSP.UI
 
 負責：
 
-- Views
-- ViewModels
-- Styles
-- Workspace
-- Validation
+- View
+- ViewModel
+- Dialog
+- Binding
+- User Interaction
 
 不得：
 
 - SQL
+- SDK
 - Driver
-- SQLite
-- Repository
+- Business Logic
 
 ---
 
@@ -93,29 +104,23 @@ VSP.sln
 負責：
 
 - DeviceService
-- DriverFactory
-- Driver Workflow
-- Device Profile
-- Business Logic
+- Import
+- Driver
+- Device Logic
 
-屬於系統核心。
+包含：
 
----
+```text
+Import
 
-## VSP.Domain
+Driver
 
-負責：
+Parser
 
-- Entity
-- Enum
-- Shared Model
-- Interface（未來）
+Validation
 
-不得依賴：
-
-- UI
-- SQLite
-- WPF
+Connection Test
+```
 
 ---
 
@@ -125,55 +130,46 @@ VSP.sln
 
 - SQLite
 - Repository
-- Database Initializer
-- Migration
-- SDK Adapter（未來）
+- File Storage
+- Infrastructure
 
-不得參考 UI。
+不得包含：
+
+UI
+
+Driver
+
+Business Logic
 
 ---
 
-## VSP.Player
+## VSP.Domain
 
 負責：
 
-- Live View
-- Playback
-- FFmpeg（未來）
-- Video Render
+- Entity
+- Enum
+- Value Object
 
-不得操作 Device。
+保持純淨。
 
 ---
 
-## VSP.Core
+## VSP.Tests
 
 負責：
 
-- ObservableObject
-- MVVM Base
-- Helper
-- Common Base Class
+- Unit Test
+- Integration Test
+- Regression Test
+
+不得包含正式程式。
 
 ---
 
-## VSP.Common
+# 六、Application Flow
 
-負責：
-
-- Utility
-- Constant
-- Extension
-- Shared Function
-
----
-
-# 五、系統資料流
-
-所有設備資料：
-
-```
-
+```text
 View
 
 ↓
@@ -182,289 +178,171 @@ ViewModel
 
 ↓
 
-DeviceService
+Application Service
 
 ↓
 
-Repository Interface
-
-Repository Implementation
+Repository
 
 ↓
 
 SQLite
-
 ```
 
-不得跳層。
+或：
 
-例如：
-
+```text
 View
 
 ↓
 
-SQLite
+ViewModel
 
-❌ 禁止
+↓
 
----
+Application Service
 
-# 六、MVVM
+↓
 
-## View
+Driver
 
-允許：
+↓
 
-- XAML
-- Binding
-- Style
+Device SDK
+```
 
-禁止：
+UI 永遠不能直接操作：
 
-- SQL
+- SQLite
+- Repository
 - Driver
-- 商業邏輯
+- SDK
 
 ---
 
-## ViewModel
+# 七、Import Framework
 
-允許：
+Import 採用統一流程：
 
-- Command
-- Binding
-- UI 狀態
-
-禁止：
-
-- SQL
-- Driver 建立
-- Repository 建立
-
----
-
-## Service
-
-允許：
-
-- Workflow
-- Business Logic
-- Driver 呼叫
-- Repository 呼叫
-
----
-
-## Repository
-
-允許：
-
-- CRUD
-
-禁止：
-
-- 商業邏輯
-
----
-
-# 七、Repository Pattern
-
-目前：
-
-SQLiteCameraRepository
-
-未來：
-
-ICameraRepository
-
-ICameraRepository belongs to Domain or Device abstractions.
-SQLiteCameraRepository belongs to Infrastructure.
+```text
+Import Wizard
 
 ↓
 
-SQLiteCameraRepository
+Import Service
 
 ↓
 
-SqlServerCameraRepository
+IImportParser
 
 ↓
 
-PostgreSqlCameraRepository
+ImportRow
 
-Repository 為唯一資料存取入口。
+↓
+
+Validation
+
+↓
+
+Repository
+
+↓
+
+SQLite
+```
+
+目前完成：
+
+- Import Framework
+- CSV Parser
+- Excel Parser
+
+後續：
+
+- Validation
+- Duplicate Checker
+- Import Preview
+- SQLite Import
 
 ---
 
 # 八、Driver Framework
 
-目前 Driver：
+Driver 採用統一介面：
+
+```text
+Driver Manager
+
+↓
+
+IDeviceDriver
+
+↓
+
+Vendor Driver
+
+↓
+
+SDK
+```
+
+未來支援：
 
 - RTSP
 - ONVIF
 - Hikvision
 - Dahua
+- VIVOTEK
+- Axis
 
-Driver 必須：
+所有 Driver 必須實作共同 Interface。
 
-透過 DriverFactory 建立。
+---
 
-不得：
+# 九、Repository Pattern
 
-View
+所有資料存取：
+
+```text
+Application
 
 ↓
 
-new HikvisionDriver()
+Repository
 
----
-
-# 九、Driver Capability
-
-未來 Driver 必須提供：
-
-- Live View
-- Playback
-- PTZ
-- Snapshot
-- Event
-- Discovery
-
-UI 根據 Capability 顯示功能。
-
-不得依品牌判斷。
-
----
-
-# 十、Device Profile
-
-Device Profile 控制：
-
-- 顯示哪些欄位
-- 哪些 Port
-- 哪些設定
-
-例如：
-
-RTSP Camera：
-
-顯示：
-
-- RTSP URL
-- RTSP Port
-
-隱藏：
-
-- HTTP Port
-- SDK Port
-
----
-
-# 十一、Workspace
-
-MainWindow 為唯一 Shell。
-
-Workspace：
-
-目前：
-
-DeviceCenter
-
-未來：
-
-- Live View
-- Playback
-- Recording
-- Event Center
-
-Workspace 由 MainWindow 切換。
-
----
-
-# 十二、DeviceCenter
-
-DeviceCenter 為唯一設備管理介面。
-
-功能包含：
-
-- Device List
-- Device Editor
-- Device Status
-- Search
-- Filter
-- Driver
-- Connection Test
-
-不得建立第二套設備管理畫面。
-
----
-
-# 十三、Player
-
-Player 專責：
-
-- Video Decode
-- Render
-- Playback
-
-Driver：
-
-只提供：
-
-- Stream
-- Login
-- Capability
-
-兩者保持低耦合。
-
----
-
-# 十四、資料庫
-
-目前：
+↓
 
 SQLite
+```
 
-未來：
+禁止：
 
-- SQL Server
-- PostgreSQL
+```text
+ViewModel
 
-Database 必須支援：
+↓
 
-- Version
-- Migration
-- Seed
-- Backup
+SQLite
+```
 
----
+禁止：
 
-# 十五、Logging
+```text
+UI
 
-未來：
+↓
 
-Logs/
-
-app.log
-
-driver.log
-
-database.log
-
-player.log
-
-不得記錄：
-
-- 密碼
-- Token
-- 金鑰
+Repository
+```
 
 ---
 
-# 十六、Dependency Rules
+# 十、Dependency Rules
 
 允許：
 
+```text
 UI
 
 ↓
@@ -473,97 +351,88 @@ Device
 
 ↓
 
-Repository Interface
+Infrastructure
 
 ↓
 
-Infrastructure
+Domain
+```
 
 禁止：
 
+```text
 Infrastructure
 
 ↓
 
 UI
+```
 
+禁止：
+
+```text
 Driver
 
 ↓
 
-ViewModel
+View
+```
 
+禁止：
+
+```text
 Repository
 
 ↓
 
-View
+Driver
+```
 
 ---
 
-# 十七、目前狀態
+# 十一、Future Modules
 
-完成：
+未來將加入：
 
-- SQLite
-- Repository
-- Driver Framework（骨架）
-- Device Profile
-- Workspace
+```text
+Playback
 
-開發中：
+AI
 
-- DeviceCenter
+Event Center
 
-未完成：
+User
 
-- Live View
-- Playback
-- Recording
-- AI
+Permission
 
----
+Plugin
 
-# 十八、未來規劃
+Notification
 
-Phase 1
+Health Monitor
 
-完成 DeviceCenter。
+License
 
-Phase 2
+CMS
 
-完成 Live View。
+Mobile
+```
 
-Phase 3
-
-完成 Playback。
-
-Phase 4
-
-完成 Recording。
-
-Phase 5
-
-完成 AI。
+所有模組皆須遵守相同 Layer。
 
 ---
 
-# 十九、Architecture Constraints
+# 十二、Architecture Principles
 
-不得：
+Architecture 優先順序：
 
-- View 操作 SQLite
-- ViewModel 建立 Driver
-- Driver 操作 UI
-- Repository 放商業邏輯
-- 建立第二套 DeviceCenter
+1. Low Coupling
+2. High Cohesion
+3. Reusability
+4. Testability
+5. Maintainability
+6. Scalability
 
-所有新功能必須遵守 Architecture。
+禁止為了快速完成而破壞 Architecture。
 
----
-
-# Revision History
-
-| Version | Date | Summary |
-|----------|------------|----------------|
-| 2.0 | 2026-06-28 | 重寫 VSP 架構文件，符合 Lite Clean Architecture |
+Architecture 一旦變更，必須同步更新本文件。

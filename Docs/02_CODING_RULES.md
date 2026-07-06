@@ -1,384 +1,498 @@
 # VSP Coding Rules
 
-Version: 2.0
+版本：1.0
 
-Last Updated: 2026-06-28
+最後更新：2026-07-01
 
 ---
 
 # 一、目的
 
-本文件定義 VSP 專案的程式開發規範。
+本文件定義 VSP 專案 Coding Standard。
 
-所有開發（包含 Codex）皆必須遵守本文件。
-
-若與 Spec 衝突，以 Spec 為主。
-
-若與 Architecture 衝突，以 Architecture 為主。
+所有程式碼皆須遵守本規範。
 
 ---
 
 # 二、基本原則
 
-所有程式必須符合：
+Coding 原則：
 
-- 易閱讀
-- 易維護
-- 易測試
-- 易擴充
+- Readability First
+- Maintainability First
+- Reuse Before Rewrite
+- Small Changes
+- Single Responsibility
 
-不要追求最短程式碼。
-
-優先考慮可讀性。
+不要為了少幾行程式而降低可讀性。
 
 ---
 
-# 三、命名規範
+# 三、命名規範（Naming）
 
-## 類別（Class）
+## Class
 
-使用 PascalCase。
+PascalCase
 
 例如：
 
-Camera
-
+```csharp
 DeviceService
-
-DriverFactory
-
-DeviceCenterViewModel
+ImportService
+CameraRepository
+```
 
 ---
 
-## 方法（Method）
+## Method
 
-使用 PascalCase。
+PascalCase
 
-例如：
-
+```csharp
 LoadDevices()
 
-SaveCamera()
+ConnectAsync()
 
-TestConnection()
+ValidateIpAddress()
+```
 
 ---
 
-## 屬性（Property）
+## Property
 
-使用 PascalCase。
+PascalCase
 
-例如：
-
-CameraName
+```csharp
+DeviceName
 
 IpAddress
 
-SelectedDevice
+Status
+```
 
 ---
 
-## 私有欄位（Field）
+## Private Field
 
-使用底線開頭。
+使用：
+
+```text
+_camelCase
+```
 
 例如：
 
-_cameraRepository
+```csharp
+_deviceRepository
 
-_selectedDevice
+_importService
 
-_deviceService
+_logger
+```
 
 ---
 
-## 區域變數
+## Local Variable
 
-使用 camelCase。
+camelCase
 
-例如：
-
+```csharp
 camera
 
-result
+device
 
-deviceList
+result
+```
 
 ---
 
-# 四、View 規範
+## Constant
 
-View 只負責：
+PascalCase
+
+```csharp
+DefaultTimeout
+
+MaxRetryCount
+```
+
+---
+
+## Interface
+
+I 開頭
+
+```csharp
+IRepository
+
+IDeviceDriver
+
+IImportParser
+```
+
+---
+
+# 四、Folder Structure
+
+依功能分類。
+
+例如：
+
+```text
+Device
+
+Import
+
+Driver
+
+Playback
+
+Event
+```
+
+不要：
+
+```text
+Helper
+
+Utils
+
+Misc
+
+Common2
+```
+
+避免用途不明資料夾。
+
+---
+
+# 五、MVVM 規範
+
+View
+
+只負責：
 
 - UI
-- XAML
 - Binding
-- Style
 
-禁止：
+不得：
 
 - SQL
 - Driver
-- Repository
-- 商業邏輯
-
-Code-behind 只允許：
-
-- InitializeComponent()
-- 必要 UI 事件
-
-不得撰寫商業邏輯。
-
----
-
-# 五、ViewModel 規範
-
-ViewModel 只負責：
-
-- UI State
-- Command
-- Binding
-
-不得：
-
-new SQLiteCameraRepository()
-
-new HikvisionDriver()
-
-任何 SQL
-
-任何 SQLite
-
-任何 Driver 通訊
-
----
-
-# 六、Service 規範
-
-Service 負責：
-
-- 商業流程
-- Driver 呼叫
-- Repository 呼叫
-- Workflow
-
-所有商業邏輯集中於 Service。
-
----
-
-# 七、Repository 規範
-
-Repository 只負責：
-
-- 新增
-- 修改
-- 刪除
-- 查詢
-
-不得：
-
-- Driver
-- UI
 - Business Logic
 
-Repository 必須保持單一職責。
-
 ---
 
-# 八、Driver 規範
+ViewModel
 
-Driver 只負責：
+負責：
 
-設備通訊。
+- Command
+- ObservableProperty
+- UI State
 
 不得：
 
-- UI
 - SQLite
-- Repository
-
-Driver 必須透過 DriverFactory 建立。
-
-禁止：
-
-new HikvisionDriver()
-
-直接出現在 ViewModel。
+- SDK
+- Driver
 
 ---
 
-# 九、SQLite 規範
+Service
 
-SQLite 僅能由 Repository 存取。
+負責：
+
+- Business Logic
+
+不得依賴 UI。
+
+---
+
+Repository
+
+只負責：
+
+資料存取。
+
+不得放 Business Logic。
+
+---
+
+# 六、Async 規範
+
+IO 操作：
+
+必須使用：
+
+```csharp
+async
+
+await
+```
+
+避免：
+
+```csharp
+.Wait()
+
+.Result
+```
+
+除非有特殊原因。
+
+---
+
+# 七、Exception Policy
+
+不得：
+
+```csharp
+catch(Exception)
+{
+}
+```
+
+空 Catch。
+
+---
+
+必須：
+
+- Logging
+- 或重新拋出
+
+例如：
+
+```csharp
+catch(Exception ex)
+{
+    throw;
+}
+```
+
+或：
+
+```csharp
+_logger.LogError(ex);
+```
+
+---
+
+# 八、Null Handling
+
+使用：
+
+```csharp
+ArgumentNullException.ThrowIfNull()
+```
+
+優先於：
+
+```csharp
+if(x==null)
+```
+
+---
+
+使用：
+
+Nullable Reference Types。
+
+避免：
+
+大量 Null 檢查。
+
+---
+
+# 九、Magic Number
 
 禁止：
 
-View
+```csharp
+port=8000;
+
+retry=3;
+```
+
+應改：
+
+```csharp
+const int DefaultPort=8000;
+```
+
+或：
+
+```csharp
+private const int DefaultPort=8000;
+```
+
+---
+
+# 十、Comment
+
+Comment 應說明：
+
+為什麼（Why）
+
+不要描述：
+
+做什麼（What）
+
+例如：
+
+不好：
+
+```csharp
+//增加1
+count++;
+```
+
+好：
+
+```csharp
+// Retry 次數避免無限重試
+retryCount++;
+```
+
+---
+
+# 十一、Logging
+
+Error：
+
+必須 Logging。
+
+Debug：
+
+避免大量輸出。
+
+Release：
+
+不得保留 Debug 測試程式。
+
+---
+
+# 十二、Code Style
+
+保持：
+
+- 小 Method
+- 小 Class
+
+一個 Method：
+
+建議：
+
+30~50 行。
+
+若超過：
+
+考慮拆分。
+
+---
+
+一個 Class：
+
+建議：
+
+300~500 行。
+
+若超過：
+
+考慮拆分。
+
+---
+
+# 十三、Dependency
+
+禁止：
+
+UI
 
 ↓
 
 SQLite
+
+禁止：
 
 ViewModel
 
 ↓
 
-SQLite
-
----
-
-# 十、例外處理
-
-不得：
-
-catch(Exception)
-{
-}
-
-忽略所有錯誤。
-
-應：
-
-記錄
-
-↓
-
-回傳 Result
-
-↓
-
-ViewModel 顯示
-
----
-
-# 十一、Async 規範
-
-所有：
-
-- 網路
-- Driver
-- Playback
-
-未來皆改為：
-
-Async
-
-避免阻塞 UI。
-
----
-
-# 十二、XAML 規範
-
-盡量：
-
-Binding
-
-避免：
-
-Code Behind
-
-所有 Style 放於：
-
-Resources
-
-不得：
-
-每頁重新定義相同 Style。
-
----
-
-# 十三、UI 規範
-
-整體風格：
-
-Dark Theme
-
-Primary Color：
-
-Blue
-
-Danger：
-
-Red
-
-Success：
-
-Green
-
-Warning：
-
-Orange
-
----
-
-# 十四、Build 規範
-
-每完成一項功能：
+Repository
 
 必須：
 
-Build Success
+ViewModel
 
-不得：
+↓
 
-Error must be 0.
-Warnings must be reported; warning policy depends on the task.
-若新增 Warning：
+Service
 
-必須說明原因。
+↓
 
----
-
-# 十五、Git 規範
-
-Codex：
-
-不得：
-
-git add
-
-??Suggested commit message provided; actual Git commit is done by user.
-
-git push
-
-Git 一律由使用者執行。
+Repository
 
 ---
 
-# 十六、Codex 工作規範
+# 十四、Review Checklist
 
-開始工作前：
+每次 Coding 完成前：
 
-必須閱讀：
+確認：
 
-Docs/PROJECT.md
+□ Naming
 
-00_AI_CONTEXT.md
+□ Scope
 
-01_ARCHITECTURE.md
+□ Build
 
-02_CODING_RULES.md
+□ Warning
 
-03_ROADMAP.md
+□ Null
 
-Spec
+□ Exception
 
-完成後：
+□ Async
 
-必須回覆：
+□ Comment
 
-一、修改檔案
+□ 可讀性
 
-二、修改內容
+---
 
-三、測試方式
+# 十五、Refactoring
 
-四、風險
+Refactoring：
 
-五、建議 Commit Message
+不得與新功能混在同一個 Task。
 
-不得自行開始下一個 Sprint。
+若需要：
+
+建立：
+
+獨立 Task。
+
+---
+
+# 十六、Code Review 原則
+
+Review 重點：
+
+1. 是否符合 Architecture
+
+2. 是否符合 MVVM
+
+3. 是否超出 Scope
+
+4. 是否容易維護
+
+5. 是否容易擴充
+
+6. 是否容易閱讀
+
+7. 是否破壞既有功能
 
 ---
 
@@ -386,80 +500,40 @@ Spec
 
 不得：
 
-修改 MainWindow 架構。
-
-建立第二套 DeviceCenter。
-
-直接修改 SQLite。
-
-ViewModel 建立 Driver。
-
-Repository 放商業邏輯。
-
-未閱讀 Spec 即開始修改。
+- 偷加功能
+- 偷改 Architecture
+- 修改 Scope 外內容
+- 保留測試程式
+- 保留 Debug Code
+- 保留未使用 Method
+- 保留未使用 using
 
 ---
 
-# 十八、Definition of Done
+# 十八、Coding Philosophy
 
-每個 Task 必須符合：
+VSP 優先順序：
 
-□ Build 成功
+Architecture
 
-□ Build 0 Error
+↓
 
-□ 功能正常
+Maintainability
 
-□ UI 正常
+↓
 
-□ MVVM
+Readability
 
-□ Repository Pattern
+↓
 
-□ Driver Framework
+Scalability
 
-□ 通過 Review
+↓
 
-□ Git Commit
+Performance
 
----
+↓
 
-# 十九、Commit Message 規範
+Development Speed
 
-格式：
-
-SprintX-TaskY: 功能名稱
-
-例如：
-
-Sprint1-Task1: Device Center Device List
-
-Sprint1-Task2: Device Editor
-
-Sprint2-Task1: Live View Workspace
-
----
-
-# 二十、程式修改原則
-
-每次修改：
-
-優先：
-
-最小修改。
-
-不要：
-
-一次重構整個 Solution。
-
-若需要修改超過 10 個檔案：
-
-必須先提出原因。
-
----
-
-# Revision History
-
-| Version | Date | Summary |
-|----------|------------|----------------------------|
-| 2.0 | 2026-06-28 | 建立 VSP Coding Rules |
+品質永遠優先於開發速度。

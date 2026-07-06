@@ -1,7 +1,6 @@
-# CHANGELOG
+﻿# CHANGELOG
 
-本文件記錄 VSP 專案的重要功能變更。
-
+?祆?隞嗉???VSP 撠???閬??質??氬?
 ---
 
 # Version 2.0
@@ -11,37 +10,22 @@
 ## Sprint 1
 
 ### S1-1 Device List
-日期：2026-06-28
+?交?嚗?026-06-28
 
-#### 新增
-- DeviceCenter 採用 DeviceCenterViewModel。
-- Device List 改為透過 DeviceService.GetAllCameras() 載入 SQLite Camera 資料。
-- 左側 Device List 使用 ListBox。
-- 完成 Devices 與 SelectedDevice Binding。
-- 新增 RefreshCommand，可重新載入 Camera 清單。
-- 新增 DeviceCount 顯示。
-
+#### ?啣?
+- DeviceCenter ?∠ DeviceCenterViewModel??- Device List ?寧?? DeviceService.GetAllCameras() 頛 SQLite Camera 鞈???- 撌血 Device List 雿輻 ListBox??- 摰? Devices ??SelectedDevice Binding??- ?啣? RefreshCommand嚗?頛 Camera 皜??- ?啣? DeviceCount 憿舐內??
 #### UI
-- 左側顯示：
-  - Camera Name
+- 撌血憿舐內嚗?  - Camera Name
   - Brand
   - IP Address
   - Connection Type
-- 右側 Device Editor 保持 Placeholder。
-
-#### 架構
-- 符合 MVVM。
-- ViewModel 不直接存取 SQLite。
-- 經由 DeviceService 取得資料。
-- 未修改 MainWindow。
-- 未修改 Repository。
-- 未修改 SQLite Schema。
-- 未修改 Legacy DeviceView。
-
+- ?喳 Device Editor 靽? Placeholder??
+#### ?嗆?
+- 蝚血? MVVM??- ViewModel 銝?亙???SQLite??- 蝬 DeviceService ??鞈???- ?芯耨??MainWindow??- ?芯耨??Repository??- ?芯耨??SQLite Schema??- ?芯耨??Legacy DeviceView??
 #### Build
 - Build Success
-- Error：0
-- Warning：NU1903（SQLite 套件安全性警告）
+- Error嚗?
+- Warning嚗U1903嚗QLite 憟辣摰?扯郎??
 
 ---
 ## Sprint 1
@@ -84,22 +68,19 @@ Completed
 
 Summary:
 
-- 完成 Device Center Add Device 流程
-- Add Device 按鈕已綁定 AddDeviceCommand
-- 使用既有 AddDeviceWindow，不新增新視窗
-- Save 後透過 DeviceService.AddCamera() 寫入 SQLite
-- 新增完成後重新載入 Device List
-- 自動選取剛新增的 Camera
-- Device Detail 同步顯示新增資料
+- 摰? Device Center Add Device 瘚?
+- Add Device ??撌脩?摰?AddDeviceCommand
+- 雿輻?Ｘ? AddDeviceWindow嚗??啣??啗?蝒?- Save 敺? DeviceService.AddCamera() 撖怠 SQLite
+- ?啣?摰?敺??啗???Device List
+- ?芸??詨??憓? Camera
+- Device Detail ?郊憿舐內?啣?鞈?
 
 Architecture:
 
-- 維持 MVVM
-- ViewModel 不直接存取 SQLite
-- Repository Pattern 不變
-- SQLite Schema 無修改
-- Driver Framework 無修改
-
+- 蝬剜? MVVM
+- ViewModel 銝?亙???SQLite
+- Repository Pattern 銝?
+- SQLite Schema ?∩耨??- Driver Framework ?∩耨??
 Not Included:
 
 - Edit
@@ -111,10 +92,10 @@ Not Included:
 
 Verified:
 
-✓ Add Device
-✓ SQLite Save
-✓ Refresh Device List
-✓ Detail Binding
+??Add Device
+??SQLite Save
+??Refresh Device List
+??Detail Binding
 
 ---
 ## 2026-06-28
@@ -127,23 +108,21 @@ Completed
 
 Summary:
 
-- 完成 Device Center Edit Device 流程
-- 新增 Edit Device 按鈕
-- Edit Device 使用既有 AddDeviceWindow(Camera)
-- 視窗自動載入目前 Camera 資料
-- Save 後透過 DeviceService.UpdateCamera() 更新 SQLite
-- 更新完成重新載入 Device List
-- 自動重新選取修改後 Camera
-- Device Detail 同步更新
+- 摰? Device Center Edit Device 瘚?
+- ?啣? Edit Device ??
+- Edit Device 雿輻?Ｘ? AddDeviceWindow(Camera)
+- 閬??芸?頛?桀? Camera 鞈?
+- Save 敺? DeviceService.UpdateCamera() ?湔 SQLite
+- ?湔摰??頛 Device List
+- ?芸???詨?靽格敺?Camera
+- Device Detail ?郊?湔
 
 Architecture:
 
-- 維持 MVVM
-- ViewModel 不直接操作 SQLite
-- Repository Pattern 不變
-- SQLite Schema 無修改
-- Driver Framework 無修改
-
+- 蝬剜? MVVM
+- ViewModel 銝?交?雿?SQLite
+- Repository Pattern 銝?
+- SQLite Schema ?∩耨??- Driver Framework ?∩耨??
 Not Included:
 
 - Delete Device
@@ -154,11 +133,11 @@ Not Included:
 
 Verified:
 
-✓ Edit Device
-✓ SQLite Update
-✓ Reload Device List
-✓ Auto Select Updated Camera
-✓ Device Detail Refresh
+??Edit Device
+??SQLite Update
+??Reload Device List
+??Auto Select Updated Camera
+??Device Detail Refresh
 
 ---
 
@@ -166,25 +145,21 @@ Verified:
 
 ### S1-5 Delete Device
 
-完成 Device 刪除流程。
-
-新增：
-
+摰? Device ?芷瘚???
+?啣?嚗?
 - DeleteDeviceCommand
-- Delete 確認對話框
-- DeviceService.DeleteCamera()
-- 刪除後重新 LoadDevices()
-- 自動更新 SelectedDevice
-- Device Detail 同步刷新
+- Delete 蝣箄?撠店獢?- DeviceService.DeleteCamera()
+- ?芷敺???LoadDevices()
+- ?芸??湔 SelectedDevice
+- Device Detail ?郊?瑟
 
-遵守：
-
-- 不修改 Architecture
-- 不修改 Repository
-- 不修改 SQLite Schema
-- 不新增 DeleteView
-- 不新增 DeleteDialog
-- 不新增 DeleteService
+?萄?嚗?
+- 銝耨??Architecture
+- 銝耨??Repository
+- 銝耨??SQLite Schema
+- 銝憓?DeleteView
+- 銝憓?DeleteDialog
+- 銝憓?DeleteService
 
 ----
 # Changelog
@@ -197,32 +172,27 @@ Verified:
 
 #### Sprint 1 - S1-6 Search Device
 
-完成 DeviceCenter 搜尋功能。
+摰? DeviceCenter ?????
+?批捆嚗?
+- ?啣? Search TextBox
+- ?啣? Search Button
+- ?啣? Clear Button
+- SearchKeyword ?單???嚗extChanged嚗?- ?舀 Name ??
+- ?舀 IP ??
+- ?舀 Brand ??
+- ?舀 Model ??
+- ??憭批?撖思????- 雿輻閮擃???(_allDevices) ?脰?蝭拚
+- ?啣? ApplySearch()
+- 靽??桀? SelectedDevice
+- ?⊥?撠???憿舐內 No matching devices found.
+- Clear 敺敺拙???Device List
 
-內容：
-
-- 新增 Search TextBox
-- 新增 Search Button
-- 新增 Clear Button
-- SearchKeyword 即時搜尋（TextChanged）
-- 支援 Name 搜尋
-- 支援 IP 搜尋
-- 支援 Brand 搜尋
-- 支援 Model 搜尋
-- 搜尋大小寫不區分
-- 使用記憶體資料 (_allDevices) 進行篩選
-- 新增 ApplySearch()
-- 保留目前 SelectedDevice
-- 無搜尋結果時顯示 No matching devices found.
-- Clear 後恢復完整 Device List
-
-Architecture：
-
-- 不修改 Repository
-- 不修改 SQLite Schema
-- 不修改 Driver Framework
-- 不新增 SQL Query
-- Search 僅於 ViewModel 記憶體完成 Filter
+Architecture嚗?
+- 銝耨??Repository
+- 銝耨??SQLite Schema
+- 銝耨??Driver Framework
+- 銝憓?SQL Query
+- Search ? ViewModel 閮擃???Filter
 
 # Changelog
 
@@ -232,19 +202,15 @@ Architecture：
 
 #### S1-7 Filter Device
 
-- 新增 Device Brand Filter（All + CameraBrand）
-- 新增 Connection Filter（All + DeviceConnectionType）
-- Filter 與 Search 共用同一套記憶體篩選流程
-- Search 改為 Filter 後執行
-- 不重新查詢 SQLite
-- 新增 BrandOptions 與 ConnectionOptions
-- 新增 SelectedBrand、SelectedConnection
-- Clear Search 同時重設 Search、Brand Filter、Connection Filter
-- 無修改 Repository
-- 無修改 SQLite Schema
-- 無修改 Driver Framework
-- Build Success（0 Error / 7 Existing Warnings）
-
+- ?啣? Device Brand Filter嚗ll + CameraBrand嚗?- ?啣? Connection Filter嚗ll + DeviceConnectionType嚗?- Filter ??Search ?梁??憟??園?蝭拚瘚?
+- Search ?寧 Filter 敺銵?- 銝??唳閰?SQLite
+- ?啣? BrandOptions ??ConnectionOptions
+- ?啣? SelectedBrand?electedConnection
+- Clear Search ???身 Search?rand Filter?onnection Filter
+- ?∩耨??Repository
+- ?∩耨??SQLite Schema
+- ?∩耨??Driver Framework
+- Build Success嚗? Error / 7 Existing Warnings嚗?
 ---
 ## [v0.2] - 2026-06-30
 
@@ -277,3 +243,64 @@ Architecture：
   - Validation messages are displayed below each invalid field.
   - Invalid controls are highlighted immediately while typing.
   - Existing S1-9 final validation before save is retained.
+
+  ---
+  ## Unreleased
+
+### Added
+
+- Task-111A Import Framework
+  - 撱箇? ImportService
+  - 撱箇? IImportParser
+  - 撱箇? ImportRow
+  - 撱箇? ImportResult
+  - 撱箇? ImportWizard Skeleton
+
+- Task-111B CSV Parser
+  - ?啣? CsvImportParser
+  - ?舀 UTF8 / Big5
+  - ?舀 quoted field
+  - ?舀 Header Parsing
+
+- Task-111C Excel Parser
+  - ?啣? ExcelImportParser
+  - ?∠ ClosedXML
+  - ?舀 xlsx
+  - 蝚砌???Worksheet
+  - Header Parsing
+
+- Task-111D Parser Unit Test
+  - Added VSP.Tests
+  - Added CsvImportParserTests
+  - Added ExcelImportParserTests
+  - Added CSV parser tests for supported file types, header parsing, row mapping, quoted field, comma-in-quoted-field, empty row skip
+  - Added CSV encoding tests for UTF-8, UTF-8 BOM, UTF-8 without BOM, and Big5
+  - Added Excel parser tests for first worksheet parsing, header parsing, row mapping, blank cell handling, and empty row skip
+  - No production parser code changed
+
+- Task-111E Validation Engine
+  - Added ImportValidationEngine
+  - Added ImportValidationResult with original ImportRow reference
+  - Added shared ImportValidationMessage model
+  - Added ImportValidationSeverity enum
+  - Added validation rules for required fields, IPv4, HTTP / RTSP / SDK port range, RTSP URL required, and rtsp:// prefix
+  - Added ImportValidationEngineTests
+  - No parser, UI, SQLite, Repository, DeviceService, Driver Framework, ImportWizard, or Camera Entity changes
+
+- Task-111F Duplicate Checker
+  - Added DuplicateChecker to the Validation layer
+  - Reused ImportValidationResult, ImportValidationMessage, and ImportValidationSeverity
+  - Added duplicate rules for Name, IP Address, and RTSP URL
+  - Duplicate comparison is case-insensitive, trims whitespace, and ignores empty values
+  - Duplicate checker appends duplicate error messages and preserves existing validation messages
+  - Added ImportDuplicateCheckerTests
+  - No parser, UI, SQLite, Repository, DeviceService, Driver Framework, ImportWizard, or Camera Entity changes
+
+- Task-111G Import Pipeline Service
+  - Added ImportPipelineService as the single import pipeline entry point
+  - Added ImportPipelineResult with Results, TotalRows, ValidRows, and InvalidRows
+  - Added a lightweight parser selection helper to isolate parser selection from orchestration
+  - Reused CsvImportParser, ExcelImportParser, ImportValidationEngine, and DuplicateChecker
+  - Added ImportPipelineServiceTests for CSV, Excel, validation stage, duplicate stage, empty file, unsupported file type, and parser exception reporting
+  - No parser, UI, SQLite, Repository, DeviceService, Driver Framework, ImportWizard, MainWindow, or DeviceCenter changes
+
