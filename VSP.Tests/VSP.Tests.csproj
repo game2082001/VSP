@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VSP.Device\VSP.Device.csproj" />
+    <ProjectReference Include="..\VSP.UI\VSP.UI.csproj" />
   </ItemGroup>
 
 </Project>

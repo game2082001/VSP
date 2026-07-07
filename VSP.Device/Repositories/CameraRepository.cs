@@ -1,59 +1,46 @@
-﻿using VSP.Device.Interfaces;
+using VSP.Device.Interfaces;
 using VSP.Domain.Entities;
-using VSP.Domain.Enums;
+using VSP.Infrastructure.Database;
+using VSP.Infrastructure.Repositories;
 
 namespace VSP.Device.Repositories;
 
 public class CameraRepository : ICameraRepository
 {
-    private readonly List<Camera> _cameras = new();
+    private readonly SQLiteCameraRepository _cameraRepository;
 
     public CameraRepository()
+        : this(new SQLiteCameraRepository(new DatabaseService()))
     {
-        _cameras.Add(new Camera
-        {
-            Name = "Cam01",
-            IpAddress = "192.168.1.101",
-            Brand = CameraBrand.Hikvision,
-            RtspUrl = "rtsp://192.168.1.101"
-        });
+    }
 
-        _cameras.Add(new Camera
-        {
-            Name = "Cam02",
-            IpAddress = "192.168.1.102",
-            Brand = CameraBrand.Dahua,
-            RtspUrl = "rtsp://192.168.1.102"
-        });
+    public CameraRepository(SQLiteCameraRepository cameraRepository)
+    {
+        _cameraRepository = cameraRepository;
     }
 
     public IEnumerable<Camera> GetAll()
     {
-        return _cameras;
+        return _cameraRepository.GetAll();
     }
 
     public Camera? GetById(Guid id)
     {
-        return _cameras.FirstOrDefault(x => x.Id == id);
+        return _cameraRepository.GetAll().FirstOrDefault(x => x.Id == id);
     }
 
     public void Add(Camera camera)
     {
-        _cameras.Add(camera);
+        _cameraRepository.Add(camera);
     }
 
     public void Update(Camera camera)
     {
-        var index = _cameras.FindIndex(x => x.Id == camera.Id);
-
-        if (index >= 0)
-        {
-            _cameras[index] = camera;
-        }
+        _cameraRepository.Update(camera);
     }
 
     public void Delete(Guid id)
     {
-        _cameras.RemoveAll(x => x.Id == id);
+        _cameraRepository.Delete(id);
     }
 }

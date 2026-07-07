@@ -2,15 +2,16 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{Binding Title}"
-        Width="820"
-        Height="560"
+        Width="1200"
+        Height="760"
         WindowStartupLocation="CenterOwner"
         Background="#1E1E1E"
-        ResizeMode="NoResize">
+        ResizeMode="CanResize">
 
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="56"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="32"/>
             <RowDefinition Height="56"/>
@@ -22,7 +23,42 @@
                    FontWeight="SemiBold"
                    VerticalAlignment="Center"/>
 
-        <Grid Grid.Row="1"
+        <Border Grid.Row="1"
+                Margin="0,16,0,0"
+                Style="{StaticResource VspCard}"
+                Padding="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="120"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Import File"
+                           Style="{StaticResource VspFieldLabel}"
+                           VerticalAlignment="Center"/>
+
+                <TextBox Grid.Column="1"
+                         Text="{Binding SelectedFileName}"
+                         IsReadOnly="True"
+                         Style="{StaticResource VspTextBox}"
+                         Margin="12,0,12,0"/>
+
+                <Button Grid.Column="2"
+                        Content="Browse"
+                        Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,8,0"
+                        Command="{Binding BrowseFileCommand}"/>
+
+                <Button Grid.Column="3"
+                        Content="Refresh"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding RefreshCommand}"/>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2"
               Margin="0,16,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220"/>
@@ -42,8 +78,14 @@
                                Foreground="White"/>
                     <TextBlock Text="2. Preview"
                                Margin="0,0,0,8"
-                               Foreground="#B0B0B0"/>
-                    <TextBlock Text="3. Import Result"
+                               Foreground="White"/>
+                    <TextBlock Text="3. Ready to Import"
+                               Margin="0,0,0,16"
+                               Foreground="White"/>
+
+                    <TextBlock Text="Current Step"
+                               Style="{StaticResource VspFieldLabel}"/>
+                    <TextBlock Text="{Binding CurrentStep}"
                                Foreground="#B0B0B0"/>
                 </StackPanel>
             </Border>
@@ -52,87 +94,119 @@
                     Style="{StaticResource VspCard}"
                     Padding="20">
                 <StackPanel>
-                    <TextBlock Text="Framework Skeleton"
+                    <TextBlock Text="Import Preview"
                                Style="{StaticResource VspSectionTitle}"/>
 
-                    <Grid Margin="0,20,0,0">
+                    <Grid Margin="0,20,0,12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
+
                         <Grid.RowDefinitions>
                             <RowDefinition Height="40"/>
                             <RowDefinition Height="40"/>
                             <RowDefinition Height="40"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0"
-                                   Text="Current Step"
+                        <TextBlock Text="File Name"
                                    Style="{StaticResource VspFieldLabel}"/>
-                        <TextBlock Grid.Row="0"
-                                   Grid.Column="1"
-                                   Text="{Binding CurrentStep}"
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding SelectedFileName}"
                                    Foreground="White"
                                    VerticalAlignment="Center"/>
 
-                        <TextBlock Grid.Row="1"
-                                   Text="File Name"
-                                   Style="{StaticResource VspFieldLabel}"/>
-                        <TextBlock Grid.Row="1"
-                                   Grid.Column="1"
-                                   Text="{Binding SelectedFileName, TargetNullValue=''}"
-                                   Foreground="White"
-                                   VerticalAlignment="Center"/>
-
-                        <TextBlock Grid.Row="2"
+                        <TextBlock Grid.Column="2"
                                    Text="File Type"
                                    Style="{StaticResource VspFieldLabel}"/>
+                        <TextBlock Grid.Column="3"
+                                   Text="{Binding SelectedFileType}"
+                                   Foreground="White"
+                                   VerticalAlignment="Center"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="Total Rows"
+                                   Style="{StaticResource VspFieldLabel}"/>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="1"
+                                   Text="{Binding TotalRows}"
+                                   Foreground="White"
+                                   VerticalAlignment="Center"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="2"
+                                   Text="Valid Rows"
+                                   Style="{StaticResource VspFieldLabel}"/>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="3"
+                                   Text="{Binding ValidRows}"
+                                   Foreground="White"
+                                   VerticalAlignment="Center"/>
+
+                        <TextBlock Grid.Row="2"
+                                   Text="Invalid Rows"
+                                   Style="{StaticResource VspFieldLabel}"/>
                         <TextBlock Grid.Row="2"
                                    Grid.Column="1"
-                                   Text="{Binding SelectedFileType, TargetNullValue=''}"
+                                   Text="{Binding InvalidRows}"
                                    Foreground="White"
                                    VerticalAlignment="Center"/>
                     </Grid>
 
-                    <Border Margin="0,24,0,0"
-                            BorderBrush="#3E3E42"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="16"
-                            Background="#202020">
-                        <TextBlock Text="Preview and import execution are intentionally not implemented in Task-111A."
-                                   TextWrapping="Wrap"
-                                   Foreground="#B0B0B0"/>
-                    </Border>
+                    <DataGrid ItemsSource="{Binding PreviewRows}"
+                              AutoGenerateColumns="False"
+                              HeadersVisibility="Column"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              CanUserSortColumns="False"
+                              IsReadOnly="True"
+                              MinHeight="320">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Row Number" Binding="{Binding RowNumber}" Width="90"/>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="140"/>
+                            <DataGridTextColumn Header="Brand" Binding="{Binding Brand}" Width="120"/>
+                            <DataGridTextColumn Header="Model" Binding="{Binding Model}" Width="140"/>
+                            <DataGridTextColumn Header="IP Address" Binding="{Binding IPAddress}" Width="140"/>
+                            <DataGridTextColumn Header="Location" Binding="{Binding Location}" Width="120"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                            <DataGridTemplateColumn Header="Messages" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ItemsControl ItemsSource="{Binding Messages}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Message}"
+                                                               TextWrapping="Wrap"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </StackPanel>
             </Border>
         </Grid>
 
-        <TextBlock Grid.Row="2"
+        <TextBlock Grid.Row="3"
                    Text="{Binding StatusMessage}"
                    Foreground="#B0B0B0"
                    VerticalAlignment="Center"/>
 
-        <StackPanel Grid.Row="3"
+        <StackPanel Grid.Row="4"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center">
-            <Button Content="Browse"
-                    Style="{StaticResource SecondaryButton}"
-                    Margin="0,0,8,0"
-                    Command="{Binding BrowseFileCommand}"/>
-
-            <Button Content="Back"
-                    Style="{StaticResource SecondaryButton}"
-                    Margin="0,0,8,0"
-                    Command="{Binding PreviousStepCommand}"/>
-
-            <Button Content="Next"
+            <Button Content="Import"
                     Style="{StaticResource PrimaryButton}"
                     Margin="0,0,8,0"
-                    Command="{Binding NextStepCommand}"/>
+                    Command="{Binding ImportCommand}"/>
 
-            <Button Content="Close"
+            <Button Content="Cancel"
                     Style="{StaticResource SecondaryButton}"
                     Command="{Binding CloseCommand}"/>
         </StackPanel>

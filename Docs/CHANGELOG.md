@@ -313,3 +313,34 @@ Architecture嚗?
   - Added ImportPreviewBuilderTests for empty result, single row, multiple rows, valid row, invalid row, duplicate row, messages mapping, summary count, row order, and null safety
   - No parser, validation engine, duplicate checker, UI, SQLite, or Repository changes
 
+- Task-113 Import Wizard UI
+  - Updated ImportWizard to browse import files and display preview results
+  - Injected ImportPipelineService and ImportPreviewBuilder into ImportWizardViewModel through constructor parameters
+  - Added ImportFileSelector helper to isolate file dialog usage from the ViewModel
+  - Added preview summary fields for total, valid, and invalid rows
+  - Added preview grid columns for row number, device fields, status, and validation messages
+  - Added Refresh support to reload the currently selected file without browsing again
+  - Added ImportWizardViewModelTests covering empty preview, preview display, summary counts, refresh behavior, cancel, invalid file type, and exception handling
+  - No parser, validation, duplicate, SQLite, Repository, DeviceService, Driver Framework, or MainWindow changes
+
+- Task-114 SQLite Import
+  - Added ImportExecutor to orchestrate ImportPreviewResult -> CameraImportMapper -> ICameraRepository -> ImportResult
+  - Added CameraImportMapper to map ImportPreviewRow into Camera entities without repository or UI logic
+  - Added ImportResult and ImportError models for import execution summary and error collection
+  - Reused the existing ICameraRepository abstraction for import execution
+  - Updated CameraRepository to delegate to SQLiteCameraRepository for repository-backed imports
+  - Connected ImportWizard Import button to execution flow and simple status updates
+  - Added ImportExecutorTests for empty import, multiple rows, skipped invalid rows, partial failure, repository exception, and error collection
+  - Updated ImportWizardViewModelTests to cover import command enablement and import status
+  - No parser, validation engine, duplicate checker, import pipeline service, import preview builder, SQLite schema, driver framework, or DeviceService changes
+
+- Task-115 Import Summary
+  - Added ImportSummaryViewModel to display execution ImportResult data and expose a RequestClose event
+  - Added ImportSummaryWindow with summary counts, error list, and a Close button
+  - Connected ImportWizard to open ImportSummaryWindow after import completion
+  - Reused ImportResult and ImportError directly from the execution layer without creating a new summary model
+  - Added ImportSummaryViewModelTests for success, partial failure, full failure, empty result, error list, and close command
+  - Updated ImportWizardViewModelTests to verify ImportCompleted event is raised
+  - Corrected one existing ImportExecutor test case so skipped and failed rows are both exercised
+  - No parser, validation, duplicate, pipeline, preview builder, import executor, or repository changes
+
