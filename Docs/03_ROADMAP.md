@@ -166,7 +166,7 @@ Status嚗lanned
 | Task-111E Validation Engine | Completed |
 | Task-111F Duplicate Checker | Completed |
 | Task-111G Import Pipeline Service | Completed |
-| Task-112 Import Wizard | Planned |
+| Task-112 Import Preview Builder | Completed |
 | Task-113 SQLite Import | Planned |
 
 ---
@@ -195,15 +195,14 @@ Current Feature嚗?
 > Device Import
 
 Current Task嚗?
-> Task-112 Import Wizard
+> Task-113 SQLite Import
 
 ---
 
 # ?准?銝甇伐?Next嚗?
 摰???嚗?
 ```text
-Task-112 Import Wizard
-        ??Task-113 SQLite Import
+Task-113 SQLite Import
         ??Task-114 Device Export
         ??Task-115 Batch Edit
         ??Task-116 Batch Connection Test

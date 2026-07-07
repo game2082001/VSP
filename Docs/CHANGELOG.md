@@ -304,3 +304,12 @@ Architecture嚗?
   - Added ImportPipelineServiceTests for CSV, Excel, validation stage, duplicate stage, empty file, unsupported file type, and parser exception reporting
   - No parser, UI, SQLite, Repository, DeviceService, Driver Framework, ImportWizard, MainWindow, or DeviceCenter changes
 
+- Task-112 Import Preview Builder
+  - Added ImportPreviewBuilder
+  - Added ImportPreviewResult
+  - Added ImportPreviewRow
+  - ImportPreviewRow remains UI-independent and uses plain data fields only
+  - Reused ImportValidationMessage directly without adding a preview-specific message model
+  - Added ImportPreviewBuilderTests for empty result, single row, multiple rows, valid row, invalid row, duplicate row, messages mapping, summary count, row order, and null safety
+  - No parser, validation engine, duplicate checker, UI, SQLite, or Repository changes
+
