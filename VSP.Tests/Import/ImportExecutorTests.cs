@@ -2,7 +2,7 @@ using VSP.Device.Import.Execution;
 using VSP.Device.Import.Preview;
 using VSP.Device.Import.Validation;
 using VSP.Device.Interfaces;
-using VSP.Domain.Entities;
+using EntityCamera = VSP.Domain.Entities.Camera;
 using Xunit;
 
 namespace VSP.Tests.Import;
@@ -208,24 +208,24 @@ public class ImportExecutorTests
 
     private sealed class FakeCameraRepository : ICameraRepository
     {
-        public List<Camera> Cameras { get; } = [];
+        public List<EntityCamera> Cameras { get; } = [];
 
-        public IEnumerable<Camera> GetAll()
+        public IEnumerable<EntityCamera> GetAll()
         {
             return Cameras;
         }
 
-        public Camera? GetById(Guid id)
+        public EntityCamera? GetById(Guid id)
         {
             return Cameras.FirstOrDefault(camera => camera.Id == id);
         }
 
-        public void Add(Camera camera)
+        public void Add(EntityCamera camera)
         {
             Cameras.Add(camera);
         }
 
-        public void Update(Camera camera)
+        public void Update(EntityCamera camera)
         {
             throw new NotSupportedException();
         }
@@ -246,19 +246,19 @@ public class ImportExecutorTests
             _throwOnCall = throwOnCall;
         }
 
-        public List<Camera> Cameras { get; } = [];
+        public List<EntityCamera> Cameras { get; } = [];
 
-        public IEnumerable<Camera> GetAll()
+        public IEnumerable<EntityCamera> GetAll()
         {
             return Cameras;
         }
 
-        public Camera? GetById(Guid id)
+        public EntityCamera? GetById(Guid id)
         {
             return Cameras.FirstOrDefault(camera => camera.Id == id);
         }
 
-        public void Add(Camera camera)
+        public void Add(EntityCamera camera)
         {
             _addCount++;
 
@@ -270,7 +270,7 @@ public class ImportExecutorTests
             Cameras.Add(camera);
         }
 
-        public void Update(Camera camera)
+        public void Update(EntityCamera camera)
         {
             throw new NotSupportedException();
         }

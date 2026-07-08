@@ -344,3 +344,11 @@ Architecture嚗?
   - Corrected one existing ImportExecutor test case so skipped and failed rows are both exercised
   - No parser, validation, duplicate, pipeline, preview builder, import executor, or repository changes
 
+- Task-201 Camera List
+  - Added CameraQueryService to wrap the existing ICameraRepository read flow
+  - Added CameraListViewModel and CameraListItemViewModel for read-only camera display
+  - Added standalone CameraListView with a read-only DataGrid for Name, IP Address, Brand, Status, and Location
+  - Reused the existing repository contract without changing sync CRUD methods
+  - Added CameraListViewModelTests for empty repository, multiple cameras, repository exception, and mapping
+  - Did not modify MainWindow, Import flow, SQLite schema, or Driver Framework
+
