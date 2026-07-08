@@ -6,8 +6,9 @@
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="56"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="28"/>
+            <RowDefinition Height="40"/>
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0"
@@ -24,6 +25,67 @@
         </Border>
 
         <Border Grid.Row="1"
+                Margin="0,16,0,0"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="120"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0"
+                         Text="{Binding SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource VspTextBox}"
+                         VerticalContentAlignment="Center"
+                         Margin="0,0,8,0"/>
+
+                <Button Grid.Column="1"
+                        Content="Search"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding SearchCommand}"
+                        Margin="0,0,8,0"/>
+
+                <Button Grid.Column="2"
+                        Content="Clear"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding ClearCommand}"
+                        Margin="0,0,8,0"/>
+
+                <ComboBox Grid.Column="3"
+                          ItemsSource="{Binding BrandOptions}"
+                          SelectedItem="{Binding SelectedBrand, Mode=TwoWay}"
+                          Style="{StaticResource VspComboBox}"
+                          Margin="0,0,8,0"/>
+
+                <ComboBox Grid.Column="4"
+                          ItemsSource="{Binding StatusOptions}"
+                          SelectedItem="{Binding SelectedStatus, Mode=TwoWay}"
+                          Style="{StaticResource VspComboBox}"
+                          Margin="0,0,8,0"/>
+
+                <Button Grid.Column="5"
+                        Content="Refresh"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding RefreshCommand}"
+                        Margin="0,0,8,0"/>
+
+                <Button Grid.Column="6"
+                        Content="Add Camera"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AddCameraCommand}"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
                 Margin="0,16,0,12"
                 Background="#252526"
                 BorderBrush="#3E3E42"
@@ -58,9 +120,28 @@
             </DataGrid>
         </Border>
 
-        <TextBlock Grid.Row="2"
-                   Text="{Binding StatusMessage}"
-                   Foreground="#B0B0B0"
-                   VerticalAlignment="Center"/>
+        <Border Grid.Row="3"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="{Binding TotalCamerasText}"
+                           Foreground="#B0B0B0"
+                           VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Column="1"
+                           Text="{Binding StatusMessage}"
+                           Foreground="#B0B0B0"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Right"/>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

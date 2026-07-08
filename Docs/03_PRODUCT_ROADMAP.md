@@ -30,6 +30,12 @@ Modules
 - Device Detail
 - CRUD
 
+Current Progress
+
+- Task-201 Camera List
+- Task-202 Camera Management Toolbar
+- Task-203 Camera Search
+
 ---
 
 # Version 1.2

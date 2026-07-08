@@ -352,3 +352,19 @@ Architecture嚗?
   - Added CameraListViewModelTests for empty repository, multiple cameras, repository exception, and mapping
   - Did not modify MainWindow, Import flow, SQLite schema, or Driver Framework
 
+- Task-202 Camera Management Toolbar
+  - Added toolbar layout to CameraListView with Search, Clear, Brand, Status, Refresh, and Add Camera controls
+  - Added bottom status bar showing total camera count and the current status message
+  - Added placeholder toolbar bindings in CameraListViewModel without introducing search, filter, refresh, or add business logic
+  - Preserved the existing Camera List load behavior from Task-201
+  - Added ViewModel tests for toolbar skeleton state and placeholder commands
+  - Did not modify CameraQueryService, Repository, SQLite, Import flow, or MainWindow
+
+- Task-203 Camera Search
+  - Implemented Camera Search in CameraListViewModel using SearchCommand and ClearCommand
+  - Search scope is limited to Camera Name and IP Address
+  - Clear restores the full list, clears SearchKeyword, and updates total count and status message
+  - Search continues to use ICameraRepository.GetAll() through CameraQueryService, followed by LINQ filtering in ViewModel
+  - No Repository.Search() or SQLite changes were introduced
+  - Added unit tests for name search, IP search, excluded fields, blank keyword restore, and clear behavior
+

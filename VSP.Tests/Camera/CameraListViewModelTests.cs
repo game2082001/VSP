@@ -36,6 +36,7 @@ public class CameraListViewModelTests
         Assert.Equal("RTSP", viewModel.Cameras[0].Brand);
         Assert.Equal("Online", viewModel.Cameras[0].Status);
         Assert.Equal("Gate", viewModel.Cameras[0].Location);
+        Assert.Equal("Total: 2 cameras", viewModel.TotalCamerasText);
         Assert.Equal("Loaded 2 camera(s).", viewModel.StatusMessage);
     }
 
@@ -61,6 +62,122 @@ public class CameraListViewModelTests
         Assert.Equal("Axis", item.Brand);
         Assert.Equal("Offline", item.Status);
         Assert.Equal("Storage", item.Location);
+    }
+
+    [Fact]
+    public void Constructor_InitializesToolbarSkeletonState()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository());
+
+        Assert.Equal(string.Empty, viewModel.SearchKeyword);
+        Assert.Equal("All", viewModel.SelectedBrand);
+        Assert.Equal("All", viewModel.SelectedStatus);
+        Assert.Equal(new[] { "All" }, viewModel.BrandOptions);
+        Assert.Equal(new[] { "All" }, viewModel.StatusOptions);
+        Assert.Equal("Total: 0 cameras", viewModel.TotalCamerasText);
+        Assert.Equal("Ready.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void ToolbarCommands_ExecuteWithoutThrowing()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository());
+
+        viewModel.SearchCommand.Execute(null);
+        viewModel.ClearCommand.Execute(null);
+        viewModel.RefreshCommand.Execute(null);
+        viewModel.AddCameraCommand.Execute(null);
+
+        Assert.Equal("No cameras found.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task SearchCommand_FiltersByCameraName()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.RTSP, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "192.168.1.11", CameraBrand.Hikvision, CameraStatus.Offline, "Hall")));
+
+        await viewModel.LoadAsync();
+        viewModel.SearchKeyword = "front";
+
+        viewModel.SearchCommand.Execute(null);
+
+        Assert.Single(viewModel.Cameras);
+        Assert.Equal("Front Door", viewModel.Cameras[0].Name);
+        Assert.Equal("Total: 1 cameras", viewModel.TotalCamerasText);
+        Assert.Equal("Found 1 camera(s).", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task SearchCommand_FiltersByIpAddress()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.RTSP, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Hikvision, CameraStatus.Offline, "Hall")));
+
+        await viewModel.LoadAsync();
+        viewModel.SearchKeyword = "10.0.0.25";
+
+        viewModel.SearchCommand.Execute(null);
+
+        Assert.Single(viewModel.Cameras);
+        Assert.Equal("Lobby", viewModel.Cameras[0].Name);
+    }
+
+    [Fact]
+    public async Task SearchCommand_DoesNotSearchExcludedFields()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.RTSP, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Hikvision, CameraStatus.Offline, "Hall")));
+
+        await viewModel.LoadAsync();
+        viewModel.SearchKeyword = "hikvision";
+
+        viewModel.SearchCommand.Execute(null);
+
+        Assert.Empty(viewModel.Cameras);
+        Assert.Equal("Total: 0 cameras", viewModel.TotalCamerasText);
+        Assert.Equal("No cameras matched the search keyword.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task SearchCommand_BlankKeywordRestoresFullList()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.RTSP, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Hikvision, CameraStatus.Offline, "Hall")));
+
+        await viewModel.LoadAsync();
+        viewModel.SearchKeyword = "front";
+        viewModel.SearchCommand.Execute(null);
+
+        viewModel.SearchKeyword = "   ";
+        viewModel.SearchCommand.Execute(null);
+
+        Assert.Equal(2, viewModel.Cameras.Count);
+        Assert.Equal("Total: 2 cameras", viewModel.TotalCamerasText);
+        Assert.Equal("Loaded 2 camera(s).", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ClearCommand_ClearsKeywordAndRestoresFullList()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.RTSP, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Hikvision, CameraStatus.Offline, "Hall")));
+
+        await viewModel.LoadAsync();
+        viewModel.SearchKeyword = "front";
+        viewModel.SearchCommand.Execute(null);
+
+        viewModel.ClearCommand.Execute(null);
+
+        Assert.Equal(string.Empty, viewModel.SearchKeyword);
+        Assert.Equal(2, viewModel.Cameras.Count);
+        Assert.Equal("Total: 2 cameras", viewModel.TotalCamerasText);
+        Assert.Equal("Loaded 2 camera(s).", viewModel.StatusMessage);
     }
 
     private static CameraListViewModel CreateViewModel(ICameraRepository repository)
