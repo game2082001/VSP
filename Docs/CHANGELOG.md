@@ -409,3 +409,11 @@ Architecture嚗?
   - Add success now closes the detail window, refreshes Camera List, and reselects the newly added camera when visible
   - Added unit tests for New Mode defaults, add success, add failure, add command event routing, and refresh selection behavior
   - Technical Debt: TD-021 Duplicate camera detection before Add()
+
+- Task-210 Unsaved Changes Detection
+  - Added dirty tracking for Camera Detail in both Edit Mode and New Mode
+  - Close flow now requests confirmation only when unsaved changes exist, while unchanged forms close immediately
+  - Save from unsaved-changes confirmation now closes only after successful persistence; discard closes without saving; cancel keeps the current edits
+  - Kept confirmation dialog handling in CameraDetailWindow.xaml.cs so the ViewModel does not call MessageBox directly
+  - Added unit tests for dirty state changes, save clearing dirty state, and close flows for save, discard, and cancel
+  - Technical Debt: TD-022 Shared confirmation dialog component

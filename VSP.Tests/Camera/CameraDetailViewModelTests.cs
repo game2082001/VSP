@@ -61,6 +61,27 @@ public class CameraDetailViewModelTests
         Assert.Equal(string.Empty, viewModel.Password);
         Assert.Equal(string.Empty, viewModel.RtspUrl);
         Assert.Equal("Ready to add camera.", viewModel.StatusMessage);
+        Assert.False(viewModel.IsDirty);
+    }
+
+    [Fact]
+    public void IsDirty_ChangesInEditMode()
+    {
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
+
+        viewModel.Name = "Lobby";
+
+        Assert.True(viewModel.IsDirty);
+    }
+
+    [Fact]
+    public void IsDirty_ChangesInNewMode()
+    {
+        var viewModel = new CameraDetailViewModel(new FakeCameraRepository());
+
+        viewModel.Name = "Lobby";
+
+        Assert.True(viewModel.IsDirty);
     }
 
     [Fact]
@@ -149,6 +170,7 @@ public class CameraDetailViewModelTests
         Assert.Equal(1, repository.UpdateCallCount);
         Assert.Equal("Lobby", repository.LastUpdatedCamera!.Name);
         Assert.Equal("Camera saved successfully.", viewModel.StatusMessage);
+        Assert.False(viewModel.IsDirty);
     }
 
     [Fact]
@@ -169,6 +191,7 @@ public class CameraDetailViewModelTests
         Assert.True(viewModel.WasSaved);
         Assert.NotNull(viewModel.SavedCameraId);
         Assert.Equal("Camera added successfully.", viewModel.StatusMessage);
+        Assert.False(viewModel.IsDirty);
         Assert.Equal("Lobby", repository.LastAddedCamera!.Name);
         Assert.Equal(CameraBrand.Unknown, repository.LastAddedCamera.Brand);
         Assert.Equal(DeviceConnectionType.Unknown, repository.LastAddedCamera.ConnectionType);
@@ -231,7 +254,7 @@ public class CameraDetailViewModelTests
     }
 
     [Fact]
-    public void CloseCommand_RaisesRequestClose()
+    public void CloseCommand_WithoutChanges_RaisesRequestClose()
     {
         var viewModel = CreateViewModel(new FakeCameraRepository());
         var wasRaised = false;
@@ -241,6 +264,90 @@ public class CameraDetailViewModelTests
         viewModel.CloseCommand.Execute(null);
 
         Assert.True(wasRaised);
+    }
+
+    [Fact]
+    public void CloseCommand_WithChanges_RequestsConfirmation()
+    {
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
+        var confirmationRequested = false;
+        var closeRequested = false;
+
+        viewModel.Name = "Lobby";
+        viewModel.RequestUnsavedChangesConfirmation += () => confirmationRequested = true;
+        viewModel.RequestClose += () => closeRequested = true;
+
+        viewModel.CloseCommand.Execute(null);
+
+        Assert.True(confirmationRequested);
+        Assert.False(closeRequested);
+    }
+
+    [Fact]
+    public void HandleUnsavedChangesDecision_Save_ClosesAfterSuccessfulSave()
+    {
+        var repository = new FakeCameraRepository();
+        var viewModel = CreateEditableViewModel(repository);
+        var closeRequested = false;
+
+        viewModel.Name = "Lobby";
+        viewModel.RequestClose += () => closeRequested = true;
+
+        viewModel.HandleUnsavedChangesDecision(UnsavedChangesDecision.Save);
+
+        Assert.True(closeRequested);
+        Assert.Equal(1, repository.UpdateCallCount);
+        Assert.False(viewModel.IsDirty);
+    }
+
+    [Fact]
+    public void HandleUnsavedChangesDecision_Save_DoesNotCloseWhenSaveFails()
+    {
+        var repository = new ThrowingCameraRepository();
+        var viewModel = CreateEditableViewModel(repository);
+        var closeRequested = false;
+
+        viewModel.Name = "Lobby";
+        viewModel.RequestClose += () => closeRequested = true;
+
+        viewModel.HandleUnsavedChangesDecision(UnsavedChangesDecision.Save);
+
+        Assert.False(closeRequested);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal("Failed to save camera: Repository failure.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void HandleUnsavedChangesDecision_Discard_ClosesWithoutSaving()
+    {
+        var repository = new FakeCameraRepository();
+        var viewModel = CreateEditableViewModel(repository);
+        var closeRequested = false;
+
+        viewModel.Name = "Lobby";
+        viewModel.IpAddress = "bad-ip";
+        viewModel.RequestClose += () => closeRequested = true;
+
+        viewModel.HandleUnsavedChangesDecision(UnsavedChangesDecision.Discard);
+
+        Assert.True(closeRequested);
+        Assert.Equal(0, repository.UpdateCallCount);
+    }
+
+    [Fact]
+    public void HandleUnsavedChangesDecision_Cancel_StaysOpenAndKeepsChanges()
+    {
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
+        var closeRequested = false;
+
+        viewModel.Name = "Lobby";
+        viewModel.RequestClose += () => closeRequested = true;
+
+        viewModel.HandleUnsavedChangesDecision(UnsavedChangesDecision.Cancel);
+
+        Assert.False(closeRequested);
+        Assert.True(viewModel.IsDirty);
+        Assert.Equal("Lobby", viewModel.Name);
     }
 
     [Fact]

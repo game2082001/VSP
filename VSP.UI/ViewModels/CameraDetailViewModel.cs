@@ -7,6 +7,13 @@ using VSP.Domain.Enums;
 
 namespace VSP.UI.ViewModels;
 
+public enum UnsavedChangesDecision
+{
+    Save,
+    Discard,
+    Cancel
+}
+
 public class CameraDetailViewModel : ObservableObject
 {
     private readonly Camera _camera;
@@ -14,6 +21,7 @@ public class CameraDetailViewModel : ObservableObject
     private readonly RelayCommand _saveCommand;
     private readonly bool _isNewMode;
 
+    private string _savedSnapshot = string.Empty;
     private string _name;
     private string _brand;
     private string _model;
@@ -38,24 +46,27 @@ public class CameraDetailViewModel : ObservableObject
     private bool _isRtspPortValid = true;
     private string _sdkPortError = string.Empty;
     private bool _isSdkPortValid = true;
-
-    public string Title => IsNewMode ? "Add Camera" : "Camera Detail";
-    public string HeaderTitle => Title;
-    public IReadOnlyList<string> BrandOptions { get; } = Enum.GetNames<CameraBrand>();
     private string _lastModifyTime;
     private string _status;
     private string _recording;
     private string _createTime;
+
+    public string Title => IsNewMode ? "Add Camera" : "Camera Detail";
+    public string HeaderTitle => Title;
+    public IReadOnlyList<string> BrandOptions { get; } = Enum.GetNames<CameraBrand>();
+
     public string LastModifyTime
     {
         get => _lastModifyTime;
         private set => SetProperty(ref _lastModifyTime, value);
     }
+
     public ICommand CloseCommand { get; }
     public ICommand EditCommand { get; }
     public ICommand SaveCommand => _saveCommand;
 
     public event Action? RequestClose;
+    public event Action? RequestUnsavedChangesConfirmation;
 
     public CameraDetailViewModel(Camera camera, ICameraRepository cameraRepository)
         : this(camera, cameraRepository, false)
@@ -87,7 +98,6 @@ public class CameraDetailViewModel : ObservableObject
         _username = camera.Username;
         _password = camera.Password;
         _rtspUrl = camera.RtspUrl;
-
         _status = camera.Status.ToString();
         _recording = camera.Recording ? "Yes" : "No";
         _createTime = camera.CreateTime.ToString("yyyy-MM-dd HH:mm:ss");
@@ -99,6 +109,7 @@ public class CameraDetailViewModel : ObservableObject
         _saveCommand = new RelayCommand(Save, () => IsEditMode);
 
         IsEditMode = isNewMode;
+        _savedSnapshot = CreateSnapshot();
         ValidateAll();
     }
 
@@ -108,6 +119,8 @@ public class CameraDetailViewModel : ObservableObject
 
     public Guid? SavedCameraId { get; private set; }
 
+    public bool IsDirty => !CreateSnapshot().Equals(_savedSnapshot, StringComparison.Ordinal);
+
     public string Name
     {
         get => _name;
@@ -116,6 +129,7 @@ public class CameraDetailViewModel : ObservableObject
             if (SetProperty(ref _name, value))
             {
                 ValidateAll();
+                OnPropertyChanged(nameof(IsDirty));
             }
         }
     }
@@ -123,19 +137,37 @@ public class CameraDetailViewModel : ObservableObject
     public string Brand
     {
         get => _brand;
-        set => SetProperty(ref _brand, value);
+        set
+        {
+            if (SetProperty(ref _brand, value))
+            {
+                OnPropertyChanged(nameof(IsDirty));
+            }
+        }
     }
 
     public string Model
     {
         get => _model;
-        set => SetProperty(ref _model, value);
+        set
+        {
+            if (SetProperty(ref _model, value))
+            {
+                OnPropertyChanged(nameof(IsDirty));
+            }
+        }
     }
 
     public string Location
     {
         get => _location;
-        set => SetProperty(ref _location, value);
+        set
+        {
+            if (SetProperty(ref _location, value))
+            {
+                OnPropertyChanged(nameof(IsDirty));
+            }
+        }
     }
 
     public string IpAddress
@@ -146,6 +178,7 @@ public class CameraDetailViewModel : ObservableObject
             if (SetProperty(ref _ipAddress, value))
             {
                 ValidateAll();
+                OnPropertyChanged(nameof(IsDirty));
             }
         }
     }
@@ -158,6 +191,7 @@ public class CameraDetailViewModel : ObservableObject
             if (SetProperty(ref _httpPort, value))
             {
                 ValidateAll();
+                OnPropertyChanged(nameof(IsDirty));
             }
         }
     }
@@ -170,6 +204,7 @@ public class CameraDetailViewModel : ObservableObject
             if (SetProperty(ref _rtspPort, value))
             {
                 ValidateAll();
+                OnPropertyChanged(nameof(IsDirty));
             }
         }
     }
@@ -182,6 +217,7 @@ public class CameraDetailViewModel : ObservableObject
             if (SetProperty(ref _sdkPort, value))
             {
                 ValidateAll();
+                OnPropertyChanged(nameof(IsDirty));
             }
         }
     }
@@ -189,7 +225,13 @@ public class CameraDetailViewModel : ObservableObject
     public string Username
     {
         get => _username;
-        set => SetProperty(ref _username, value);
+        set
+        {
+            if (SetProperty(ref _username, value))
+            {
+                OnPropertyChanged(nameof(IsDirty));
+            }
+        }
     }
 
     public string Password
@@ -200,6 +242,7 @@ public class CameraDetailViewModel : ObservableObject
             if (SetProperty(ref _password, value))
             {
                 OnPropertyChanged(nameof(MaskedPassword));
+                OnPropertyChanged(nameof(IsDirty));
             }
         }
     }
@@ -209,7 +252,13 @@ public class CameraDetailViewModel : ObservableObject
     public string RtspUrl
     {
         get => _rtspUrl;
-        set => SetProperty(ref _rtspUrl, value);
+        set
+        {
+            if (SetProperty(ref _rtspUrl, value))
+            {
+                OnPropertyChanged(nameof(IsDirty));
+            }
+        }
     }
 
     public bool IsEditMode
@@ -323,12 +372,17 @@ public class CameraDetailViewModel : ObservableObject
 
     private void Save()
     {
+        Save(closeOnSuccess: IsNewMode);
+    }
+
+    private bool Save(bool closeOnSuccess)
+    {
         ValidateAll();
 
         if (!IsFormValid)
         {
             StatusMessage = "Please fix validation errors before saving.";
-            return;
+            return false;
         }
 
         try
@@ -339,22 +393,37 @@ public class CameraDetailViewModel : ObservableObject
             {
                 _cameraRepository.Add(_camera);
                 SyncDisplayFieldsFromCamera();
+                UpdateSavedSnapshot();
                 WasSaved = true;
                 SavedCameraId = _camera.Id;
                 StatusMessage = "Camera added successfully.";
-                RequestClose?.Invoke();
-                return;
+
+                if (closeOnSuccess)
+                {
+                    RequestClose?.Invoke();
+                }
+
+                return true;
             }
 
             _cameraRepository.Update(_camera);
             SyncDisplayFieldsFromCamera();
+            UpdateSavedSnapshot();
             StatusMessage = "Camera saved successfully.";
+
+            if (closeOnSuccess)
+            {
+                RequestClose?.Invoke();
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
             StatusMessage = IsNewMode
                 ? $"Failed to add camera: {ex.Message}"
                 : $"Failed to save camera: {ex.Message}";
+            return false;
         }
     }
 
@@ -398,7 +467,55 @@ public class CameraDetailViewModel : ObservableObject
 
     private void Close()
     {
-        RequestClose?.Invoke();
+        if (!IsDirty)
+        {
+            RequestClose?.Invoke();
+            return;
+        }
+
+        RequestUnsavedChangesConfirmation?.Invoke();
+    }
+
+    public void HandleUnsavedChangesDecision(UnsavedChangesDecision decision)
+    {
+        switch (decision)
+        {
+            case UnsavedChangesDecision.Save:
+                Save(closeOnSuccess: true);
+                break;
+            case UnsavedChangesDecision.Discard:
+                RequestClose?.Invoke();
+                break;
+            case UnsavedChangesDecision.Cancel:
+                break;
+        }
+    }
+
+    private void UpdateSavedSnapshot()
+    {
+        _savedSnapshot = CreateSnapshot();
+        OnPropertyChanged(nameof(IsDirty));
+    }
+
+    private string CreateSnapshot()
+    {
+        return string.Join("|",
+            NormalizeSnapshotValue(Name),
+            NormalizeSnapshotValue(Brand),
+            NormalizeSnapshotValue(Model),
+            NormalizeSnapshotValue(Location),
+            NormalizeSnapshotValue(IpAddress),
+            NormalizeSnapshotValue(HttpPort),
+            NormalizeSnapshotValue(RtspPort),
+            NormalizeSnapshotValue(SdkPort),
+            NormalizeSnapshotValue(Username),
+            Password,
+            NormalizeSnapshotValue(RtspUrl));
+    }
+
+    private static string NormalizeSnapshotValue(string value)
+    {
+        return value.Trim();
     }
 
     private void MapToCamera(Camera camera)

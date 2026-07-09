@@ -40,6 +40,7 @@ Current Progress
 - Task-206 Camera Edit
 - Task-207 Camera Save Persistence
 - Task-208 Add Camera
+- Task-210 Unsaved Changes Detection
 
 ---
 
