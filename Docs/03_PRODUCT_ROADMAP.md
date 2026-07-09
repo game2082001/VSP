@@ -35,6 +35,9 @@ Current Progress
 - Task-201 Camera List
 - Task-202 Camera Management Toolbar
 - Task-203 Camera Search
+- Task-204 Camera Detail
+- Task-205 Camera Filter
+- Task-206 Camera Edit
 
 ---
 

@@ -72,8 +72,8 @@ public class CameraListViewModelTests
         Assert.Equal(string.Empty, viewModel.SearchKeyword);
         Assert.Equal("All", viewModel.SelectedBrand);
         Assert.Equal("All", viewModel.SelectedStatus);
-        Assert.Equal(new[] { "All" }, viewModel.BrandOptions);
-        Assert.Equal(new[] { "All" }, viewModel.StatusOptions);
+        Assert.Equal(new[] { "All", "Hikvision", "Dahua", "VIVOTEK" }, viewModel.BrandOptions);
+        Assert.Equal(new[] { "All", "Online", "Offline" }, viewModel.StatusOptions);
         Assert.Equal("Total: 0 cameras", viewModel.TotalCamerasText);
         Assert.Equal("Ready.", viewModel.StatusMessage);
     }
@@ -178,6 +178,94 @@ public class CameraListViewModelTests
         Assert.Equal(2, viewModel.Cameras.Count);
         Assert.Equal("Total: 2 cameras", viewModel.TotalCamerasText);
         Assert.Equal("Loaded 2 camera(s).", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task SelectedBrand_FiltersByBrand()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Dahua, CameraStatus.Offline, "Hall")));
+
+        await viewModel.LoadAsync();
+        viewModel.SelectedBrand = "Hikvision";
+
+        Assert.Single(viewModel.Cameras);
+        Assert.Equal("Front Door", viewModel.Cameras[0].Name);
+        Assert.Equal("Filtered to 1 camera(s).", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task SelectedStatus_FiltersByStatus()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Dahua, CameraStatus.Offline, "Hall")));
+
+        await viewModel.LoadAsync();
+        viewModel.SelectedStatus = "Offline";
+
+        Assert.Single(viewModel.Cameras);
+        Assert.Equal("Lobby", viewModel.Cameras[0].Name);
+        Assert.Equal("Filtered to 1 camera(s).", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task SearchAndFilters_ComposeTogether()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Gate A", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "North"),
+            CreateCamera("Gate B", "192.168.1.11", CameraBrand.Hikvision, CameraStatus.Offline, "South"),
+            CreateCamera("Gate C", "192.168.1.12", CameraBrand.Dahua, CameraStatus.Online, "West")));
+
+        await viewModel.LoadAsync();
+        viewModel.SearchKeyword = "Gate";
+        viewModel.SelectedBrand = "Hikvision";
+        viewModel.SelectedStatus = "Online";
+        viewModel.SearchCommand.Execute(null);
+
+        Assert.Single(viewModel.Cameras);
+        Assert.Equal("Gate A", viewModel.Cameras[0].Name);
+        Assert.Equal("Found 1 camera(s).", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ClearCommand_ResetsSearchAndFilters()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Gate A", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "North"),
+            CreateCamera("Gate B", "192.168.1.11", CameraBrand.Dahua, CameraStatus.Offline, "South")));
+
+        await viewModel.LoadAsync();
+        viewModel.SearchKeyword = "Gate";
+        viewModel.SelectedBrand = "Hikvision";
+        viewModel.SelectedStatus = "Online";
+        viewModel.SearchCommand.Execute(null);
+
+        viewModel.ClearCommand.Execute(null);
+
+        Assert.Equal(string.Empty, viewModel.SearchKeyword);
+        Assert.Equal("All", viewModel.SelectedBrand);
+        Assert.Equal("All", viewModel.SelectedStatus);
+        Assert.Equal(2, viewModel.Cameras.Count);
+        Assert.Equal("Loaded 2 camera(s).", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ApplyFilters_ClearsSelectedCamera_WhenFilteredOut()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Dahua, CameraStatus.Offline, "Hall")));
+
+        await viewModel.LoadAsync();
+        viewModel.SelectedCamera = viewModel.Cameras[0];
+
+        viewModel.SelectedBrand = "Dahua";
+
+        Assert.Null(viewModel.SelectedCamera);
+        Assert.Single(viewModel.Cameras);
+        Assert.Equal("Lobby", viewModel.Cameras[0].Name);
     }
 
     private static CameraListViewModel CreateViewModel(ICameraRepository repository)

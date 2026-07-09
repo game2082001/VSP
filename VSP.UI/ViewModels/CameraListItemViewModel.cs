@@ -4,6 +4,7 @@ namespace VSP.UI.ViewModels;
 
 public class CameraListItemViewModel
 {
+    public Camera SourceCamera { get; init; } = new();
     public string Name { get; init; } = string.Empty;
     public string IpAddress { get; init; } = string.Empty;
     public string Brand { get; init; } = string.Empty;
@@ -16,6 +17,7 @@ public class CameraListItemViewModel
 
         return new CameraListItemViewModel
         {
+            SourceCamera = camera,
             Name = camera.Name,
             IpAddress = camera.IpAddress,
             Brand = camera.Brand.ToString(),

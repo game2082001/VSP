@@ -1,0 +1,307 @@
+<Window x:Class="VSP.UI.Views.CameraDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Title}"
+        Width="920"
+        Height="820"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <Style x:Key="DetailValueStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Visibility" Value="Visible"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="EditableTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource VspTextBox}">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="EditablePasswordBoxStyle" TargetType="PasswordBox" BasedOn="{StaticResource VspPasswordBox}">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="56"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Style="{StaticResource VspCard}"
+                Padding="16">
+            <DockPanel>
+                <TextBlock Text="Camera Detail"
+                           Foreground="White"
+                           FontSize="24"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
+
+                <Button Content="Edit"
+                        DockPanel.Dock="Right"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding EditCommand}"/>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      Margin="0,16,0,16"
+                      VerticalScrollBarVisibility="Auto">
+            <Border Style="{StaticResource VspCard}"
+                    Padding="20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Name" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource DetailValueStyle}"/>
+                        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox" BasedOn="{StaticResource EditableTextBoxStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNameValid}" Value="False">
+                                            <Setter Property="BorderBrush" Value="#FF6B6B"/>
+                                            <Setter Property="BorderThickness" Value="1.5"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                        <TextBlock Text="{Binding NameError}" Margin="2,4,0,0" Foreground="#FF6B6B" FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNameValid}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <TextBlock Grid.Column="2" Text="Brand" Style="{StaticResource VspFieldLabel}"/>
+                    <TextBlock Grid.Column="3" Text="{Binding Brand}" Foreground="White" VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Row="1" Text="Model" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Row="1" Grid.Column="1">
+                        <TextBlock Text="{Binding Model}" Style="{StaticResource DetailValueStyle}"/>
+                        <TextBox Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EditableTextBoxStyle}"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="IP Address" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Row="1" Grid.Column="3">
+                        <TextBlock Text="{Binding IpAddress}" Style="{StaticResource DetailValueStyle}"/>
+                        <TextBox Text="{Binding IpAddress, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox" BasedOn="{StaticResource EditableTextBoxStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsIpAddressValid}" Value="False">
+                                            <Setter Property="BorderBrush" Value="#FF6B6B"/>
+                                            <Setter Property="BorderThickness" Value="1.5"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                        <TextBlock Text="{Binding IpAddressError}" Margin="2,4,0,0" Foreground="#FF6B6B" FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsIpAddressValid}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2" Text="HTTP Port" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Row="2" Grid.Column="1">
+                        <TextBlock Text="{Binding HttpPort}" Style="{StaticResource DetailValueStyle}"/>
+                        <TextBox Text="{Binding HttpPort, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox" BasedOn="{StaticResource EditableTextBoxStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsHttpPortValid}" Value="False">
+                                            <Setter Property="BorderBrush" Value="#FF6B6B"/>
+                                            <Setter Property="BorderThickness" Value="1.5"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                        <TextBlock Text="{Binding HttpPortError}" Margin="2,4,0,0" Foreground="#FF6B6B" FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsHttpPortValid}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2" Grid.Column="2" Text="RTSP Port" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Row="2" Grid.Column="3">
+                        <TextBlock Text="{Binding RtspPort}" Style="{StaticResource DetailValueStyle}"/>
+                        <TextBox Text="{Binding RtspPort, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox" BasedOn="{StaticResource EditableTextBoxStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRtspPortValid}" Value="False">
+                                            <Setter Property="BorderBrush" Value="#FF6B6B"/>
+                                            <Setter Property="BorderThickness" Value="1.5"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                        <TextBlock Text="{Binding RtspPortError}" Margin="2,4,0,0" Foreground="#FF6B6B" FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRtspPortValid}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="3" Text="SDK Port" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Row="3" Grid.Column="1">
+                        <TextBlock Text="{Binding SdkPort}" Style="{StaticResource DetailValueStyle}"/>
+                        <TextBox Text="{Binding SdkPort, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox" BasedOn="{StaticResource EditableTextBoxStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSdkPortValid}" Value="False">
+                                            <Setter Property="BorderBrush" Value="#FF6B6B"/>
+                                            <Setter Property="BorderThickness" Value="1.5"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                        <TextBlock Text="{Binding SdkPortError}" Margin="2,4,0,0" Foreground="#FF6B6B" FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSdkPortValid}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="3" Grid.Column="2" Text="Username" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Row="3" Grid.Column="3">
+                        <TextBlock Text="{Binding Username}" Style="{StaticResource DetailValueStyle}"/>
+                        <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EditableTextBoxStyle}"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="4" Text="Password" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Row="4" Grid.Column="1">
+                        <TextBlock Text="{Binding MaskedPassword}" Style="{StaticResource DetailValueStyle}"/>
+                        <PasswordBox x:Name="EditPasswordBox"
+                                     Style="{StaticResource EditablePasswordBoxStyle}"
+                                     PasswordChanged="HandlePasswordChanged"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="4" Grid.Column="2" Text="RTSP URL" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Row="4" Grid.Column="3">
+                        <TextBlock Text="{Binding RtspUrl}" Style="{StaticResource DetailValueStyle}" TextWrapping="Wrap"/>
+                        <TextBox Text="{Binding RtspUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EditableTextBoxStyle}"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="5" Text="Status" Style="{StaticResource VspFieldLabel}"/>
+                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Status}" Foreground="White" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="5" Grid.Column="2" Text="Recording" Style="{StaticResource VspFieldLabel}"/>
+                    <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding Recording}" Foreground="White" VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Row="6" Text="Location" Style="{StaticResource VspFieldLabel}"/>
+                    <StackPanel Grid.Row="6" Grid.Column="1">
+                        <TextBlock Text="{Binding Location}" Style="{StaticResource DetailValueStyle}"/>
+                        <TextBox Text="{Binding Location, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EditableTextBoxStyle}"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="6" Grid.Column="2" Text="Create Time" Style="{StaticResource VspFieldLabel}"/>
+                    <TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding CreateTime}" Foreground="White" VerticalAlignment="Center"/>
+
+                    <TextBlock Grid.Row="7" Text="Last Modify Time" Style="{StaticResource VspFieldLabel}"/>
+                    <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding LastModifyTime}" Foreground="White" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="#B0B0B0"
+                       VerticalAlignment="Center"/>
+
+            <Button Grid.Column="1"
+                    Content="Apply"
+                    Style="{StaticResource SecondaryButton}"
+                    Margin="0,0,10,0"
+                    Command="{Binding ApplyEditCommand}"/>
+
+            <Button Grid.Column="2"
+                    Content="Close"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding CloseCommand}"/>
+        </Grid>
+    </Grid>
+</Window>

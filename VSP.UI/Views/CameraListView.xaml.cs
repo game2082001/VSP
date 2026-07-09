@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using VSP.Device.Repositories;
 using VSP.Device.Services;
 using VSP.UI.ViewModels;
@@ -27,5 +29,41 @@ public partial class CameraListView : UserControl
     {
         Loaded -= HandleLoaded;
         await _viewModel.LoadAsync();
+    }
+
+    private void HandleCameraRowDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_viewModel.SelectedCamera?.SourceCamera is null)
+        {
+            return;
+        }
+
+        if (!IsDataGridRowDoubleClick(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        var detailViewModel = new CameraDetailViewModel(_viewModel.SelectedCamera.SourceCamera);
+        var detailWindow = new CameraDetailWindow(detailViewModel)
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        detailWindow.ShowDialog();
+    }
+
+    private static bool IsDataGridRowDoubleClick(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is DataGridRow)
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
     }
 }

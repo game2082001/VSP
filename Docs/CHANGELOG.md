@@ -368,3 +368,30 @@ Architecture嚗?
   - No Repository.Search() or SQLite changes were introduced
   - Added unit tests for name search, IP search, excluded fields, blank keyword restore, and clear behavior
 
+- Task-204 Camera Detail
+  - Added read-only CameraDetailWindow and CameraDetailViewModel
+  - Camera detail opens by double-clicking a row in CameraListView
+  - Reused the already loaded camera data without adding repository query paths
+  - Displayed camera fields including ports, credentials, RTSP URL, status, recording, location, and timestamps
+  - Masked password display in Camera Detail
+  - Added Close button and a disabled Edit button placeholder only
+  - No Repository, SQLite, Import flow, MainWindow, or Driver Framework changes
+  - Added CameraDetailViewModelTests for field mapping, masking, close flow, and null-safe handling
+
+- Task-205 Camera Filter
+  - Implemented Brand and Status filter in CameraListViewModel
+  - Search and Filter now share the same ApplyFilters() pipeline
+  - Filter scope is limited to Brand (All, Hikvision, Dahua, VIVOTEK) and Status (All, Online, Offline)
+  - Clear resets SearchKeyword, SelectedBrand, and SelectedStatus without reloading data
+  - Filtering continues to use _allCameras + LINQ without Repository or SQLite changes
+  - Added unit tests for brand filter, status filter, composed search/filter, clear reset, and selected item clearing
+
+- Task-206 Camera Edit
+  - Added edit mode to CameraDetailViewModel and CameraDetailWindow
+  - Editable fields now support validation without Repository or SQLite persistence
+  - Read-only fields remain locked in the detail view
+  - Added ApplyEditCommand as a validation-only placeholder apply flow
+  - PasswordBox code-behind only synchronizes password into the ViewModel
+  - Added validation for required Name, IPv4 IP Address, and HTTP / RTSP / SDK port range
+  - Added unit tests for edit mode, validation, apply flow, and close behavior
+

@@ -36,21 +36,40 @@ public class CameraListViewModel : ObservableObject
     public string SelectedBrand
     {
         get => _selectedBrand;
-        set => SetProperty(ref _selectedBrand, value);
+        set
+        {
+            if (SetProperty(ref _selectedBrand, value) && _isLoaded)
+            {
+                ApplyFilters();
+            }
+        }
     }
 
     private string _selectedStatus = "All";
     public string SelectedStatus
     {
         get => _selectedStatus;
-        set => SetProperty(ref _selectedStatus, value);
+        set
+        {
+            if (SetProperty(ref _selectedStatus, value) && _isLoaded)
+            {
+                ApplyFilters();
+            }
+        }
+    }
+
+    private CameraListItemViewModel? _selectedCamera;
+    public CameraListItemViewModel? SelectedCamera
+    {
+        get => _selectedCamera;
+        set => SetProperty(ref _selectedCamera, value);
     }
 
     private bool _isLoaded;
 
     public ObservableCollection<CameraListItemViewModel> Cameras { get; } = new();
-    public IReadOnlyList<string> BrandOptions { get; } = new[] { "All" };
-    public IReadOnlyList<string> StatusOptions { get; } = new[] { "All" };
+    public IReadOnlyList<string> BrandOptions { get; } = new[] { "All", "Hikvision", "Dahua", "VIVOTEK" };
+    public IReadOnlyList<string> StatusOptions { get; } = new[] { "All", "Online", "Offline" };
     public string TotalCamerasText => $"Total: {Cameras.Count} cameras";
 
     public ICommand SearchCommand { get; }
@@ -86,7 +105,7 @@ public class CameraListViewModel : ObservableObject
                 _allCameras.Add(CameraListItemViewModel.FromCamera(camera));
             }
 
-            ApplySearch();
+            ApplyFilters();
             _isLoaded = true;
         }
         catch (Exception ex)
@@ -100,12 +119,29 @@ public class CameraListViewModel : ObservableObject
 
     private void ApplySearch()
     {
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
         IEnumerable<CameraListItemViewModel> filteredCameras = _allCameras;
         var keyword = SearchKeyword.Trim();
 
+        if (!string.Equals(SelectedBrand, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            filteredCameras = filteredCameras.Where(camera =>
+                string.Equals(camera.Brand, SelectedBrand, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.Equals(SelectedStatus, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            filteredCameras = filteredCameras.Where(camera =>
+                string.Equals(camera.Status, SelectedStatus, StringComparison.OrdinalIgnoreCase));
+        }
+
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            filteredCameras = _allCameras.Where(camera =>
+            filteredCameras = filteredCameras.Where(camera =>
                 ContainsKeyword(camera.Name, keyword) ||
                 ContainsKeyword(camera.IpAddress, keyword));
         }
@@ -117,6 +153,11 @@ public class CameraListViewModel : ObservableObject
             Cameras.Add(camera);
         }
 
+        if (SelectedCamera is not null && !Cameras.Contains(SelectedCamera))
+        {
+            SelectedCamera = null;
+        }
+
         OnPropertyChanged(nameof(TotalCamerasText));
         StatusMessage = GetStatusMessage(keyword);
     }
@@ -124,7 +165,9 @@ public class CameraListViewModel : ObservableObject
     private void ClearSearch()
     {
         SearchKeyword = string.Empty;
-        ApplySearch();
+        SelectedBrand = "All";
+        SelectedStatus = "All";
+        ApplyFilters();
     }
 
     private string GetStatusMessage(string keyword)
@@ -136,7 +179,9 @@ public class CameraListViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(keyword))
         {
-            return $"Loaded {Cameras.Count} camera(s).";
+            return HasActiveFilters()
+                ? $"Filtered to {Cameras.Count} camera(s)."
+                : $"Loaded {Cameras.Count} camera(s).";
         }
 
         return Cameras.Count == 0
@@ -147,6 +192,12 @@ public class CameraListViewModel : ObservableObject
     private static bool ContainsKeyword(string value, string keyword)
     {
         return value.Contains(keyword, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool HasActiveFilters()
+    {
+        return !string.Equals(SelectedBrand, "All", StringComparison.OrdinalIgnoreCase) ||
+               !string.Equals(SelectedStatus, "All", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void PlaceholderAction()

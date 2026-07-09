@@ -93,6 +93,8 @@
                 CornerRadius="8"
                 Padding="16">
             <DataGrid ItemsSource="{Binding Cameras}"
+                      SelectedItem="{Binding SelectedCamera, Mode=TwoWay}"
+                      MouseDoubleClick="HandleCameraRowDoubleClick"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
                       CanUserDeleteRows="False"
