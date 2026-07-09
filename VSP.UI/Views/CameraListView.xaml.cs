@@ -25,6 +25,7 @@ public partial class CameraListView : UserControl
         _viewModel = viewModel;
         _cameraRepository = cameraRepository;
         DataContext = _viewModel;
+        _viewModel.RequestAddCamera += HandleRequestAddCamera;
         Loaded += HandleLoaded;
     }
 
@@ -53,6 +54,22 @@ public partial class CameraListView : UserControl
         };
 
         detailWindow.ShowDialog();
+    }
+
+    private async void HandleRequestAddCamera()
+    {
+        var detailViewModel = new CameraDetailViewModel(_cameraRepository);
+        var detailWindow = new CameraDetailWindow(detailViewModel)
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        detailWindow.ShowDialog();
+
+        if (detailViewModel.WasSaved)
+        {
+            await _viewModel.RefreshAsync(detailViewModel.SavedCameraId);
+        }
     }
 
     private static bool IsDataGridRowDoubleClick(DependencyObject? source)

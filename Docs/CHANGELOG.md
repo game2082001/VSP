@@ -403,3 +403,9 @@ Architecture嚗?
   - Added unit tests for save success, validation blocking, repository exception handling, LastModifyTime refresh, and repository call count
   - Technical Debt: TD-017 Unsaved changes detection before closing the window
 
+- Task-208 Add Camera
+  - Reused Camera Detail window for New Mode and added explicit new camera defaults for Brand, ConnectionType, Status, Recording, and ports
+  - Connected Add Camera flow to ICameraRepository.Add() with existing validation and repository exception handling
+  - Add success now closes the detail window, refreshes Camera List, and reselects the newly added camera when visible
+  - Added unit tests for New Mode defaults, add success, add failure, add command event routing, and refresh selection behavior
+  - Technical Debt: TD-021 Duplicate camera detection before Add()

@@ -92,6 +92,19 @@ public class CameraListViewModelTests
     }
 
     [Fact]
+    public void AddCameraCommand_RaisesRequestAddCamera()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository());
+        var wasRaised = false;
+
+        viewModel.RequestAddCamera += () => wasRaised = true;
+
+        viewModel.AddCameraCommand.Execute(null);
+
+        Assert.True(wasRaised);
+    }
+
+    [Fact]
     public async Task SearchCommand_FiltersByCameraName()
     {
         var viewModel = CreateViewModel(new FakeCameraRepository(
@@ -268,6 +281,25 @@ public class CameraListViewModelTests
         Assert.Equal("Lobby", viewModel.Cameras[0].Name);
     }
 
+    [Fact]
+    public async Task RefreshAsync_SelectsNewlyAddedCamera_WhenVisible()
+    {
+        var repository = new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"));
+        var viewModel = CreateViewModel(repository);
+
+        await viewModel.LoadAsync();
+
+        var addedCamera = CreateCamera("Lobby", "10.0.0.25", CameraBrand.Dahua, CameraStatus.Offline, "Hall");
+        repository.AddSeed(addedCamera);
+
+        await viewModel.RefreshAsync(addedCamera.Id);
+
+        Assert.Equal(2, viewModel.Cameras.Count);
+        Assert.NotNull(viewModel.SelectedCamera);
+        Assert.Equal(addedCamera.Id, viewModel.SelectedCamera!.SourceCamera.Id);
+    }
+
     private static CameraListViewModel CreateViewModel(ICameraRepository repository)
     {
         return new CameraListViewModel(new CameraQueryService(repository));
@@ -292,11 +324,11 @@ public class CameraListViewModelTests
 
     private sealed class FakeCameraRepository : ICameraRepository
     {
-        private readonly IReadOnlyList<EntityCamera> _cameras;
+        private readonly List<EntityCamera> _cameras;
 
         public FakeCameraRepository(params EntityCamera[] cameras)
         {
-            _cameras = cameras;
+            _cameras = cameras.ToList();
         }
 
         public IEnumerable<EntityCamera> GetAll()
@@ -311,7 +343,7 @@ public class CameraListViewModelTests
 
         public void Add(EntityCamera camera)
         {
-            throw new NotSupportedException();
+            _cameras.Add(camera);
         }
 
         public void Update(EntityCamera camera)
@@ -322,6 +354,11 @@ public class CameraListViewModelTests
         public void Delete(Guid id)
         {
             throw new NotSupportedException();
+        }
+
+        public void AddSeed(EntityCamera camera)
+        {
+            _cameras.Add(camera);
         }
     }
 

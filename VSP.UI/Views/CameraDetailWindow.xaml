@@ -50,7 +50,7 @@
                 Style="{StaticResource VspCard}"
                 Padding="16">
             <DockPanel>
-                <TextBlock Text="Camera Detail"
+                <TextBlock Text="{Binding HeaderTitle}"
                            Foreground="White"
                            FontSize="24"
                            FontWeight="SemiBold"
@@ -58,8 +58,18 @@
 
                 <Button Content="Edit"
                         DockPanel.Dock="Right"
-                        Style="{StaticResource SecondaryButton}"
-                        Command="{Binding EditCommand}"/>
+                        Command="{Binding EditCommand}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsNewMode}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </DockPanel>
         </Border>
 
@@ -117,7 +127,33 @@
                     </StackPanel>
 
                     <TextBlock Grid.Column="2" Text="Brand" Style="{StaticResource VspFieldLabel}"/>
-                    <TextBlock Grid.Column="3" Text="{Binding Brand}" Foreground="White" VerticalAlignment="Center"/>
+                    <Grid Grid.Column="3">
+                        <TextBlock Text="{Binding Brand}" Foreground="White" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNewMode}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <ComboBox ItemsSource="{Binding BrandOptions}"
+                                  SelectedItem="{Binding Brand}">
+                            <ComboBox.Style>
+                                <Style TargetType="ComboBox" BasedOn="{StaticResource VspComboBox}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNewMode}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ComboBox.Style>
+                        </ComboBox>
+                    </Grid>
 
                     <TextBlock Grid.Row="1" Text="Model" Style="{StaticResource VspFieldLabel}"/>
                     <StackPanel Grid.Row="1" Grid.Column="1">

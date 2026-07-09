@@ -29,6 +29,7 @@ public class CameraDetailViewModelTests
         Assert.Equal("2026-07-01 08:30:00", viewModel.CreateTime);
         Assert.Equal("2026-07-02 09:45:00", viewModel.LastModifyTime);
         Assert.False(viewModel.IsEditMode);
+        Assert.False(viewModel.IsNewMode);
     }
 
     [Fact]
@@ -40,6 +41,26 @@ public class CameraDetailViewModelTests
 
         Assert.True(viewModel.IsEditMode);
         Assert.Equal("Edit mode enabled.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void NewMode_UsesExplicitDefaultValues()
+    {
+        var viewModel = new CameraDetailViewModel(new FakeCameraRepository());
+
+        Assert.True(viewModel.IsNewMode);
+        Assert.True(viewModel.IsEditMode);
+        Assert.Equal("Add Camera", viewModel.Title);
+        Assert.Equal("Unknown", viewModel.Brand);
+        Assert.Equal("Offline", viewModel.Status);
+        Assert.Equal("No", viewModel.Recording);
+        Assert.Equal("80", viewModel.HttpPort);
+        Assert.Equal("554", viewModel.RtspPort);
+        Assert.Equal("8000", viewModel.SdkPort);
+        Assert.Equal(string.Empty, viewModel.Username);
+        Assert.Equal(string.Empty, viewModel.Password);
+        Assert.Equal(string.Empty, viewModel.RtspUrl);
+        Assert.Equal("Ready to add camera.", viewModel.StatusMessage);
     }
 
     [Fact]
@@ -131,6 +152,31 @@ public class CameraDetailViewModelTests
     }
 
     [Fact]
+    public void SaveCommand_InNewMode_AddsCameraAndRequestsClose()
+    {
+        var repository = new FakeCameraRepository();
+        var viewModel = new CameraDetailViewModel(repository);
+        var wasClosed = false;
+
+        viewModel.RequestClose += () => wasClosed = true;
+        viewModel.Name = "Lobby";
+        viewModel.IpAddress = "10.0.0.50";
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal(1, repository.AddCallCount);
+        Assert.True(wasClosed);
+        Assert.True(viewModel.WasSaved);
+        Assert.NotNull(viewModel.SavedCameraId);
+        Assert.Equal("Camera added successfully.", viewModel.StatusMessage);
+        Assert.Equal("Lobby", repository.LastAddedCamera!.Name);
+        Assert.Equal(CameraBrand.Unknown, repository.LastAddedCamera.Brand);
+        Assert.Equal(DeviceConnectionType.Unknown, repository.LastAddedCamera.ConnectionType);
+        Assert.Equal(CameraStatus.Offline, repository.LastAddedCamera.Status);
+        Assert.False(repository.LastAddedCamera.Recording);
+    }
+
+    [Fact]
     public void SaveCommand_ValidationBlocksSave()
     {
         var repository = new FakeCameraRepository();
@@ -152,6 +198,25 @@ public class CameraDetailViewModelTests
         viewModel.SaveCommand.Execute(null);
 
         Assert.Equal("Failed to save camera: Repository failure.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void SaveCommand_InNewMode_HandlesAddExceptionWithoutClosing()
+    {
+        var repository = new ThrowingCameraRepository();
+        var viewModel = new CameraDetailViewModel(repository);
+        var wasClosed = false;
+
+        viewModel.RequestClose += () => wasClosed = true;
+        viewModel.Name = "Lobby";
+        viewModel.IpAddress = "10.0.0.50";
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.False(wasClosed);
+        Assert.False(viewModel.WasSaved);
+        Assert.Null(viewModel.SavedCameraId);
+        Assert.Equal("Failed to add camera: Repository failure.", viewModel.StatusMessage);
     }
 
     [Fact]
@@ -233,7 +298,9 @@ public class CameraDetailViewModelTests
 
     private sealed class FakeCameraRepository : ICameraRepository
     {
+        public int AddCallCount { get; private set; }
         public int UpdateCallCount { get; private set; }
+        public EntityCamera? LastAddedCamera { get; private set; }
         public EntityCamera? LastUpdatedCamera { get; private set; }
 
         public IEnumerable<EntityCamera> GetAll()
@@ -248,7 +315,8 @@ public class CameraDetailViewModelTests
 
         public void Add(EntityCamera camera)
         {
-            throw new NotSupportedException();
+            AddCallCount++;
+            LastAddedCamera = camera;
         }
 
         public void Update(EntityCamera camera)
@@ -278,7 +346,7 @@ public class CameraDetailViewModelTests
 
         public void Add(EntityCamera camera)
         {
-            throw new NotSupportedException();
+            throw new InvalidOperationException("Repository failure.");
         }
 
         public void Update(EntityCamera camera)

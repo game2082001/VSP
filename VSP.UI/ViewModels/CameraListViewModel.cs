@@ -77,18 +77,30 @@ public class CameraListViewModel : ObservableObject
     public ICommand RefreshCommand { get; }
     public ICommand AddCameraCommand { get; }
 
+    public event Action? RequestAddCamera;
+
     public CameraListViewModel(CameraQueryService cameraQueryService)
     {
         _cameraQueryService = cameraQueryService;
         SearchCommand = new RelayCommand(ApplySearch);
         ClearCommand = new RelayCommand(ClearSearch);
-        RefreshCommand = new RelayCommand(PlaceholderAction);
-        AddCameraCommand = new RelayCommand(PlaceholderAction);
+        RefreshCommand = new RelayCommand(() => _ = RefreshAsync());
+        AddCameraCommand = new RelayCommand(RaiseAddCameraRequest);
     }
 
     public async Task LoadAsync()
     {
-        if (_isLoaded)
+        await LoadInternalAsync(forceRefresh: false);
+    }
+
+    public async Task RefreshAsync(Guid? selectedCameraId = null)
+    {
+        await LoadInternalAsync(forceRefresh: true, selectedCameraId);
+    }
+
+    private async Task LoadInternalAsync(bool forceRefresh, Guid? selectedCameraId = null)
+    {
+        if (_isLoaded && !forceRefresh)
         {
             return;
         }
@@ -106,6 +118,7 @@ public class CameraListViewModel : ObservableObject
             }
 
             ApplyFilters();
+            TrySelectCamera(selectedCameraId);
             _isLoaded = true;
         }
         catch (Exception ex)
@@ -194,13 +207,24 @@ public class CameraListViewModel : ObservableObject
         return value.Contains(keyword, StringComparison.OrdinalIgnoreCase);
     }
 
+    private void TrySelectCamera(Guid? selectedCameraId)
+    {
+        if (selectedCameraId is null)
+        {
+            return;
+        }
+
+        SelectedCamera = Cameras.FirstOrDefault(camera => camera.SourceCamera.Id == selectedCameraId.Value);
+    }
+
     private bool HasActiveFilters()
     {
         return !string.Equals(SelectedBrand, "All", StringComparison.OrdinalIgnoreCase) ||
                !string.Equals(SelectedStatus, "All", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void PlaceholderAction()
+    private void RaiseAddCameraRequest()
     {
+        RequestAddCamera?.Invoke();
     }
 }

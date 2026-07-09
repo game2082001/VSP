@@ -3,6 +3,7 @@ using VSP.Core.Commands;
 using VSP.Core.MVVM;
 using VSP.Device.Interfaces;
 using VSP.Domain.Entities;
+using VSP.Domain.Enums;
 
 namespace VSP.UI.ViewModels;
 
@@ -11,8 +12,10 @@ public class CameraDetailViewModel : ObservableObject
     private readonly Camera _camera;
     private readonly ICameraRepository _cameraRepository;
     private readonly RelayCommand _saveCommand;
+    private readonly bool _isNewMode;
 
     private string _name;
+    private string _brand;
     private string _model;
     private string _location;
     private string _ipAddress;
@@ -36,12 +39,13 @@ public class CameraDetailViewModel : ObservableObject
     private string _sdkPortError = string.Empty;
     private bool _isSdkPortValid = true;
 
-    public string Title => "Camera Detail";
-    public string Brand { get; }
-    public string Status { get; }
-    public string Recording { get; }
-    public string CreateTime { get; }
+    public string Title => IsNewMode ? "Add Camera" : "Camera Detail";
+    public string HeaderTitle => Title;
+    public IReadOnlyList<string> BrandOptions { get; } = Enum.GetNames<CameraBrand>();
     private string _lastModifyTime;
+    private string _status;
+    private string _recording;
+    private string _createTime;
     public string LastModifyTime
     {
         get => _lastModifyTime;
@@ -54,14 +58,26 @@ public class CameraDetailViewModel : ObservableObject
     public event Action? RequestClose;
 
     public CameraDetailViewModel(Camera camera, ICameraRepository cameraRepository)
+        : this(camera, cameraRepository, false)
+    {
+    }
+
+    public CameraDetailViewModel(ICameraRepository cameraRepository)
+        : this(CreateNewCamera(), cameraRepository, true)
+    {
+    }
+
+    private CameraDetailViewModel(Camera camera, ICameraRepository cameraRepository, bool isNewMode)
     {
         ArgumentNullException.ThrowIfNull(camera);
         ArgumentNullException.ThrowIfNull(cameraRepository);
 
         _camera = camera;
         _cameraRepository = cameraRepository;
+        _isNewMode = isNewMode;
 
         _name = camera.Name;
+        _brand = camera.Brand.ToString();
         _model = camera.Model;
         _location = camera.Location;
         _ipAddress = camera.IpAddress;
@@ -72,18 +88,25 @@ public class CameraDetailViewModel : ObservableObject
         _password = camera.Password;
         _rtspUrl = camera.RtspUrl;
 
-        Brand = camera.Brand.ToString();
-        Status = camera.Status.ToString();
-        Recording = camera.Recording ? "Yes" : "No";
-        CreateTime = camera.CreateTime.ToString("yyyy-MM-dd HH:mm:ss");
+        _status = camera.Status.ToString();
+        _recording = camera.Recording ? "Yes" : "No";
+        _createTime = camera.CreateTime.ToString("yyyy-MM-dd HH:mm:ss");
         _lastModifyTime = camera.LastModifyTime.ToString("yyyy-MM-dd HH:mm:ss");
+        _statusMessage = isNewMode ? "Ready to add camera." : "Read-only mode.";
 
         CloseCommand = new RelayCommand(Close);
-        EditCommand = new RelayCommand(EnterEditMode);
+        EditCommand = new RelayCommand(EnterEditMode, () => !IsNewMode);
         _saveCommand = new RelayCommand(Save, () => IsEditMode);
 
+        IsEditMode = isNewMode;
         ValidateAll();
     }
+
+    public bool IsNewMode => _isNewMode;
+
+    public bool WasSaved { get; private set; }
+
+    public Guid? SavedCameraId { get; private set; }
 
     public string Name
     {
@@ -95,6 +118,12 @@ public class CameraDetailViewModel : ObservableObject
                 ValidateAll();
             }
         }
+    }
+
+    public string Brand
+    {
+        get => _brand;
+        set => SetProperty(ref _brand, value);
     }
 
     public string Model
@@ -268,6 +297,24 @@ public class CameraDetailViewModel : ObservableObject
         IsRtspPortValid &&
         IsSdkPortValid;
 
+    public string Status
+    {
+        get => _status;
+        private set => SetProperty(ref _status, value);
+    }
+
+    public string Recording
+    {
+        get => _recording;
+        private set => SetProperty(ref _recording, value);
+    }
+
+    public string CreateTime
+    {
+        get => _createTime;
+        private set => SetProperty(ref _createTime, value);
+    }
+
     private void EnterEditMode()
     {
         IsEditMode = true;
@@ -287,13 +334,27 @@ public class CameraDetailViewModel : ObservableObject
         try
         {
             MapToCamera(_camera);
+
+            if (IsNewMode)
+            {
+                _cameraRepository.Add(_camera);
+                SyncDisplayFieldsFromCamera();
+                WasSaved = true;
+                SavedCameraId = _camera.Id;
+                StatusMessage = "Camera added successfully.";
+                RequestClose?.Invoke();
+                return;
+            }
+
             _cameraRepository.Update(_camera);
-            LastModifyTime = _camera.LastModifyTime.ToString("yyyy-MM-dd HH:mm:ss");
+            SyncDisplayFieldsFromCamera();
             StatusMessage = "Camera saved successfully.";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Failed to save camera: {ex.Message}";
+            StatusMessage = IsNewMode
+                ? $"Failed to add camera: {ex.Message}"
+                : $"Failed to save camera: {ex.Message}";
         }
     }
 
@@ -343,6 +404,9 @@ public class CameraDetailViewModel : ObservableObject
     private void MapToCamera(Camera camera)
     {
         camera.Name = Name.Trim();
+        camera.Brand = Enum.TryParse<CameraBrand>(Brand, out var brand)
+            ? brand
+            : CameraBrand.Unknown;
         camera.Model = Model.Trim();
         camera.Location = Location.Trim();
         camera.IpAddress = IpAddress.Trim();
@@ -352,6 +416,41 @@ public class CameraDetailViewModel : ObservableObject
         camera.Username = Username.Trim();
         camera.Password = Password;
         camera.RtspUrl = RtspUrl.Trim();
+    }
+
+    private void SyncDisplayFieldsFromCamera()
+    {
+        Brand = _camera.Brand.ToString();
+        Status = _camera.Status.ToString();
+        Recording = _camera.Recording ? "Yes" : "No";
+        CreateTime = _camera.CreateTime.ToString("yyyy-MM-dd HH:mm:ss");
+        LastModifyTime = _camera.LastModifyTime.ToString("yyyy-MM-dd HH:mm:ss");
+    }
+
+    private static Camera CreateNewCamera()
+    {
+        var now = DateTime.Now;
+
+        return new Camera
+        {
+            Id = Guid.NewGuid(),
+            Name = string.Empty,
+            IpAddress = string.Empty,
+            Brand = CameraBrand.Unknown,
+            ConnectionType = DeviceConnectionType.Unknown,
+            Model = string.Empty,
+            Location = string.Empty,
+            HttpPort = 80,
+            RtspPort = 554,
+            SdkPort = 8000,
+            Username = string.Empty,
+            Password = string.Empty,
+            RtspUrl = string.Empty,
+            Status = CameraStatus.Offline,
+            Recording = false,
+            CreateTime = now,
+            LastModifyTime = now
+        };
     }
 
     private static string MaskPassword(string password)
