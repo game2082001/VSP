@@ -38,6 +38,7 @@ Current Progress
 - Task-204 Camera Detail
 - Task-205 Camera Filter
 - Task-206 Camera Edit
+- Task-207 Camera Save Persistence
 
 ---
 

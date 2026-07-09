@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using VSP.Device.Interfaces;
 using VSP.Device.Repositories;
 using VSP.Device.Services;
 using VSP.UI.ViewModels;
@@ -11,16 +12,18 @@ namespace VSP.UI.Views;
 public partial class CameraListView : UserControl
 {
     private readonly CameraListViewModel _viewModel;
+    private readonly ICameraRepository _cameraRepository;
 
     public CameraListView()
-        : this(new CameraListViewModel(new CameraQueryService(new CameraRepository())))
+        : this(new CameraListViewModel(new CameraQueryService(new CameraRepository())), new CameraRepository())
     {
     }
 
-    internal CameraListView(CameraListViewModel viewModel)
+    internal CameraListView(CameraListViewModel viewModel, ICameraRepository cameraRepository)
     {
         InitializeComponent();
         _viewModel = viewModel;
+        _cameraRepository = cameraRepository;
         DataContext = _viewModel;
         Loaded += HandleLoaded;
     }
@@ -43,7 +46,7 @@ public partial class CameraListView : UserControl
             return;
         }
 
-        var detailViewModel = new CameraDetailViewModel(_viewModel.SelectedCamera.SourceCamera);
+        var detailViewModel = new CameraDetailViewModel(_viewModel.SelectedCamera.SourceCamera, _cameraRepository);
         var detailWindow = new CameraDetailWindow(detailViewModel)
         {
             Owner = Window.GetWindow(this)

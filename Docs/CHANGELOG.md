@@ -395,3 +395,11 @@ Architecture嚗?
   - Added validation for required Name, IPv4 IP Address, and HTTP / RTSP / SDK port range
   - Added unit tests for edit mode, validation, apply flow, and close behavior
 
+- Task-207 Camera Save Persistence
+  - Renamed ApplyEditCommand to SaveCommand and connected Camera Detail save flow to ICameraRepository.Update()
+  - Save flow now validates, maps ViewModel data to Camera, calls Repository.Update(), refreshes LastModifyTime, and updates StatusMessage
+  - Save success displays "Camera saved successfully." and keeps the detail window open
+  - Save failure catches repository exceptions, updates StatusMessage, and avoids crashing
+  - Added unit tests for save success, validation blocking, repository exception handling, LastModifyTime refresh, and repository call count
+  - Technical Debt: TD-017 Unsaved changes detection before closing the window
+

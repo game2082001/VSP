@@ -1,13 +1,16 @@
 using System.Windows.Input;
 using VSP.Core.Commands;
 using VSP.Core.MVVM;
+using VSP.Device.Interfaces;
 using VSP.Domain.Entities;
 
 namespace VSP.UI.ViewModels;
 
 public class CameraDetailViewModel : ObservableObject
 {
-    private readonly RelayCommand _applyEditCommand;
+    private readonly Camera _camera;
+    private readonly ICameraRepository _cameraRepository;
+    private readonly RelayCommand _saveCommand;
 
     private string _name;
     private string _model;
@@ -38,16 +41,25 @@ public class CameraDetailViewModel : ObservableObject
     public string Status { get; }
     public string Recording { get; }
     public string CreateTime { get; }
-    public string LastModifyTime { get; }
+    private string _lastModifyTime;
+    public string LastModifyTime
+    {
+        get => _lastModifyTime;
+        private set => SetProperty(ref _lastModifyTime, value);
+    }
     public ICommand CloseCommand { get; }
     public ICommand EditCommand { get; }
-    public ICommand ApplyEditCommand => _applyEditCommand;
+    public ICommand SaveCommand => _saveCommand;
 
     public event Action? RequestClose;
 
-    public CameraDetailViewModel(Camera camera)
+    public CameraDetailViewModel(Camera camera, ICameraRepository cameraRepository)
     {
         ArgumentNullException.ThrowIfNull(camera);
+        ArgumentNullException.ThrowIfNull(cameraRepository);
+
+        _camera = camera;
+        _cameraRepository = cameraRepository;
 
         _name = camera.Name;
         _model = camera.Model;
@@ -64,11 +76,11 @@ public class CameraDetailViewModel : ObservableObject
         Status = camera.Status.ToString();
         Recording = camera.Recording ? "Yes" : "No";
         CreateTime = camera.CreateTime.ToString("yyyy-MM-dd HH:mm:ss");
-        LastModifyTime = camera.LastModifyTime.ToString("yyyy-MM-dd HH:mm:ss");
+        _lastModifyTime = camera.LastModifyTime.ToString("yyyy-MM-dd HH:mm:ss");
 
         CloseCommand = new RelayCommand(Close);
         EditCommand = new RelayCommand(EnterEditMode);
-        _applyEditCommand = new RelayCommand(ApplyEdit, () => IsEditMode);
+        _saveCommand = new RelayCommand(Save, () => IsEditMode);
 
         ValidateAll();
     }
@@ -178,7 +190,7 @@ public class CameraDetailViewModel : ObservableObject
         {
             if (SetProperty(ref _isEditMode, value))
             {
-                _applyEditCommand.RaiseCanExecuteChanged();
+                _saveCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -259,15 +271,30 @@ public class CameraDetailViewModel : ObservableObject
     private void EnterEditMode()
     {
         IsEditMode = true;
-        StatusMessage = "Edit mode enabled. Changes are not saved to storage.";
+        StatusMessage = "Edit mode enabled.";
     }
 
-    private void ApplyEdit()
+    private void Save()
     {
         ValidateAll();
-        StatusMessage = IsFormValid
-            ? "Validation passed. Persistence is not implemented."
-            : "Please fix validation errors before applying changes.";
+
+        if (!IsFormValid)
+        {
+            StatusMessage = "Please fix validation errors before saving.";
+            return;
+        }
+
+        try
+        {
+            MapToCamera(_camera);
+            _cameraRepository.Update(_camera);
+            LastModifyTime = _camera.LastModifyTime.ToString("yyyy-MM-dd HH:mm:ss");
+            StatusMessage = "Camera saved successfully.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to save camera: {ex.Message}";
+        }
     }
 
     private void ValidateAll()
@@ -311,6 +338,20 @@ public class CameraDetailViewModel : ObservableObject
     private void Close()
     {
         RequestClose?.Invoke();
+    }
+
+    private void MapToCamera(Camera camera)
+    {
+        camera.Name = Name.Trim();
+        camera.Model = Model.Trim();
+        camera.Location = Location.Trim();
+        camera.IpAddress = IpAddress.Trim();
+        camera.HttpPort = int.Parse(HttpPort);
+        camera.RtspPort = int.Parse(RtspPort);
+        camera.SdkPort = int.Parse(SdkPort);
+        camera.Username = Username.Trim();
+        camera.Password = Password;
+        camera.RtspUrl = RtspUrl.Trim();
     }
 
     private static string MaskPassword(string password)

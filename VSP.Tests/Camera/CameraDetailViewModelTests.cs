@@ -1,3 +1,4 @@
+using VSP.Device.Interfaces;
 using VSP.Domain.Enums;
 using VSP.UI.ViewModels;
 using EntityCamera = VSP.Domain.Entities.Camera;
@@ -10,7 +11,7 @@ public class CameraDetailViewModelTests
     [Fact]
     public void Constructor_MapsCameraFields()
     {
-        var viewModel = new CameraDetailViewModel(CreateCamera());
+        var viewModel = new CameraDetailViewModel(CreateCamera(), new FakeCameraRepository());
 
         Assert.Equal("North Gate", viewModel.Name);
         Assert.Equal("Hikvision", viewModel.Brand);
@@ -33,18 +34,18 @@ public class CameraDetailViewModelTests
     [Fact]
     public void EditCommand_EntersEditMode()
     {
-        var viewModel = new CameraDetailViewModel(CreateCamera());
+        var viewModel = CreateViewModel(new FakeCameraRepository());
 
         viewModel.EditCommand.Execute(null);
 
         Assert.True(viewModel.IsEditMode);
-        Assert.Equal("Edit mode enabled. Changes are not saved to storage.", viewModel.StatusMessage);
+        Assert.Equal("Edit mode enabled.", viewModel.StatusMessage);
     }
 
     [Fact]
     public void Name_RequiresValue()
     {
-        var viewModel = CreateEditableViewModel();
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
 
         viewModel.Name = string.Empty;
 
@@ -56,7 +57,7 @@ public class CameraDetailViewModelTests
     [Fact]
     public void IpAddress_MustBeValidIpv4()
     {
-        var viewModel = CreateEditableViewModel();
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
 
         viewModel.IpAddress = "999.1.1.1";
 
@@ -68,7 +69,7 @@ public class CameraDetailViewModelTests
     [Fact]
     public void HttpPort_MustBeInRange()
     {
-        var viewModel = CreateEditableViewModel();
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
 
         viewModel.HttpPort = "70000";
 
@@ -80,7 +81,7 @@ public class CameraDetailViewModelTests
     [Fact]
     public void RtspPort_MustBeInRange()
     {
-        var viewModel = CreateEditableViewModel();
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
 
         viewModel.RtspPort = "0";
 
@@ -92,7 +93,7 @@ public class CameraDetailViewModelTests
     [Fact]
     public void SdkPort_MustBeInRange()
     {
-        var viewModel = CreateEditableViewModel();
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
 
         viewModel.SdkPort = "-1";
 
@@ -104,7 +105,7 @@ public class CameraDetailViewModelTests
     [Fact]
     public void ValidInput_KeepsFormValid()
     {
-        var viewModel = CreateEditableViewModel();
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
 
         viewModel.Name = "Lobby";
         viewModel.IpAddress = "10.0.0.50";
@@ -116,30 +117,58 @@ public class CameraDetailViewModelTests
     }
 
     [Fact]
-    public void ApplyEditCommand_DoesNotPersistAndShowsValidationStatus()
+    public void SaveCommand_SavesSuccessfully()
     {
-        var viewModel = CreateEditableViewModel();
+        var repository = new FakeCameraRepository();
+        var viewModel = CreateEditableViewModel(repository);
 
-        viewModel.ApplyEditCommand.Execute(null);
+        viewModel.Name = "Lobby";
+        viewModel.SaveCommand.Execute(null);
 
-        Assert.Equal("Validation passed. Persistence is not implemented.", viewModel.StatusMessage);
+        Assert.Equal(1, repository.UpdateCallCount);
+        Assert.Equal("Lobby", repository.LastUpdatedCamera!.Name);
+        Assert.Equal("Camera saved successfully.", viewModel.StatusMessage);
     }
 
     [Fact]
-    public void ApplyEditCommand_ShowsValidationFailureStatus()
+    public void SaveCommand_ValidationBlocksSave()
     {
-        var viewModel = CreateEditableViewModel();
+        var repository = new FakeCameraRepository();
+        var viewModel = CreateEditableViewModel(repository);
         viewModel.IpAddress = "bad-ip";
 
-        viewModel.ApplyEditCommand.Execute(null);
+        viewModel.SaveCommand.Execute(null);
 
-        Assert.Equal("Please fix validation errors before applying changes.", viewModel.StatusMessage);
+        Assert.Equal(0, repository.UpdateCallCount);
+        Assert.Equal("Please fix validation errors before saving.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void SaveCommand_HandlesRepositoryException()
+    {
+        var repository = new ThrowingCameraRepository();
+        var viewModel = CreateEditableViewModel(repository);
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal("Failed to save camera: Repository failure.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void SaveCommand_UpdatesLastModifyTimeDisplay()
+    {
+        var repository = new FakeCameraRepository();
+        var viewModel = CreateEditableViewModel(repository);
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal("2026-07-09 10:30:00", viewModel.LastModifyTime);
     }
 
     [Fact]
     public void CloseCommand_RaisesRequestClose()
     {
-        var viewModel = new CameraDetailViewModel(CreateCamera());
+        var viewModel = CreateViewModel(new FakeCameraRepository());
         var wasRaised = false;
 
         viewModel.RequestClose += () => wasRaised = true;
@@ -158,7 +187,7 @@ public class CameraDetailViewModelTests
             LastModifyTime = new DateTime(2026, 7, 2, 9, 45, 0)
         };
 
-        var viewModel = new CameraDetailViewModel(camera);
+        var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
 
         Assert.Equal(string.Empty, viewModel.Name);
         Assert.Equal(string.Empty, viewModel.Model);
@@ -167,9 +196,14 @@ public class CameraDetailViewModelTests
         Assert.Equal("No", viewModel.Recording);
     }
 
-    private static CameraDetailViewModel CreateEditableViewModel()
+    private static CameraDetailViewModel CreateViewModel(ICameraRepository repository)
     {
-        var viewModel = new CameraDetailViewModel(CreateCamera());
+        return new CameraDetailViewModel(CreateCamera(), repository);
+    }
+
+    private static CameraDetailViewModel CreateEditableViewModel(ICameraRepository repository)
+    {
+        var viewModel = CreateViewModel(repository);
         viewModel.EditCommand.Execute(null);
         return viewModel;
     }
@@ -178,6 +212,7 @@ public class CameraDetailViewModelTests
     {
         return new EntityCamera
         {
+            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
             Name = "North Gate",
             Brand = CameraBrand.Hikvision,
             Model = "DS-2CD2143G2",
@@ -194,5 +229,66 @@ public class CameraDetailViewModelTests
             CreateTime = new DateTime(2026, 7, 1, 8, 30, 0),
             LastModifyTime = new DateTime(2026, 7, 2, 9, 45, 0)
         };
+    }
+
+    private sealed class FakeCameraRepository : ICameraRepository
+    {
+        public int UpdateCallCount { get; private set; }
+        public EntityCamera? LastUpdatedCamera { get; private set; }
+
+        public IEnumerable<EntityCamera> GetAll()
+        {
+            return [];
+        }
+
+        public EntityCamera? GetById(Guid id)
+        {
+            return null;
+        }
+
+        public void Add(EntityCamera camera)
+        {
+            throw new NotSupportedException();
+        }
+
+        public void Update(EntityCamera camera)
+        {
+            UpdateCallCount++;
+            camera.LastModifyTime = new DateTime(2026, 7, 9, 10, 30, 0);
+            LastUpdatedCamera = camera;
+        }
+
+        public void Delete(Guid id)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    private sealed class ThrowingCameraRepository : ICameraRepository
+    {
+        public IEnumerable<EntityCamera> GetAll()
+        {
+            return [];
+        }
+
+        public EntityCamera? GetById(Guid id)
+        {
+            return null;
+        }
+
+        public void Add(EntityCamera camera)
+        {
+            throw new NotSupportedException();
+        }
+
+        public void Update(EntityCamera camera)
+        {
+            throw new InvalidOperationException("Repository failure.");
+        }
+
+        public void Delete(Guid id)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

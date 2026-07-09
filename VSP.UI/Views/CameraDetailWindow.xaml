@@ -293,10 +293,10 @@
                        VerticalAlignment="Center"/>
 
             <Button Grid.Column="1"
-                    Content="Apply"
+                    Content="Save"
                     Style="{StaticResource SecondaryButton}"
                     Margin="0,0,10,0"
-                    Command="{Binding ApplyEditCommand}"/>
+                    Command="{Binding SaveCommand}"/>
 
             <Button Grid.Column="2"
                     Content="Close"
