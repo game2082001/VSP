@@ -56,6 +56,11 @@ Modules
 - Driver Plugin
 - Driver Settings
 
+Current Progress
+
+- Task-301 Driver Registry
+- Task-302 Driver Plugin
+
 ---
 
 # Version 1.3

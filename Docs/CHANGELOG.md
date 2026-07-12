@@ -1,5 +1,27 @@
 ﻿# CHANGELOG
 
+## 2026-07-13
+
+### Version 1.2 - Task-302 Driver Plugin
+
+Status:
+Completed
+
+Summary:
+- Added a minimal IDriverPlugin contract for in-process driver extension.
+- Added BuiltInCameraDriverPlugin as the single source of truth for built-in driver descriptors.
+- Added atomic plugin registration through DriverRegistry.RegisterPlugin(...).
+- Preserved DriverFactory static API and RTSP fallback behavior.
+- No DLL loading, reflection scanning, plugin folders, or settings were introduced.
+
+Files:
+- VSP.Device/Drivers/Plugins/IDriverPlugin.cs
+- VSP.Device/Drivers/Plugins/BuiltInCameraDriverPlugin.cs
+- VSP.Device/Drivers/DriverRegistry.cs
+- VSP.Tests/Drivers/DriverPluginTests.cs
+- Docs/03_PRODUCT_ROADMAP.md
+
+---
 ?祆?隞嗉???VSP 撠???閬??質??氬?
 ---
 
@@ -433,3 +455,10 @@ Architecture嚗?
   - Delete failure keeps the detail window open, preserves current edited values, and updates StatusMessage without crashing
   - Added unit tests for delete confirmation request, delete success, cancel, failure handling, and unsaved-changes interaction
   - Technical Debt: TD-025 Shared confirmation dialog component/service
+
+- Task-301 Driver Registry
+  - Added immutable DriverDescriptor for driver metadata and factory delegate registration
+  - Added DriverRegistry as an instance-based registry with explicit duplicate rejection for DriverId and DeviceConnectionType
+  - Updated DriverFactory to use a default DriverRegistry instance internally while preserving the existing RTSP fallback behavior
+  - Added unit tests for descriptor validation, registry registration and lookup, duplicate handling, built-in driver registration, and DriverFactory fallback compatibility
+
