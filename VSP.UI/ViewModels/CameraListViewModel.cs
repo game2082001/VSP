@@ -90,43 +90,55 @@ public class CameraListViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        await LoadInternalAsync(forceRefresh: false);
-    }
-
-    public async Task RefreshAsync(Guid? selectedCameraId = null)
-    {
-        await LoadInternalAsync(forceRefresh: true, selectedCameraId);
-    }
-
-    private async Task LoadInternalAsync(bool forceRefresh, Guid? selectedCameraId = null)
-    {
-        if (_isLoaded && !forceRefresh)
+        if (_isLoaded)
         {
             return;
         }
 
+        await ReloadAsync(isRefresh: false, selectedCameraId: null);
+    }
+
+    public async Task RefreshAsync(Guid? selectedCameraId = null)
+    {
+        var rememberedSelectedCameraId = selectedCameraId ?? SelectedCamera?.SourceCamera.Id;
+        await ReloadAsync(isRefresh: true, rememberedSelectedCameraId);
+    }
+
+    private async Task ReloadAsync(bool isRefresh, Guid? selectedCameraId)
+    {
         try
         {
-            StatusMessage = "Loading cameras...";
+            StatusMessage = isRefresh ? "Refreshing camera list..." : "Loading cameras...";
             var cameras = await _cameraQueryService.GetAllAsync();
+            var rebuiltCameras = cameras
+                .Select(CameraListItemViewModel.FromCamera)
+                .ToList();
 
             _allCameras.Clear();
-
-            foreach (var camera in cameras)
+            foreach (var camera in rebuiltCameras)
             {
-                _allCameras.Add(CameraListItemViewModel.FromCamera(camera));
+                _allCameras.Add(camera);
             }
 
-            ApplyFilters();
-            TrySelectCamera(selectedCameraId);
+            ApplyFilters(updateStatusMessage: false);
+            RestoreSelectionAfterFilters(selectedCameraId);
             _isLoaded = true;
+            StatusMessage = isRefresh
+                ? "Camera list refreshed."
+                : GetStatusMessage(SearchKeyword.Trim());
         }
         catch (Exception ex)
         {
-            _allCameras.Clear();
-            Cameras.Clear();
-            OnPropertyChanged(nameof(TotalCamerasText));
-            StatusMessage = $"Failed to load cameras: {ex.Message}";
+            if (!isRefresh)
+            {
+                _allCameras.Clear();
+                Cameras.Clear();
+                OnPropertyChanged(nameof(TotalCamerasText));
+                StatusMessage = $"Failed to load cameras: {ex.Message}";
+                return;
+            }
+
+            StatusMessage = "Failed to refresh camera list.";
         }
     }
 
@@ -135,7 +147,7 @@ public class CameraListViewModel : ObservableObject
         ApplyFilters();
     }
 
-    private void ApplyFilters()
+    private void ApplyFilters(bool updateStatusMessage = true)
     {
         IEnumerable<CameraListItemViewModel> filteredCameras = _allCameras;
         var keyword = SearchKeyword.Trim();
@@ -172,7 +184,11 @@ public class CameraListViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(TotalCamerasText));
-        StatusMessage = GetStatusMessage(keyword);
+
+        if (updateStatusMessage)
+        {
+            StatusMessage = GetStatusMessage(keyword);
+        }
     }
 
     private void ClearSearch()
@@ -207,10 +223,11 @@ public class CameraListViewModel : ObservableObject
         return value.Contains(keyword, StringComparison.OrdinalIgnoreCase);
     }
 
-    private void TrySelectCamera(Guid? selectedCameraId)
+    private void RestoreSelectionAfterFilters(Guid? selectedCameraId)
     {
         if (selectedCameraId is null)
         {
+            SelectedCamera = null;
             return;
         }
 

@@ -298,6 +298,134 @@ public class CameraListViewModelTests
         Assert.Equal(2, viewModel.Cameras.Count);
         Assert.NotNull(viewModel.SelectedCamera);
         Assert.Equal(addedCamera.Id, viewModel.SelectedCamera!.SourceCamera.Id);
+        Assert.Equal("Camera list refreshed.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_PreservesSearchKeyword()
+    {
+        var repository = new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Dahua, CameraStatus.Offline, "Hall"));
+        var viewModel = CreateViewModel(repository);
+
+        await viewModel.LoadAsync();
+        viewModel.SearchKeyword = "Lobby";
+        viewModel.SearchCommand.Execute(null);
+
+        repository.ReplaceAll(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Dahua, CameraStatus.Offline, "Hall"),
+            CreateCamera("Warehouse", "10.0.0.30", CameraBrand.Axis, CameraStatus.Offline, "Storage"));
+
+        await viewModel.RefreshAsync();
+
+        Assert.Equal("Lobby", viewModel.SearchKeyword);
+        Assert.Single(viewModel.Cameras);
+        Assert.Equal("Lobby", viewModel.Cameras[0].Name);
+        Assert.Equal("Camera list refreshed.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_PreservesBrandAndStatusFilters()
+    {
+        var repository = new FakeCameraRepository(
+            CreateCamera("Gate A", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "North"),
+            CreateCamera("Gate B", "192.168.1.11", CameraBrand.Hikvision, CameraStatus.Offline, "South"),
+            CreateCamera("Gate C", "192.168.1.12", CameraBrand.Dahua, CameraStatus.Online, "West"));
+        var viewModel = CreateViewModel(repository);
+
+        await viewModel.LoadAsync();
+        viewModel.SelectedBrand = "Hikvision";
+        viewModel.SelectedStatus = "Online";
+
+        repository.ReplaceAll(
+            CreateCamera("Gate A", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "North"),
+            CreateCamera("Gate B", "192.168.1.11", CameraBrand.Hikvision, CameraStatus.Offline, "South"),
+            CreateCamera("Gate C", "192.168.1.12", CameraBrand.Dahua, CameraStatus.Online, "West"),
+            CreateCamera("Gate D", "192.168.1.13", CameraBrand.Hikvision, CameraStatus.Online, "East"));
+
+        await viewModel.RefreshAsync();
+
+        Assert.Equal("Hikvision", viewModel.SelectedBrand);
+        Assert.Equal("Online", viewModel.SelectedStatus);
+        Assert.Equal(2, viewModel.Cameras.Count);
+        Assert.All(viewModel.Cameras, camera => Assert.Equal("Hikvision", camera.Brand));
+        Assert.All(viewModel.Cameras, camera => Assert.Equal("Online", camera.Status));
+        Assert.Equal("Camera list refreshed.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_PreservesSelectedCamera_WhenStillVisible()
+    {
+        var target = CreateCamera("Lobby", "10.0.0.25", CameraBrand.Dahua, CameraStatus.Offline, "Hall");
+        var repository = new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"),
+            target);
+        var viewModel = CreateViewModel(repository);
+
+        await viewModel.LoadAsync();
+        viewModel.SelectedCamera = viewModel.Cameras[1];
+
+        repository.ReplaceAll(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"),
+            new EntityCamera
+            {
+                Id = target.Id,
+                Name = target.Name,
+                IpAddress = target.IpAddress,
+                Brand = target.Brand,
+                Status = target.Status,
+                Location = target.Location
+            });
+
+        await viewModel.RefreshAsync();
+
+        Assert.NotNull(viewModel.SelectedCamera);
+        Assert.Equal(target.Id, viewModel.SelectedCamera!.SourceCamera.Id);
+        Assert.Equal("Camera list refreshed.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ClearsSelectedCamera_WhenItNoLongerExists()
+    {
+        var removed = CreateCamera("Lobby", "10.0.0.25", CameraBrand.Dahua, CameraStatus.Offline, "Hall");
+        var repository = new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"),
+            removed);
+        var viewModel = CreateViewModel(repository);
+
+        await viewModel.LoadAsync();
+        viewModel.SelectedCamera = viewModel.Cameras[1];
+
+        repository.ReplaceAll(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"));
+
+        await viewModel.RefreshAsync();
+
+        Assert.Null(viewModel.SelectedCamera);
+        Assert.Equal("Camera list refreshed.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_HandlesExceptionAndPreservesVisibleList()
+    {
+        var repository = new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.Hikvision, CameraStatus.Online, "Gate"),
+            CreateCamera("Lobby", "10.0.0.25", CameraBrand.Dahua, CameraStatus.Offline, "Hall"));
+        var viewModel = CreateViewModel(repository);
+
+        await viewModel.LoadAsync();
+        viewModel.SearchKeyword = "Lobby";
+        viewModel.SearchCommand.Execute(null);
+        repository.ThrowOnGetAll = true;
+
+        await viewModel.RefreshAsync();
+
+        Assert.Equal("Lobby", viewModel.SearchKeyword);
+        Assert.Single(viewModel.Cameras);
+        Assert.Equal("Lobby", viewModel.Cameras[0].Name);
+        Assert.Equal("Failed to refresh camera list.", viewModel.StatusMessage);
     }
 
     private static CameraListViewModel CreateViewModel(ICameraRepository repository)
@@ -325,6 +453,7 @@ public class CameraListViewModelTests
     private sealed class FakeCameraRepository : ICameraRepository
     {
         private readonly List<EntityCamera> _cameras;
+        public bool ThrowOnGetAll { get; set; }
 
         public FakeCameraRepository(params EntityCamera[] cameras)
         {
@@ -333,6 +462,11 @@ public class CameraListViewModelTests
 
         public IEnumerable<EntityCamera> GetAll()
         {
+            if (ThrowOnGetAll)
+            {
+                throw new InvalidOperationException("Repository failure.");
+            }
+
             return _cameras;
         }
 
@@ -359,6 +493,12 @@ public class CameraListViewModelTests
         public void AddSeed(EntityCamera camera)
         {
             _cameras.Add(camera);
+        }
+
+        public void ReplaceAll(params EntityCamera[] cameras)
+        {
+            _cameras.Clear();
+            _cameras.AddRange(cameras);
         }
     }
 

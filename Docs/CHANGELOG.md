@@ -417,3 +417,11 @@ Architecture嚗?
   - Kept confirmation dialog handling in CameraDetailWindow.xaml.cs so the ViewModel does not call MessageBox directly
   - Added unit tests for dirty state changes, save clearing dirty state, and close flows for save, discard, and cancel
   - Technical Debt: TD-022 Shared confirmation dialog component
+
+- Task-211 Camera Refresh / Reload
+  - Added a dedicated refresh reload flow that always re-reads repository data instead of relying on the initial load guard
+  - Refresh now preserves SearchKeyword, Brand Filter, Status Filter, and restores SelectedCamera by Camera.Id after ApplyFilters()
+  - Refresh success ends with "Camera list refreshed." and refresh failure ends with "Failed to refresh camera list."
+  - Refresh failure now keeps the current visible list instead of clearing it unnecessarily
+  - Added unit tests for repository reload, preserved search and filters, selection restore and clear behavior, and exception handling
+  - Technical Debt: TD-026 Background refresh / auto refresh
