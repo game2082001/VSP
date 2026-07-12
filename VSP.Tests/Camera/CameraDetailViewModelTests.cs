@@ -62,6 +62,7 @@ public class CameraDetailViewModelTests
         Assert.Equal(string.Empty, viewModel.RtspUrl);
         Assert.Equal("Ready to add camera.", viewModel.StatusMessage);
         Assert.False(viewModel.IsDirty);
+        Assert.False(viewModel.DeleteCommand.CanExecute(null));
     }
 
     [Fact]
@@ -254,6 +255,91 @@ public class CameraDetailViewModelTests
     }
 
     [Fact]
+    public void DeleteCommand_RequestsConfirmation()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository());
+        var confirmationRequested = false;
+
+        viewModel.RequestDeleteConfirmation += () => confirmationRequested = true;
+
+        viewModel.DeleteCommand.Execute(null);
+
+        Assert.True(confirmationRequested);
+    }
+
+    [Fact]
+    public void DeleteCommand_WithUnsavedChanges_StillRequestsDeleteConfirmation()
+    {
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
+        var deleteConfirmationRequested = false;
+        var unsavedConfirmationRequested = false;
+
+        viewModel.Name = "Lobby";
+        viewModel.RequestDeleteConfirmation += () => deleteConfirmationRequested = true;
+        viewModel.RequestUnsavedChangesConfirmation += () => unsavedConfirmationRequested = true;
+
+        viewModel.DeleteCommand.Execute(null);
+
+        Assert.True(deleteConfirmationRequested);
+        Assert.False(unsavedConfirmationRequested);
+    }
+
+    [Fact]
+    public void HandleDeleteConfirmationDecision_Confirm_DeletesAndCloses()
+    {
+        var repository = new FakeCameraRepository();
+        var viewModel = CreateViewModel(repository);
+        var closeRequested = false;
+
+        viewModel.RequestClose += () => closeRequested = true;
+
+        viewModel.HandleDeleteConfirmationDecision(DeleteConfirmationDecision.Confirm);
+
+        Assert.True(closeRequested);
+        Assert.True(viewModel.WasDeleted);
+        Assert.Equal(Guid.Parse("11111111-1111-1111-1111-111111111111"), viewModel.DeletedCameraId);
+        Assert.Equal(1, repository.DeleteCallCount);
+        Assert.Equal(Guid.Parse("11111111-1111-1111-1111-111111111111"), repository.LastDeletedId);
+        Assert.Equal("Camera deleted successfully.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void HandleDeleteConfirmationDecision_Cancel_DoesNotDelete()
+    {
+        var repository = new FakeCameraRepository();
+        var viewModel = CreateViewModel(repository);
+        var closeRequested = false;
+
+        viewModel.RequestClose += () => closeRequested = true;
+
+        viewModel.HandleDeleteConfirmationDecision(DeleteConfirmationDecision.Cancel);
+
+        Assert.False(closeRequested);
+        Assert.False(viewModel.WasDeleted);
+        Assert.Null(viewModel.DeletedCameraId);
+        Assert.Equal(0, repository.DeleteCallCount);
+    }
+
+    [Fact]
+    public void HandleDeleteConfirmationDecision_DeleteFails_KeepsWindowOpenAndValues()
+    {
+        var repository = new ThrowingCameraRepository();
+        var viewModel = CreateEditableViewModel(repository);
+        var closeRequested = false;
+
+        viewModel.Name = "Edited Name";
+        viewModel.RequestClose += () => closeRequested = true;
+
+        viewModel.HandleDeleteConfirmationDecision(DeleteConfirmationDecision.Confirm);
+
+        Assert.False(closeRequested);
+        Assert.False(viewModel.WasDeleted);
+        Assert.Null(viewModel.DeletedCameraId);
+        Assert.Equal("Edited Name", viewModel.Name);
+        Assert.Equal("Failed to delete camera: Repository failure.", viewModel.StatusMessage);
+    }
+
+    [Fact]
     public void CloseCommand_WithoutChanges_RaisesRequestClose()
     {
         var viewModel = CreateViewModel(new FakeCameraRepository());
@@ -406,8 +492,10 @@ public class CameraDetailViewModelTests
     private sealed class FakeCameraRepository : ICameraRepository
     {
         public int AddCallCount { get; private set; }
+        public int DeleteCallCount { get; private set; }
         public int UpdateCallCount { get; private set; }
         public EntityCamera? LastAddedCamera { get; private set; }
+        public Guid? LastDeletedId { get; private set; }
         public EntityCamera? LastUpdatedCamera { get; private set; }
 
         public IEnumerable<EntityCamera> GetAll()
@@ -435,7 +523,8 @@ public class CameraDetailViewModelTests
 
         public void Delete(Guid id)
         {
-            throw new NotSupportedException();
+            DeleteCallCount++;
+            LastDeletedId = id;
         }
     }
 
@@ -463,7 +552,7 @@ public class CameraDetailViewModelTests
 
         public void Delete(Guid id)
         {
-            throw new NotSupportedException();
+            throw new InvalidOperationException("Repository failure.");
         }
     }
 }

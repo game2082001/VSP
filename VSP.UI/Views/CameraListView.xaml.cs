@@ -35,7 +35,7 @@ public partial class CameraListView : UserControl
         await _viewModel.LoadAsync();
     }
 
-    private void HandleCameraRowDoubleClick(object sender, MouseButtonEventArgs e)
+    private async void HandleCameraRowDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (_viewModel.SelectedCamera?.SourceCamera is null)
         {
@@ -54,6 +54,11 @@ public partial class CameraListView : UserControl
         };
 
         detailWindow.ShowDialog();
+
+        if (detailViewModel.WasDeleted)
+        {
+            await _viewModel.RefreshAsync();
+        }
     }
 
     private async void HandleRequestAddCamera()

@@ -42,6 +42,7 @@ Current Progress
 - Task-208 Add Camera
 - Task-210 Unsaved Changes Detection
 - Task-211 Camera Refresh / Reload
+- Task-212 Camera Delete
 
 ---
 

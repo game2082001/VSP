@@ -14,6 +14,12 @@ public enum UnsavedChangesDecision
     Cancel
 }
 
+public enum DeleteConfirmationDecision
+{
+    Confirm,
+    Cancel
+}
+
 public class CameraDetailViewModel : ObservableObject
 {
     private readonly Camera _camera;
@@ -64,9 +70,11 @@ public class CameraDetailViewModel : ObservableObject
     public ICommand CloseCommand { get; }
     public ICommand EditCommand { get; }
     public ICommand SaveCommand => _saveCommand;
+    public ICommand DeleteCommand { get; }
 
     public event Action? RequestClose;
     public event Action? RequestUnsavedChangesConfirmation;
+    public event Action? RequestDeleteConfirmation;
 
     public CameraDetailViewModel(Camera camera, ICameraRepository cameraRepository)
         : this(camera, cameraRepository, false)
@@ -107,6 +115,7 @@ public class CameraDetailViewModel : ObservableObject
         CloseCommand = new RelayCommand(Close);
         EditCommand = new RelayCommand(EnterEditMode, () => !IsNewMode);
         _saveCommand = new RelayCommand(Save, () => IsEditMode);
+        DeleteCommand = new RelayCommand(Delete, () => !IsNewMode);
 
         IsEditMode = isNewMode;
         _savedSnapshot = CreateSnapshot();
@@ -118,6 +127,10 @@ public class CameraDetailViewModel : ObservableObject
     public bool WasSaved { get; private set; }
 
     public Guid? SavedCameraId { get; private set; }
+
+    public bool WasDeleted { get; private set; }
+
+    public Guid? DeletedCameraId { get; private set; }
 
     public bool IsDirty => !CreateSnapshot().Equals(_savedSnapshot, StringComparison.Ordinal);
 
@@ -474,6 +487,37 @@ public class CameraDetailViewModel : ObservableObject
         }
 
         RequestUnsavedChangesConfirmation?.Invoke();
+    }
+
+    private void Delete()
+    {
+        if (IsNewMode)
+        {
+            return;
+        }
+
+        RequestDeleteConfirmation?.Invoke();
+    }
+
+    public void HandleDeleteConfirmationDecision(DeleteConfirmationDecision decision)
+    {
+        if (decision == DeleteConfirmationDecision.Cancel)
+        {
+            return;
+        }
+
+        try
+        {
+            _cameraRepository.Delete(_camera.Id);
+            WasDeleted = true;
+            DeletedCameraId = _camera.Id;
+            StatusMessage = "Camera deleted successfully.";
+            RequestClose?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to delete camera: {ex.Message}";
+        }
     }
 
     public void HandleUnsavedChangesDecision(UnsavedChangesDecision decision)

@@ -15,6 +15,7 @@ public partial class CameraDetailWindow : Window
         DataContext = _viewModel;
         _viewModel.RequestClose += HandleRequestClose;
         _viewModel.RequestUnsavedChangesConfirmation += HandleUnsavedChangesConfirmation;
+        _viewModel.RequestDeleteConfirmation += HandleDeleteConfirmation;
         EditPasswordBox.Password = _viewModel.Password;
     }
 
@@ -39,6 +40,21 @@ public partial class CameraDetailWindow : Window
         };
 
         _viewModel.HandleUnsavedChangesDecision(decision);
+    }
+
+    private void HandleDeleteConfirmation()
+    {
+        var result = MessageBox.Show(
+            "Are you sure you want to delete this camera?",
+            "Delete Camera",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        var decision = result == MessageBoxResult.Yes
+            ? DeleteConfirmationDecision.Confirm
+            : DeleteConfirmationDecision.Cancel;
+
+        _viewModel.HandleDeleteConfirmationDecision(decision);
     }
 
     private void HandlePasswordChanged(object sender, RoutedEventArgs e)

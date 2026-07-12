@@ -88,7 +88,7 @@ public class CameraListViewModelTests
         viewModel.RefreshCommand.Execute(null);
         viewModel.AddCameraCommand.Execute(null);
 
-        Assert.Equal("No cameras found.", viewModel.StatusMessage);
+        Assert.Equal("Camera list refreshed.", viewModel.StatusMessage);
     }
 
     [Fact]

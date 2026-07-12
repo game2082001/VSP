@@ -425,3 +425,11 @@ Architecture嚗?
   - Refresh failure now keeps the current visible list instead of clearing it unnecessarily
   - Added unit tests for repository reload, preserved search and filters, selection restore and clear behavior, and exception handling
   - Technical Debt: TD-026 Background refresh / auto refresh
+
+- Task-212 Camera Delete
+  - Added Delete command to Camera Detail for persisted cameras only, with confirmation handled in the View layer
+  - Delete now calls ICameraRepository.Delete(camera.Id), closes Camera Detail on success, and refreshes Camera List using the existing Task-211 refresh flow
+  - Delete confirmation remains separate from unsaved-changes handling, so explicit delete does not trigger Save / Discard / Cancel close flow
+  - Delete failure keeps the detail window open, preserves current edited values, and updates StatusMessage without crashing
+  - Added unit tests for delete confirmation request, delete success, cancel, failure handling, and unsaved-changes interaction
+  - Technical Debt: TD-025 Shared confirmation dialog component/service
