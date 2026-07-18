@@ -60,6 +60,7 @@ Current Progress
 
 - Task-301 Driver Registry
 - Task-302 Driver Plugin
+- Task-303 Driver Settings
 
 ---
 
@@ -73,6 +74,10 @@ Modules
 - RTSP
 - Network Scan
 - Auto Discovery
+
+Current Progress
+
+- Task-401 ONVIF Discovery
 
 ---
 

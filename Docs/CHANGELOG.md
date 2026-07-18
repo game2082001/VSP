@@ -2,6 +2,58 @@
 
 ## 2026-07-13
 
+### Version 1.3 - Task-401 ONVIF Discovery
+
+Status:
+Completed
+
+Summary:
+- Added the first ONVIF Discovery foundation with WS-Discovery Probe message building, response parsing, and discovery orchestration.
+- Added a minimal transport boundary so discovery logic can be unit tested without real multicast or ONVIF devices.
+- Implemented deterministic deduplication using EndpointReference, normalized XAddr, and remote sender IP fallback.
+- Implemented timeout and explicit cancellation semantics without adding UI, SQLite, repository, or camera-creation logic.
+
+Files:
+- VSP.Device/Discovery/Onvif/OnvifDiscoveryRequest.cs
+- VSP.Device/Discovery/Onvif/OnvifDiscoveryResult.cs
+- VSP.Device/Discovery/Onvif/WsDiscoveryTransportMessage.cs
+- VSP.Device/Discovery/Onvif/IWsDiscoveryTransport.cs
+- VSP.Device/Discovery/Onvif/OnvifWsDiscoveryProbeBuilder.cs
+- VSP.Device/Discovery/Onvif/OnvifWsDiscoveryResponseParser.cs
+- VSP.Device/Discovery/Onvif/UdpWsDiscoveryTransport.cs
+- VSP.Device/Discovery/Onvif/OnvifDiscoveryService.cs
+- VSP.Tests/Discovery/OnvifWsDiscoveryResponseParserTests.cs
+- VSP.Tests/Discovery/OnvifDiscoveryServiceTests.cs
+- Docs/03_PRODUCT_ROADMAP.md
+
+---
+
+## 2026-07-13
+
+### Version 1.2 - Task-303 Driver Settings
+
+Status:
+Completed
+
+Summary:
+- Added immutable Driver Settings metadata models for driver setting keys, field definitions, and per-driver settings definitions.
+- Extended DriverDescriptor to optionally carry Driver Settings metadata without changing driver runtime interfaces.
+- Added conservative built-in settings definitions for Hikvision ISAPI, Dahua NetSDK, ONVIF, and RTSP drivers.
+- Kept actual per-device values in Camera and did not add UI, SQLite, repository, or JSON settings changes.
+
+Files:
+- VSP.Device/Drivers/Settings/DriverSettingKey.cs
+- VSP.Device/Drivers/Settings/DriverSettingDefinition.cs
+- VSP.Device/Drivers/Settings/DriverSettingsDefinition.cs
+- VSP.Device/Drivers/DriverDescriptor.cs
+- VSP.Device/Drivers/Plugins/BuiltInCameraDriverPlugin.cs
+- VSP.Tests/Drivers/DriverSettingsTests.cs
+- Docs/03_PRODUCT_ROADMAP.md
+
+---
+
+## 2026-07-13
+
 ### Version 1.2 - Task-302 Driver Plugin
 
 Status:
