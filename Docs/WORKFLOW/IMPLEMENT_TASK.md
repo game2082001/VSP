@@ -1,12 +1,12 @@
 # IMPLEMENT TASK
 
-Version: 2.0
+Version: 3.0
 
 ---
 
 # 文件用途
 
-本文件定義 AI（Codex）執行功能開發時的標準流程。
+本文件定義 AI（ChatGPT / Codex / Claude Code）執行功能開發時的標準流程。
 
 適用於：
 
@@ -41,13 +41,23 @@ PROJECT.md 已包含所有專案規範。
 
 1. 是否理解本次需求。
 2. 是否符合目前 Architecture。
-3. 是否需要修改超過 8 個檔案。
+3. 是否預計修改超過 8 個檔案。
 
-若發現 Spec 與 Architecture 衝突，
+若發現 Spec 與 Architecture 衝突：
 
-請停止修改並提出原因。
+- 停止修改
+- 說明原因
+- 提出建議方案
 
 不得自行修改 Architecture。
+
+若預計修改超過 8 個檔案：
+
+請於 Task Plan 中說明：
+
+- 原因
+- 影響範圍
+- 是否可再拆分 Task
 
 ---
 
@@ -64,6 +74,12 @@ PROJECT.md 已包含所有專案規範。
 本次任務：
 
 （填寫任務名稱）
+
+--------------------------------
+
+Current-State Analysis
+
+說明目前程式現況。
 
 --------------------------------
 
@@ -137,19 +153,33 @@ X 個
 
 --------------------------------
 
-Build 預估：
+Build / Test Plan：
 
-Build Success：
+預計 Build：
 
-是
+dotnet build
 
-Error：
+預計 Test：
 
-report count
+dotnet test
 
-Warning：
+預期：
 
-0
+- Build Success
+- 不新增 Build Error
+- 不新增功能性 Warning
+
+--------------------------------
+
+Risks：
+
+列出本次可能風險。
+
+--------------------------------
+
+Out of Scope：
+
+列出本次不包含內容。
 
 --------------------------------
 
@@ -217,13 +247,20 @@ Rollback：
 
 ## 一、修改檔案
 
-列出所有實際修改的檔案。
+列出：
+
+- Modified Files
+- Added Files
+- Deleted Files
 
 ---
 
 ## 二、修改內容
 
-逐一說明每個檔案修改內容。
+逐一說明：
+
+- 每個檔案修改內容
+- 修改目的
 
 ---
 
@@ -231,15 +268,25 @@ Rollback：
 
 請說明：
 
-- 是否依照原本 Task Plan 完成。
-- 是否有新增修改檔案。
-- 若有，請說明原因。
+- 是否依照原本 Task Plan 完成
+- 是否新增修改檔案
+- 若有，請說明原因
 
 ---
 
-## 四、測試方式
+## 四、Architecture Summary
 
-請說明如何在 Visual Studio 測試。
+說明：
+
+- 是否符合目前 Architecture
+- 是否新增新的 Layer
+- 是否變更既有責任分工
+
+---
+
+## 五、測試方式
+
+請說明如何在 Visual Studio 驗證。
 
 例如：
 
@@ -250,7 +297,7 @@ Rollback：
 
 ---
 
-## 五、影響範圍
+## 六、影響範圍
 
 請說明是否影響其他功能。
 
@@ -260,7 +307,7 @@ Rollback：
 
 ---
 
-## 六、Build 結果
+## 七、Build Result
 
 請回報：
 
@@ -278,7 +325,31 @@ X
 
 ---
 
-## 七、Spec 完成狀態
+## 八、Test Result
+
+請回報：
+
+- Unit Tests
+- Integration Tests（若有）
+- Manual Verification
+
+例如：
+
+Passed：
+
+118
+
+Failed：
+
+0
+
+Skipped：
+
+0
+
+---
+
+## 九、Spec 完成狀態
 
 請回答：
 
@@ -294,17 +365,49 @@ X
 
 ---
 
-## ?怒遣霅?Suggested Commit Message
+## 十、Risk Report
 
-請提供符合專案規範的 Git Commit Message。
+列出：
 
-格式：
+- 已知限制
+- 已知風險
+- 後續注意事項
 
-SprintX-TaskY: 功能名稱
+---
+
+## 十一、Technical Debt
+
+若有，
+
+請列出：
 
 例如：
 
-Sprint1-Task1: Device Center Device List
+TD-001：
+
+後續可改善項目。
+
+---
+
+## 十二、Suggested Commit Message
+
+請提供符合 Conventional Commits 的 Commit Message。
+
+格式：
+
+<type>(<scope>): <description>
+
+例如：
+
+feat(camera): add camera delete flow
+
+feat(driver): add plugin-based driver registration
+
+feat(discovery): add initial onvif discovery
+
+fix(import): preserve duplicate validation results
+
+docs(ai): update implementation workflow
 
 ---
 
