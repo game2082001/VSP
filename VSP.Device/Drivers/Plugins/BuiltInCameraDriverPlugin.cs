@@ -1,3 +1,4 @@
+using VSP.Device.Drivers.Capabilities;
 using VSP.Device.Drivers.Dahua;
 using VSP.Device.Drivers.Hikvision;
 using VSP.Device.Drivers.ONVIF;
@@ -28,13 +29,15 @@ public sealed class BuiltInCameraDriverPlugin : IDriverPlugin
             "Generic ONVIF Driver",
             DeviceConnectionType.ONVIF,
             static () => new OnvifCameraDriver(),
-            CreateOnvifSettings()),
+            CreateOnvifSettings(),
+            CreateOnvifCompatibilityCapability()),
         new DriverDescriptor(
             "generic.rtsp",
             "Generic RTSP Driver",
             DeviceConnectionType.RTSP,
             static () => new RtspCameraDriver(),
-            CreateRtspSettings())
+            CreateRtspSettings(),
+            CreateRtspCompatibilityCapability())
     ];
 
     public string PluginId => "vsp.builtin.camera";
@@ -87,6 +90,45 @@ public sealed class BuiltInCameraDriverPlugin : IDriverPlugin
             new DriverSettingDefinition(DriverSettingKey.Password, "Password", isSensitive: true),
             new DriverSettingDefinition(DriverSettingKey.RtspUrl, "RTSP URL", isRequired: true, defaultValue: string.Empty)
         ]);
+    }
+
+    private static DriverCompatibilityCapability CreateOnvifCompatibilityCapability()
+    {
+        return new DriverCompatibilityCapability(
+            requiredEvidence:
+            [
+                new DriverCompatibilityEvidenceRequirement(DriverCompatibilityEvidenceKind.OnvifDiscovery)
+            ],
+            optionalEvidence:
+            [
+                new DriverCompatibilityEvidenceRequirement(DriverCompatibilityEvidenceKind.Host),
+                new DriverCompatibilityEvidenceRequirement(DriverCompatibilityEvidenceKind.Endpoint),
+                new DriverCompatibilityEvidenceRequirement(DriverCompatibilityEvidenceKind.ManufacturerHint),
+                new DriverCompatibilityEvidenceRequirement(DriverCompatibilityEvidenceKind.ModelHint)
+            ],
+            requiredSettings:
+            [
+                DriverSettingKey.HttpPort
+            ]);
+    }
+
+    private static DriverCompatibilityCapability CreateRtspCompatibilityCapability()
+    {
+        return new DriverCompatibilityCapability(
+            requiredEvidence:
+            [
+                new DriverCompatibilityEvidenceRequirement(DriverCompatibilityEvidenceKind.RtspEndpointProbe)
+            ],
+            optionalEvidence:
+            [
+                new DriverCompatibilityEvidenceRequirement(DriverCompatibilityEvidenceKind.Host),
+                new DriverCompatibilityEvidenceRequirement(DriverCompatibilityEvidenceKind.Port),
+                new DriverCompatibilityEvidenceRequirement(DriverCompatibilityEvidenceKind.Endpoint)
+            ],
+            requiredSettings:
+            [
+                DriverSettingKey.RtspUrl
+            ]);
     }
 
     private static DriverSettingDefinition CreatePortSetting(

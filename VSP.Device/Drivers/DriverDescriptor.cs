@@ -1,4 +1,5 @@
 using VSP.Device.Drivers.Abstractions;
+using VSP.Device.Drivers.Capabilities;
 using VSP.Device.Drivers.Settings;
 using VSP.Domain.Enums;
 
@@ -11,7 +12,8 @@ public sealed class DriverDescriptor
         string displayName,
         DeviceConnectionType connectionType,
         Func<ICameraDriver> factory,
-        DriverSettingsDefinition? settingsDefinition = null)
+        DriverSettingsDefinition? settingsDefinition = null,
+        DriverCompatibilityCapability? compatibilityCapability = null)
     {
         if (string.IsNullOrWhiteSpace(driverId))
         {
@@ -30,6 +32,7 @@ public sealed class DriverDescriptor
         ConnectionType = connectionType;
         Factory = factory;
         SettingsDefinition = settingsDefinition;
+        CompatibilityCapability = compatibilityCapability;
     }
 
     public string DriverId { get; }
@@ -41,4 +44,6 @@ public sealed class DriverDescriptor
     public Func<ICameraDriver> Factory { get; }
 
     public DriverSettingsDefinition? SettingsDefinition { get; }
+
+    public DriverCompatibilityCapability? CompatibilityCapability { get; }
 }
