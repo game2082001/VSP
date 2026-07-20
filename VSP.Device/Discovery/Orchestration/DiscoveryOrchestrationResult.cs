@@ -2,13 +2,31 @@ namespace VSP.Device.Discovery.Orchestration;
 
 public sealed class DiscoveryOrchestrationResult
 {
-    public DiscoveryOrchestrationStatus Status { get; init; }
-
-    public IReadOnlyList<CandidateOrchestrationResult> CandidateResults { get; init; } =
+    private IReadOnlyList<CandidateOrchestrationResult> _candidateResults =
         Array.Empty<CandidateOrchestrationResult>();
 
-    public DiscoveryOrchestrationSummary Summary { get; init; } = new();
+    private DiscoveryOrchestrationSummary _summary = new();
 
-    public IReadOnlyList<DiscoveryOrchestrationReason> Reasons { get; init; } =
+    private IReadOnlyList<DiscoveryOrchestrationReason> _reasons =
         Array.Empty<DiscoveryOrchestrationReason>();
+
+    public DiscoveryOrchestrationStatus Status { get; init; }
+
+    public IReadOnlyList<CandidateOrchestrationResult> CandidateResults
+    {
+        get => _candidateResults;
+        init => _candidateResults = value?.ToArray() ?? Array.Empty<CandidateOrchestrationResult>();
+    }
+
+    public DiscoveryOrchestrationSummary Summary
+    {
+        get => _summary;
+        init => _summary = value ?? new DiscoveryOrchestrationSummary();
+    }
+
+    public IReadOnlyList<DiscoveryOrchestrationReason> Reasons
+    {
+        get => _reasons;
+        init => _reasons = value?.ToArray() ?? Array.Empty<DiscoveryOrchestrationReason>();
+    }
 }
