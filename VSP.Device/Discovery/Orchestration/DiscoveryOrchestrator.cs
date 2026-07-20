@@ -46,6 +46,7 @@ public sealed class DiscoveryOrchestrator
         DiscoveryOrchestrationRequest? request,
         CancellationToken cancellationToken = default)
     {
+        var candidateResults = new List<CandidateOrchestrationResult>();
         var validationReasons = ValidateRequest(request);
         if (validationReasons.Count > 0)
         {
@@ -59,7 +60,6 @@ public sealed class DiscoveryOrchestrator
         try
         {
             var candidates = await GetCandidatesAsync(request!, cancellationToken).ConfigureAwait(false);
-            var candidateResults = new List<CandidateOrchestrationResult>();
 
             foreach (var candidate in candidates)
             {
@@ -74,6 +74,8 @@ public sealed class DiscoveryOrchestrator
             return new DiscoveryOrchestrationResult
             {
                 Status = DiscoveryOrchestrationStatus.Cancelled,
+                CandidateResults = candidateResults,
+                Summary = CreateSummary(candidateResults),
                 Reasons =
                 [
                     new DiscoveryOrchestrationReason(
