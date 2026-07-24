@@ -54,7 +54,7 @@ Steps 1–5 are the existing, authoritative startup sequence already defined by 
 
 | Directory | Future Purpose | Status |
 |---|---|---|
-| [`OperatingSystem/`](OperatingSystem/README.md) | AI Operating System, Autonomous Development Workflow, Decision Engine, Risk Matrix, Task Selection Rules, Approval Boundary | README only |
+| [`OperatingSystem/`](OperatingSystem/README.md) | AI Operating System, Autonomous Development (Epic Governance), Decision Engine, Risk Matrix, Task Selection Rules, Approval Boundary | **`AI_OPERATING_SYSTEM.md`, `AUTONOMOUS_DEVELOPMENT.md` established** |
 | [`Architecture/`](Architecture/README.md) | Architecture Rules, Module Boundaries, Dependency Rules, Discovery/Driver Architecture, ADR Index | README only |
 | [`Repository/`](Repository/README.md) | Project Structure, Directory Guide, Module Map, Technology Stack, Naming Convention | README only |
 | [`Standards/`](Standards/README.md) | Coding Rules, Testing Rules, Review Checklist, Documentation Rules, Git Rules | README only |
@@ -62,15 +62,15 @@ Steps 1–5 are the existing, authoritative startup sequence already defined by 
 | [`Memory/`](Memory/README.md) | Current State, Completed Tasks, Decisions, Known Technical Debt, Next Action | README only |
 | [`Templates/`](Templates/README.md) | Reusable templates for future AI tasks (task plans, spec skeletons, review reports) | README only |
 
-Every directory currently contains only a `README.md` describing its intended future contents. No rule files, checklists, backlogs, or state files have been created yet — that is intentionally out of scope for this Task (Task-AI01-001).
+`OperatingSystem/` now holds two established documents (`AI_OPERATING_SYSTEM.md`, `AUTONOMOUS_DEVELOPMENT.md`); every other directory still contains only a `README.md` describing its intended future contents. No rule files, checklists, backlogs, or state files have been created yet for those — that remains intentionally out of scope until a future, separately approved task addresses each one.
 
 ---
 
 ## What Is Not Yet Built
 
-The following are explicitly **not created** by this Task and are reserved for future, separately approved tasks:
+The following are explicitly **not created** and are reserved for future, separately approved tasks:
 
-- `AI_OPERATING_SYSTEM.md`, `AUTONOMOUS_DEVELOPMENT.md`, `DECISION_ENGINE.md`, `RISK_MATRIX.md`
+- `DECISION_ENGINE.md`, `RISK_MATRIX.md`
 - `ARCHITECTURE_RULES.md`, `MODULE_BOUNDARIES.md`, `DEPENDENCY_RULES.md`
 - `CODING_RULES.md`, `TESTING_RULES.md`, `REVIEW_CHECKLIST.md` (under `AI/`; distinct from the existing `Docs/02_CODING_RULES.md`)
 - `PRODUCT_BACKLOG.md`, `ARCHITECTURE_BACKLOG.md`

@@ -9,21 +9,21 @@
 
 ## Purpose
 
-This directory holds the rules that govern how an AI agent operates autonomously in this repository: what it may decide on its own, what it must stop and ask about, and how it selects and sequences work.
+This directory holds the rules that govern how an AI agent operates autonomously in this repository: what it may decide on its own, what it must stop and ask about, and how it selects and sequences work — at both single-Task and multi-Task Epic scope.
 
 ## Contents
 
 | Document | Status |
 |---|---|
 | [`AI_OPERATING_SYSTEM.md`](AI_OPERATING_SYSTEM.md) | **Established** (Task-AI01-002) — Purpose, Agent Roles, AI Startup Sequence, Task Intake Modes (including Continuation Mode), Current-State Analysis, Task Selection Rules (including Task Dependency Check), Risk Classification, Approval Boundary, Implementation Planning, Implementation Rules, Autonomous Execution Loop, Build/Test Rules, Documentation Update Rules, AI Memory Rules, Worktree Safety, Prohibited Actions, Self-Review Checklist, Completion Report Standard, Failure/Escalation Rules, Relationship to Other Documents, Multi-Agent Collaboration |
+| [`AUTONOMOUS_DEVELOPMENT.md`](AUTONOMOUS_DEVELOPMENT.md) | **Established** (Task-AI01-003) — Epic Governance: Epic Definition, Internal Tasks vs. External Epics, Product Owner Responsibilities, AI Agent Responsibilities, Governance, Long-Running Autonomous Execution, Autonomous Recovery, Continuous Validation, Epic Completion Reporting |
 
 ## Future Contents (Not Yet Established)
 
-- Autonomous Development Workflow (as a dedicated document, if the Autonomous Execution Loop in `AI_OPERATING_SYSTEM.md` §11 is later judged insufficient)
 - Decision Engine
 - Risk Matrix
 
-None of the above exist yet as standalone documents. Risk classification and approval-boundary logic currently live inside `AI_OPERATING_SYSTEM.md` §7–§8.
+Neither exists yet as a standalone document. Risk classification and approval-boundary logic currently live inside `AI_OPERATING_SYSTEM.md` §7–§8.
 
 ## Related Source Documents
 

@@ -24,6 +24,8 @@ This document is an **operating rulebook**, not a source of architecture, produc
 
 It defines how an AI Agent should behave while consuming those sources, not what those sources say.
 
+This document governs execution of a single Task. For a Product-Owner-approved body of work spanning multiple Tasks, see [`AUTONOMOUS_DEVELOPMENT.md`](AUTONOMOUS_DEVELOPMENT.md), which governs Epic-level sequencing without altering any rule in this document.
+
 ### Single Source of Truth & Authority Order
 
 When sources disagree, an AI Agent must resolve authority in this order:
@@ -123,6 +125,8 @@ In Continuation Mode, an AI Agent must:
 - Verify that the prior work matches an approved Task Specification or Implementation Plan; if no approval exists for what was already done, this must be surfaced, not silently accepted as approved.
 - Confirm whether prior work is committed, staged, or only present in the working tree, and treat uncommitted prior work as protected under Worktree Safety (§15).
 - Not silently expand or change the scope of the original task while "continuing" it — a scope change requires a new or amended Task Plan.
+
+Any of the four modes above may occur as one Task within a larger, Product-Owner-approved Epic. See [`AUTONOMOUS_DEVELOPMENT.md`](AUTONOMOUS_DEVELOPMENT.md) for how Tasks are sequenced and governed at Epic scope; the intake rules for the individual Task itself are unchanged.
 
 ---
 
@@ -312,8 +316,8 @@ This loop is an operational refinement of the project-wide workflow defined in [
 
 Rules:
 
-- An AI Agent must not automatically repeat this loop for a next task.
-- Only one approved task is handled per execution.
+- An AI Agent must not automatically repeat this loop for a next task, unless it is operating inside an approved Epic per [`AUTONOMOUS_DEVELOPMENT.md`](AUTONOMOUS_DEVELOPMENT.md), in which case the loop may chain to the next constituent Task only after this Task's own Completion Report is delivered and the next Task remains within the Epic's approved scope and Risk Ceiling.
+- Only one approved task is handled per execution of this loop.
 - The AI Agent must stop and report on completion.
 - The AI Agent must not commit, push, or merge on its own, unless explicitly authorized by the user for that specific action.
 
@@ -464,6 +468,7 @@ This document is the AI-Kit-level operating rulebook. It references, and does no
 | Task Specifications (`Docs/SPECS/`) | Authoritative scope for a given task; outrank this document per the Authority Order in §1 |
 | ADRs (`Docs/ADR/`) | Authoritative architecture decisions; outrank this document per the Authority Order in §1 |
 | AI Memory (`AI/Memory/`) | Subordinate to this document and to all formal documents per §1 and §14 |
+| [`AUTONOMOUS_DEVELOPMENT.md`](AUTONOMOUS_DEVELOPMENT.md) | Epic-level governance layered above this document; governs sequencing multiple Tasks under one approved Epic without altering any rule defined here |
 
 ---
 
