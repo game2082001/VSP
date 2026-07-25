@@ -305,7 +305,7 @@ public class DeviceCenterViewModel : ObservableObject
             DeviceConnectionType.HikvisionSDK => false,
             DeviceConnectionType.DahuaNetSDK => false,
             DeviceConnectionType.ONVIF => false,
-            DeviceConnectionType.RTSP => false,
+            DeviceConnectionType.RTSP => true,
             DeviceConnectionType.AxisVAPIX => false,
             _ => false
         };

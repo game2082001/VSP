@@ -2,6 +2,49 @@
 
 ## 2026-07-25
 
+### Version 1.8 - Epic-003 RTSP Connection Foundation
+
+Status:
+Implementation Complete — Reviewed — Accepted by Product Owner (uncommitted — pending user commit)
+
+Summary:
+- Implemented `RtspCameraDriver.TestConnection()`: connects to the camera's exact configured `Camera.RtspUrl`, sends an RTSP DESCRIBE request, and treats any final 2xx status as success.
+- On a 401 challenge, parses the `WWW-Authenticate` header (`RtspWwwAuthenticateParser`) and retries exactly once with a computed Basic or Digest (MD5, `qop=auth` and no-qop) `Authorization` header (`RtspAuthorizationHeaderBuilder`); a second 401, malformed response, invalid URL, timeout, connection failure, or unsupported challenge scheme all return `false` without throwing past the `TestConnection` boundary.
+- Added `TcpRtspTransport` for the underlying socket I/O: bounded connect/read timeouts, accumulation of partial TCP reads, `\r\n\r\n` header-termination detection, and a 16 KB max response size cap; connections and streams are always disposed.
+- Added `RtspDescribeRequestFactory` / `RtspDescribeResponseParser` as small protocol-focused helpers for building the DESCRIBE request and parsing the status line/headers.
+- Enabled RTSP in `DeviceCenterViewModel.IsDriverImplemented` (single-line flag flip; no other UI logic changed).
+- Added 34 new unit tests (`VSP.Tests/Drivers/RTSP/`) covering auth flows (Basic/Digest, single-retry-only), malformed/timeout/invalid-URL/unsupported-challenge cases, and transport-level behavior, using a bounded, self-disposing `LoopbackRtspTestServer` loopback helper (background thread; cannot hang the test process).
+- Reviewed against scope (RTSP/TestConnection only — no Snapshot/SETUP/PLAY/Streaming/ONVIF/Hikvision/Dahua, no Driver Framework or Discovery changes, no new external dependencies), functional correctness, network robustness, and test quality. Accepted by Product Owner with two non-blocking follow-ups recorded below.
+
+Files:
+- VSP.Device/Drivers/RTSP/RtspCameraDriver.cs
+- VSP.Device/Drivers/RTSP/RtspAuthorizationHeaderBuilder.cs
+- VSP.Device/Drivers/RTSP/RtspDescribeRequestFactory.cs
+- VSP.Device/Drivers/RTSP/RtspDescribeResponseParser.cs
+- VSP.Device/Drivers/RTSP/RtspWwwAuthenticateParser.cs
+- VSP.Device/Drivers/RTSP/TcpRtspTransport.cs
+- VSP.UI/ViewModels/DeviceCenterViewModel.cs
+- VSP.Tests/Drivers/RTSP/LoopbackRtspTestServer.cs
+- VSP.Tests/Drivers/RTSP/RtspAuthorizationHeaderBuilderTests.cs
+- VSP.Tests/Drivers/RTSP/RtspCameraDriverTests.cs
+- VSP.Tests/Drivers/RTSP/RtspDescribeRequestFactoryTests.cs
+- VSP.Tests/Drivers/RTSP/RtspDescribeResponseParserTests.cs
+- VSP.Tests/Drivers/RTSP/RtspWwwAuthenticateParserTests.cs
+- VSP.Tests/Drivers/RTSP/TcpRtspTransportTests.cs
+- Docs/CHANGELOG.md
+
+Technical Debt:
+- TD-027 `TcpRtspTransport` overall operation timeout
+  Reason: The current implementation enforces a per-read timeout (`NetworkStream.ReadTimeout`, reset on every `Read()` call) but not an overall deadline for the whole DESCRIBE round trip, so a server that trickles bytes just under the per-read timeout could hold the connection open indefinitely. Accepted as non-blocking for Epic-003.
+- TD-028 Additional RTSP transport robustness tests
+  Reason: Future enhancement to cover fragmented/multi-chunk header reads and max-response-size-cap enforcement (currently only the "server never responds" hang case is tested, not "server responds forever without a `\r\n\r\n` terminator"). Accepted as non-blocking for Epic-003.
+
+Known documentation debt (not fixed — out of confirmed scope for this Epic):
+- Docs/PROJECT_STATUS.md remains stale (predates this Epic; still shows TD-001/TD-002 from the M1 release and does not reflect the current TD-027/TD-028 numbering used in this CHANGELOG).
+- No formal Epic definition document exists for Epic-003 satisfying every field required by `AUTONOMOUS_DEVELOPMENT.md` §2 (Epic ID, Objective, Scope Boundary, Risk Ceiling, Constituent Tasks, Definition of Done, Approval Record) — consistent with the same known gap recorded for Epic-002 above.
+
+---
+
 ### Version 1.7 - Epic-002 Device Management Continuation (Task-213–216)
 
 Status:
