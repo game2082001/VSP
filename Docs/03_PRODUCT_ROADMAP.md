@@ -43,6 +43,10 @@ Current Progress
 - Task-210 Unsaved Changes Detection
 - Task-211 Camera Refresh / Reload
 - Task-212 Camera Delete
+- Task-213 Batch Edit
+- Task-214 Batch Connection Test
+- Task-215 Export
+- Task-216 Device Status Enhancement
 
 ---
 

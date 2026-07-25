@@ -7,6 +7,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="56"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="40"/>
         </Grid.RowDefinitions>
@@ -86,6 +87,40 @@
         </Border>
 
         <Border Grid.Row="2"
+                Margin="0,16,0,0"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding SelectedItemCount, StringFormat='{}{0} selected'}"
+                           Foreground="#B0B0B0"
+                           VerticalAlignment="Center"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Export"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding ExportCommand}"
+                            Margin="0,0,8,0"/>
+                    <Button Content="Batch Test"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding BatchConnectionTestCommand}"
+                            Margin="0,0,8,0"/>
+                    <Button Content="Batch Edit"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding BatchEditCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3"
                 Margin="0,16,0,12"
                 Background="#252526"
                 BorderBrush="#3E3E42"
@@ -100,29 +135,37 @@
                       CanUserDeleteRows="False"
                       CanUserResizeRows="False"
                       CanUserSortColumns="False"
-                      IsReadOnly="True"
+                      IsReadOnly="False"
                       HeadersVisibility="Column">
                 <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="Select"
+                                            Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            Width="60"/>
                     <DataGridTextColumn Header="Name"
                                         Binding="{Binding Name}"
-                                        Width="180"/>
+                                        Width="180"
+                                        IsReadOnly="True"/>
                     <DataGridTextColumn Header="IP Address"
                                         Binding="{Binding IpAddress}"
-                                        Width="160"/>
+                                        Width="160"
+                                        IsReadOnly="True"/>
                     <DataGridTextColumn Header="Brand"
                                         Binding="{Binding Brand}"
-                                        Width="140"/>
+                                        Width="140"
+                                        IsReadOnly="True"/>
                     <DataGridTextColumn Header="Status"
                                         Binding="{Binding Status}"
-                                        Width="140"/>
+                                        Width="140"
+                                        IsReadOnly="True"/>
                     <DataGridTextColumn Header="Location"
                                         Binding="{Binding Location}"
-                                        Width="*"/>
+                                        Width="*"
+                                        IsReadOnly="True"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
 
-        <Border Grid.Row="3"
+        <Border Grid.Row="4"
                 Background="#252526"
                 BorderBrush="#3E3E42"
                 BorderThickness="1"

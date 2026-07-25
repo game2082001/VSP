@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows.Input;
 using VSP.Core.Commands;
 using VSP.Core.MVVM;
 using VSP.Device.Services;
+using VSP.Domain.Entities;
 
 namespace VSP.UI.ViewModels;
 
@@ -72,12 +74,20 @@ public class CameraListViewModel : ObservableObject
     public IReadOnlyList<string> StatusOptions { get; } = new[] { "All", "Online", "Offline" };
     public string TotalCamerasText => $"Total: {Cameras.Count} cameras";
 
+    public int SelectedItemCount => Cameras.Count(camera => camera.IsSelected);
+
     public ICommand SearchCommand { get; }
     public ICommand ClearCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand AddCameraCommand { get; }
+    public ICommand BatchEditCommand { get; }
+    public ICommand BatchConnectionTestCommand { get; }
+    public ICommand ExportCommand { get; }
 
     public event Action? RequestAddCamera;
+    public event Action<IReadOnlyList<Camera>>? RequestBatchEdit;
+    public event Action<IReadOnlyList<Camera>>? RequestBatchConnectionTest;
+    public event Action<IReadOnlyList<Camera>>? RequestExport;
 
     public CameraListViewModel(CameraQueryService cameraQueryService)
     {
@@ -86,6 +96,9 @@ public class CameraListViewModel : ObservableObject
         ClearCommand = new RelayCommand(ClearSearch);
         RefreshCommand = new RelayCommand(() => _ = RefreshAsync());
         AddCameraCommand = new RelayCommand(RaiseAddCameraRequest);
+        BatchEditCommand = new RelayCommand(RaiseBatchEditRequest, () => SelectedItemCount >= 2);
+        BatchConnectionTestCommand = new RelayCommand(RaiseBatchConnectionTestRequest, () => SelectedItemCount >= 1);
+        ExportCommand = new RelayCommand(RaiseExportRequest, () => Cameras.Count > 0);
     }
 
     public async Task LoadAsync()
@@ -114,9 +127,15 @@ public class CameraListViewModel : ObservableObject
                 .Select(CameraListItemViewModel.FromCamera)
                 .ToList();
 
+            foreach (var oldCamera in _allCameras)
+            {
+                oldCamera.PropertyChanged -= HandleCameraItemPropertyChanged;
+            }
+
             _allCameras.Clear();
             foreach (var camera in rebuiltCameras)
             {
+                camera.PropertyChanged += HandleCameraItemPropertyChanged;
                 _allCameras.Add(camera);
             }
 
@@ -184,6 +203,10 @@ public class CameraListViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(TotalCamerasText));
+        OnPropertyChanged(nameof(SelectedItemCount));
+        (BatchEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (BatchConnectionTestCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ExportCommand as RelayCommand)?.RaiseCanExecuteChanged();
 
         if (updateStatusMessage)
         {
@@ -243,5 +266,61 @@ public class CameraListViewModel : ObservableObject
     private void RaiseAddCameraRequest()
     {
         RequestAddCamera?.Invoke();
+    }
+
+    private void RaiseBatchEditRequest()
+    {
+        var selected = Cameras
+            .Where(camera => camera.IsSelected)
+            .Select(camera => camera.SourceCamera)
+            .ToList();
+
+        if (selected.Count < 2)
+        {
+            return;
+        }
+
+        RequestBatchEdit?.Invoke(selected);
+    }
+
+    private void RaiseBatchConnectionTestRequest()
+    {
+        var selected = Cameras
+            .Where(camera => camera.IsSelected)
+            .Select(camera => camera.SourceCamera)
+            .ToList();
+
+        if (selected.Count < 1)
+        {
+            return;
+        }
+
+        RequestBatchConnectionTest?.Invoke(selected);
+    }
+
+    private void RaiseExportRequest()
+    {
+        var visible = Cameras
+            .Select(camera => camera.SourceCamera)
+            .ToList();
+
+        if (visible.Count == 0)
+        {
+            return;
+        }
+
+        RequestExport?.Invoke(visible);
+    }
+
+    private void HandleCameraItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(CameraListItemViewModel.IsSelected))
+        {
+            return;
+        }
+
+        OnPropertyChanged(nameof(SelectedItemCount));
+        (BatchEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (BatchConnectionTestCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 }

@@ -2,9 +2,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using VSP.Device.Export;
 using VSP.Device.Interfaces;
 using VSP.Device.Repositories;
 using VSP.Device.Services;
+using VSP.Domain.Entities;
+using VSP.UI.Helpers;
 using VSP.UI.ViewModels;
 
 namespace VSP.UI.Views;
@@ -26,6 +29,9 @@ public partial class CameraListView : UserControl
         _cameraRepository = cameraRepository;
         DataContext = _viewModel;
         _viewModel.RequestAddCamera += HandleRequestAddCamera;
+        _viewModel.RequestBatchEdit += HandleRequestBatchEdit;
+        _viewModel.RequestBatchConnectionTest += HandleRequestBatchConnectionTest;
+        _viewModel.RequestExport += HandleRequestExport;
         Loaded += HandleLoaded;
     }
 
@@ -74,6 +80,59 @@ public partial class CameraListView : UserControl
         if (detailViewModel.WasSaved)
         {
             await _viewModel.RefreshAsync(detailViewModel.SavedCameraId);
+        }
+    }
+
+    private async void HandleRequestBatchEdit(IReadOnlyList<Camera> selectedCameras)
+    {
+        var batchEditViewModel = new BatchEditViewModel(selectedCameras, _cameraRepository);
+        var batchEditWindow = new BatchEditWindow(batchEditViewModel)
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        batchEditWindow.ShowDialog();
+
+        if (batchEditViewModel.WasApplied)
+        {
+            await _viewModel.RefreshAsync();
+        }
+    }
+
+    private async void HandleRequestBatchConnectionTest(IReadOnlyList<Camera> selectedCameras)
+    {
+        var connectionTestViewModel = new BatchConnectionTestViewModel(
+            selectedCameras,
+            new CameraConnectionTester(),
+            _cameraRepository);
+        var connectionTestWindow = new BatchConnectionTestWindow(connectionTestViewModel)
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        connectionTestWindow.ShowDialog();
+
+        await _viewModel.RefreshAsync();
+    }
+
+    private void HandleRequestExport(IReadOnlyList<Camera> visibleCameras)
+    {
+        var filePath = new ExportFileSelector().SelectFile();
+
+        if (filePath is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var csv = CameraExportWriter.Write(visibleCameras);
+            System.IO.File.WriteAllText(filePath, csv, System.Text.Encoding.UTF8);
+            MessageBox.Show($"Exported {visibleCameras.Count} camera(s) to {filePath}.", "VSP");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Export failed: {ex.Message}", "VSP");
         }
     }
 

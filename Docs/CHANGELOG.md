@@ -1,5 +1,51 @@
 ﻿# CHANGELOG
 
+## 2026-07-25
+
+### Version 1.7 - Epic-002 Device Management Continuation (Task-213–216)
+
+Status:
+Implementation Complete — Pending Product Owner Acceptance (uncommitted — pending user commit)
+
+Summary:
+- Completed Task-213 Batch Edit: multi-select checkbox column on the camera list, a "Batch Edit" dialog applying Brand/Location/Username/Password to 2+ selected cameras via looped `ICameraRepository.Update()`. This Task's implementation was already present in the working tree at Epic resume time; this entry is its first CHANGELOG record.
+- Completed Task-214 Batch Connection Test: a "Batch Test" action reusing the Driver Framework via a new `ICameraConnectionTester` service, showing per-camera Success/Failed results in a dialog. The service, dialog ViewModel/View, and `CameraListItemViewModel.IsSelected` plumbing already existed in the working tree at Epic resume time; this Task completed the missing piece — wiring `BatchConnectionTestCommand`/`RequestBatchConnectionTest` into `CameraListViewModel`/`CameraListView`, and adding the missing `BatchConnectionTestViewModelTests`.
+- Added Task-215 Export: an "Export" action on the camera list, enabled whenever the current filtered view is non-empty, writing a CSV using the same column layout as `CsvImportParser` (round-trip compatible with Import) via a native Save File dialog.
+- Added Task-216 Device Status Enhancement: `BatchConnectionTestViewModel` now persists each tested camera's `Status` (Online/Offline) via `ICameraRepository.Update()`, and `CameraListView` refreshes the list after the Batch Test dialog closes so the Status column reflects real connectivity instead of a permanent `Offline` default.
+- Task-215 and Task-216 had no prior Task Specification; both were drafted directly as implementation artifacts of this already-approved Epic (Implementation Authority, `AI_OPERATING_SYSTEM.md` §22) and are included in this entry.
+
+Files:
+- VSP.UI/ViewModels/CameraListItemViewModel.cs
+- VSP.UI/ViewModels/CameraListViewModel.cs
+- VSP.UI/ViewModels/BatchEditViewModel.cs
+- VSP.UI/Views/BatchEditWindow.xaml / .xaml.cs
+- VSP.UI/Views/CameraListView.xaml / .xaml.cs
+- VSP.Device/Services/ICameraConnectionTester.cs
+- VSP.Device/Services/CameraConnectionTester.cs
+- VSP.Device/Services/CameraConnectionTestResult.cs
+- VSP.UI/ViewModels/BatchConnectionTestViewModel.cs
+- VSP.UI/ViewModels/BatchConnectionTestItemViewModel.cs
+- VSP.UI/Views/BatchConnectionTestWindow.xaml / .xaml.cs
+- VSP.Device/Export/CameraExportWriter.cs
+- VSP.UI/Helpers/ExportFileSelector.cs
+- VSP.Tests/Camera/BatchEditViewModelTests.cs
+- VSP.Tests/Camera/CameraListViewModelBatchSelectionTests.cs
+- VSP.Tests/Camera/BatchConnectionTestViewModelTests.cs
+- VSP.Tests/Export/CameraExportWriterTests.cs
+- Docs/SPECS/Task-213_BATCH_EDIT.md
+- Docs/SPECS/Task-214_BATCH_CONNECTION_TEST.md
+- Docs/SPECS/Task-215_EXPORT.md
+- Docs/SPECS/Task-216_DEVICE_STATUS_ENHANCEMENT.md
+- Docs/03_PRODUCT_ROADMAP.md
+- Docs/CHANGELOG.md
+
+Known documentation debt (found during this Epic's Current-State Analysis, not fixed — out of confirmed scope):
+- Docs/03_ROADMAP.md contains pre-existing mojibake (not UTF-8-clean Chinese text, predates this Epic) and uses a different Task/Epic numbering scheme (EPIC-01/Task-101...) than the actively-maintained Docs/03_PRODUCT_ROADMAP.md (Task-2xx). Only 03_PRODUCT_ROADMAP.md was updated by this entry, to avoid risking further corruption of 03_ROADMAP.md's encoding.
+- Docs/PROJECT_STATUS.md is stale (predates the Discovery Epic and this Device Management continuation; still shows 88 tests and "Next Milestone: Device Management").
+- No formal Epic definition document exists for Epic-002 satisfying every field required by `AUTONOMOUS_DEVELOPMENT.md` §2 (Epic ID, Objective, Scope Boundary, Risk Ceiling, Constituent Tasks, Definition of Done, Approval Record) — the Task-213/214 spec headers only informally reference "Epic-002 (EPIC-01 Device Management continuation)". This continuation proceeded on the basis that the user's current, explicit instruction is the highest-authority source per `AI_OPERATING_SYSTEM.md` §1.
+
+---
+
 ## 2026-07-13
 
 ### Version 1.3 - Task-401 ONVIF Discovery
