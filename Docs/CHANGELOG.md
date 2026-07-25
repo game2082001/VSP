@@ -46,6 +46,66 @@ Known documentation debt (found during this Epic's Current-State Analysis, not f
 
 ---
 
+### Version 1.6 - Epic Discovery Foundation (Task-601 fix, Task-602–607)
+
+Status:
+Completed (uncommitted — pending user commit)
+
+Summary:
+- Fixed Task-601 `DiscoveryRunner` to match its approved spec: removed the `DiscoverySessionFactory`/`IDiscoverySessionSink` dependency that had been embedded directly in its constructor (a scope violation caught in review), and introduced `IDiscoveryRunner` so future hooks decorate the runner from the outside instead of adding dependencies to it.
+- Added Task-602 Progress Hook: `ProgressPublishingDiscoveryRunner` publishes a start and a terminal `DiscoveryProgress` around an execution.
+- Added Task-603 Session Hook: `SessionRecordingDiscoveryRunner` records a `DiscoverySession` per execution via `DiscoverySessionFactory` — properly re-implementing, as an opt-in decorator, the capability removed from `DiscoveryRunner` in the Task-601 fix.
+- Added Task-604 Retry Hook: `RetryingDiscoveryRunner` retries a `Failed` result or a non-cancellation exception up to a configured attempt count with a fixed delay; never retries `Cancelled` or `InvalidRequest` outcomes or `OperationCanceledException`.
+- Added Task-605 Timeout Hook: `TimeoutDiscoveryRunner` enforces a per-execution operation timeout distinct from caller cancellation, raising `DiscoveryTimeoutException` rather than adding a `TimedOut` value to `DiscoveryOrchestrationStatus` (explicitly disallowed by Task-505 §5).
+- Added Task-606 Metrics Hook: `MetricsRecordingDiscoveryRunner` records a minimal `DiscoveryMetricsSample` (status, duration, correlation id) per execution, no external metrics package.
+- Added Task-607 Diagnostics Hook: `DiagnosticsRecordingDiscoveryRunner` publishes a `DiscoveryDiagnosticsSnapshot` (diagnostic id, timestamp, correlation id, status, reasons) per execution.
+- Every hook is an independent `IDiscoveryRunner` decorator; none adds a dependency to `DiscoveryRunner` or `DiscoveryOrchestrator` itself.
+
+Files:
+- VSP.Device/Discovery/Execution/IDiscoveryRunner.cs
+- VSP.Device/Discovery/Execution/DiscoveryRunner.cs
+- VSP.Device/Discovery/Execution/ProgressPublishingDiscoveryRunner.cs
+- VSP.Device/Discovery/Progress/IDiscoveryProgressPublisher.cs
+- VSP.Device/Discovery/Progress/NoOpDiscoveryProgressPublisher.cs
+- VSP.Device/Discovery/Execution/SessionRecordingDiscoveryRunner.cs
+- VSP.Device/Discovery/Sessions/IDiscoverySessionSink.cs
+- VSP.Device/Discovery/Sessions/NoOpDiscoverySessionSink.cs
+- VSP.Device/Discovery/Execution/RetryingDiscoveryRunner.cs
+- VSP.Device/Discovery/Execution/DiscoveryRetryPolicy.cs
+- VSP.Device/Discovery/Execution/TimeoutDiscoveryRunner.cs
+- VSP.Device/Discovery/Execution/DiscoveryTimeoutPolicy.cs
+- VSP.Device/Discovery/Execution/DiscoveryTimeoutException.cs
+- VSP.Device/Discovery/Execution/MetricsRecordingDiscoveryRunner.cs
+- VSP.Device/Discovery/Metrics/DiscoveryMetricsSample.cs
+- VSP.Device/Discovery/Metrics/IDiscoveryMetricsSink.cs
+- VSP.Device/Discovery/Metrics/NoOpDiscoveryMetricsSink.cs
+- VSP.Device/Discovery/Execution/DiagnosticsRecordingDiscoveryRunner.cs
+- VSP.Device/Discovery/Diagnostics/DiscoveryDiagnosticsSnapshot.cs
+- VSP.Device/Discovery/Diagnostics/IDiscoveryDiagnosticsSink.cs
+- VSP.Device/Discovery/Diagnostics/NoOpDiscoveryDiagnosticsSink.cs
+- VSP.Tests/Discovery/DiscoveryRunnerTests.cs
+- VSP.Tests/Discovery/ProgressPublishingDiscoveryRunnerTests.cs
+- VSP.Tests/Discovery/SessionRecordingDiscoveryRunnerTests.cs
+- VSP.Tests/Discovery/RetryingDiscoveryRunnerTests.cs
+- VSP.Tests/Discovery/TimeoutDiscoveryRunnerTests.cs
+- VSP.Tests/Discovery/MetricsRecordingDiscoveryRunnerTests.cs
+- VSP.Tests/Discovery/DiagnosticsRecordingDiscoveryRunnerTests.cs
+- Docs/SPECS/Task-602_DISCOVERY_PROGRESS_HOOK.md
+- Docs/SPECS/Task-603_DISCOVERY_SESSION_HOOK.md
+- Docs/SPECS/Task-604_DISCOVERY_RETRY_HOOK.md
+- Docs/SPECS/Task-605_DISCOVERY_TIMEOUT_HOOK.md
+- Docs/SPECS/Task-606_DISCOVERY_METRICS_HOOK.md
+- Docs/SPECS/Task-607_DISCOVERY_DIAGNOSTICS_HOOK.md
+- Docs/CHANGELOG.md
+
+Known documentation debt (found during this Epic's Current-State Analysis, not fixed — out of confirmed scope):
+- Docs/03_PRODUCT_ROADMAP.md's Discovery entry (Version 1.3) is stale and does not reflect Task-402–607.
+- Docs/PROJECT_STATUS.md is stale (predates this entire body of Discovery work).
+- No ADR exists yet for the Discovery subsystem's architecture.
+- Task-402 through Task-601 were never individually logged in this CHANGELOG; this entry only covers the Task-601 fix and Task-602–607.
+
+---
+
 ## 2026-07-13
 
 ### Version 1.3 - Task-401 ONVIF Discovery
