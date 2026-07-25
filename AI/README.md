@@ -1,9 +1,15 @@
 # AI Development Kit
 
-**Status:** Draft
+**Status:** Stable
 **Owner:** AI Development Kit
-**Last Updated:** 2026-07-24
-**Next Task:** TBD — content for individual subdirectories will be added by future approved tasks.
+**Last Updated:** 2026-07-26
+**Next Task:** None scheduled. See the Governance Backlog (`OperatingSystem/README.md`) and the AI Kit Stability Policy (`VERSION.md`).
+
+---
+
+The AI Development Kit is complete as of v1.1.0 (Stable). Governance changes are exceptional — made only via a Product-Owner-approved Governance Backlog entry when a real Epic exposes a genuine defect. Future work is driven by the Product Roadmap and executed Epic by Epic; this Kit does not generate its own work.
+
+This Kit's governance rules begin with a single foundational axiom — see the top of [`OperatingSystem/AI_OPERATING_SYSTEM.md`](OperatingSystem/AI_OPERATING_SYSTEM.md): *"An approved Epic is a complete authorization for implementation within its approved scope"* / *"The default behaviour is CONTINUE, not STOP."*
 
 ---
 

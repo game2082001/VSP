@@ -1,11 +1,19 @@
 # Autonomous Development — Epic Governance
 
-**Status:** Draft
+**Status:** Stable
 **Owner:** AI Development Kit
-**Last Updated:** 2026-07-25
+**Last Updated:** 2026-07-26
 **Established By:** Task-AI01-003 — AI Development Kit v1.0 Finalization
-**Refined By:** Task-AI01-004 — Governance Refinement
-**Next Review:** AI01-007 CLAUDE.md Integration
+**Refined By:** Task-AI01-004 — Governance Refinement; Task-AI01-005 — AI Development Kit v1.1.0 (Stable)
+**Next Review:** Not scheduled. Governed by the AI Kit Stability Policy (see `AI/VERSION.md`) — further changes require a Governance Backlog entry, opened only when a real Epic exposes a governance defect, and approved by the Product Owner.
+
+---
+
+> **An approved Epic is a complete authorization for implementation within its approved scope.**
+>
+> **The default behaviour is CONTINUE, not STOP.**
+
+Restated from the foundational axiom in [`AI_OPERATING_SYSTEM.md`](AI_OPERATING_SYSTEM.md) (the canonical source — this is not a separate rule). This document exists to define exactly what "approved scope" and "CONTINUE, not STOP" mean at Epic altitude: §2 defines what an approved Epic must specify, §7 defines the execution loop this axiom licenses, and §6 defines the boundaries it does not cross.
 
 ---
 
@@ -61,6 +69,10 @@ This is distinct from a missing *supporting* implementation spec for a constitue
 - Retain override authority at any point during Epic execution (per `AI_OPERATING_SYSTEM.md` §21 Human Override) — an override always takes precedence over the Epic's pre-authorized Risk Ceiling.
 - Approve Epic completion; an AI Agent's Epic Completion Report is a submission for approval, not a self-certifying "done" state. Per the Product Owner Principle (`AI_OPERATING_SYSTEM.md` §22): the Product Owner approves product outcomes, not implementation details — but the outcome approval itself is exclusively the Product Owner's to give.
 
+### Product Roadmap Priority
+
+Once the AI Kit is Stable (see `AI/VERSION.md`, AI Kit Stability Policy), Product Roadmap work has default priority over further Kit/governance work. Epic proposals originate from the Product Roadmap (§7 Epic Execution Model), not from the AI Kit itself — the Kit does not generate its own work. Governance work resumes only via a Governance Backlog entry, opened when a real Epic exposes a governance defect and approved by the Product Owner (`AI/OperatingSystem/README.md`). This operationalizes Principle 0 — Product First (`AI_OPERATING_SYSTEM.md`, Core Principles).
+
 ---
 
 ## 5. AI Agent Responsibilities
@@ -85,6 +97,28 @@ This is distinct from a missing *supporting* implementation spec for a constitue
 ---
 
 ## 7. Long-Running Autonomous Execution
+
+### Epic Execution Model
+
+```text
+Product Roadmap
+    v
+One Approval Per Epic   (Product Owner; per Epic Definition, §2)
+    v
+Autonomous Execution    (AI Agent; internal Tasks remain private — see §3, §5)
+    v
+Epic Review             (Epic Completion Report, §10)
+    v
+Commit                  (Product Owner executes; AI never commits on its own)
+    v
+Next Epic  ->  back to Product Roadmap
+```
+
+"Next Epic" means execution returns to the Product Roadmap and awaits a **fresh** Epic Approval — it is a roadmap-continuity marker, not a grant of cross-Epic autonomy. Only Task-chaining *inside* an already-approved Epic is autonomous, per `AI_OPERATING_SYSTEM.md` §11; an AI Agent must not start a new Epic on its own initiative, per `AI_OPERATING_SYSTEM.md` §11 and §16.
+
+**Default Behaviour:** per the foundational axiom at the top of this document, once an Epic is approved the default behaviour for every constituent Task is CONTINUE, not STOP. An AI Agent pauses mid-Epic only when a Task would exceed the Epic's Risk Ceiling, or when execution hits one of the eight Stop Conditions (`AI_OPERATING_SYSTEM.md` §8) — never by default, and never merely because a Task completed.
+
+### Task Sequencing Within an Epic
 
 ```text
 For each Task in the approved Epic sequence:

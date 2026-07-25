@@ -1,8 +1,8 @@
 # VSP Coding Rules
 
-版本：1.0
+版本：1.1
 
-最後更新：2026-07-01
+最後更新：2026-07-26
 
 ---
 
@@ -474,6 +474,8 @@ Refactoring：
 
 獨立 Task。
 
+（對應 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` Core Principles — Principle 3 Surgical Changes。）
+
 ---
 
 # 十六、Code Review 原則
@@ -503,6 +505,11 @@ Review 重點：
 - 偷加功能
 - 偷改 Architecture
 - 修改 Scope 外內容
+
+（以上三項對應 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §16 Prohibited Actions，細節不重複列出。）
+
+以下為 VSP 專案程式碼衛生規範，非 AI Kit 通用規則：
+
 - 保留測試程式
 - 保留 Debug Code
 - 保留未使用 Method
@@ -537,3 +544,5 @@ Performance
 Development Speed
 
 品質永遠優先於開發速度。
+
+（本排序適用於「如何實作」的技術決策層級。在「做什麼」的產品規劃層級，Principle 0 Product First〔`AI/OperatingSystem/AI_OPERATING_SYSTEM.md`, Core Principles〕優先於架構完美或框架潔癖——見 Governance Backlog GB-004。）

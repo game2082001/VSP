@@ -1,6 +1,10 @@
 # IMPLEMENT TASK
 
-Version: 3.0
+Version: 3.1
+
+---
+
+本文件定義單一 Task 的 Task Plan 格式與執行細節。是否需要在 Task 之間停止等待確認，於 Epic 範圍內執行時改由 `AI/OperatingSystem/AUTONOMOUS_DEVELOPMENT.md` 的 Epic Execution Model 決定，見本文件後段的說明。
 
 ---
 
@@ -41,7 +45,7 @@ PROJECT.md 已包含所有專案規範。
 
 1. 是否理解本次需求。
 2. 是否符合目前 Architecture。
-3. 是否預計修改超過 8 個檔案。
+3. 本次變更的 Risk Classification（LOW / MEDIUM / HIGH，見 `AI_OPERATING_SYSTEM.md` §7 —— 依變更的性質判斷，不是依修改檔案數量判斷）。
 
 若發現 Spec 與 Architecture 衝突：
 
@@ -51,13 +55,15 @@ PROJECT.md 已包含所有專案規範。
 
 不得自行修改 Architecture。
 
-若預計修改超過 8 個檔案：
+若 Risk Classification 為 HIGH：
 
 請於 Task Plan 中說明：
 
 - 原因
 - 影響範圍
 - 是否可再拆分 Task
+
+（v3.1：先前以「修改超過 8 個檔案」作為停止門檻已移除——檔案數量本身不代表風險高低，一律改以 Risk Classification 判斷。）
 
 ---
 
@@ -200,6 +206,8 @@ Rollback：
 未得到確認前，
 
 不得修改任何程式。
+
+（若本 Task 是在已核准的 Epic 範圍內執行，是否需要在此等待確認改由 `AI/OperatingSystem/AUTONOMOUS_DEVELOPMENT.md` 的 Epic Execution Model 決定——Task Plan 仍需產出，但屬於內部產物，不一定是對外停等關卡，見該文件 §7。單一 Task〔非 Epic 範圍內〕時，本節規則維持不變。）
 
 ---
 
@@ -416,3 +424,5 @@ docs(ai): update implementation workflow
 等待使用者確認。
 
 不得自行開始下一個 Task 或 Sprint。
+
+（若本 Task 是在已核准的 Epic 範圍內執行，本規則由 `AI/OperatingSystem/AUTONOMOUS_DEVELOPMENT.md` 的 Epic Execution Model 取代：Epic 核准後預設行為為 CONTINUE、不是 STOP，AI Agent 僅在遇到 Stop Condition〔見 `AI_OPERATING_SYSTEM.md` §8〕時才停止，內部 Task 完成不需個別等待確認。單一 Task〔非 Epic 範圍內〕時，本規則維持不變。）

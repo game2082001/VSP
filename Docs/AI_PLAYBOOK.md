@@ -1,6 +1,6 @@
 # AI Playbook
 
-Version: 1.0
+Version: 1.1
 
 ---
 
@@ -14,7 +14,7 @@ Always read:
 - Coding Rules
 - Current Task Spec
 
-Never start coding before submitting a Task Plan.
+See Principle 1 — Think Before Coding (`AI/OperatingSystem/AI_OPERATING_SYSTEM.md`, Core Principles, and its §9): no coding begins before a Task Plan is submitted.
 
 ---
 
@@ -68,15 +68,7 @@ Utils
 
 ## Coding Rules
 
-Keep methods short.
-
-Prefer readability.
-
-Avoid over engineering.
-
-Reuse existing models.
-
-Avoid duplicate abstractions.
+See Principle 2 — Simplicity First and Principle 3 — Surgical Changes (`AI/OperatingSystem/AI_OPERATING_SYSTEM.md`, Core Principles) and `Docs/02_CODING_RULES.md` §2, §12 for the full rule set (readability, small methods/classes, reuse before rewrite, avoid over-engineering, avoid duplicate abstractions).
 
 ---
 

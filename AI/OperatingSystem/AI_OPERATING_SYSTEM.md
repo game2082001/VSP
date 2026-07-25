@@ -1,11 +1,49 @@
 # AI Operating System
 
-**Status:** Draft
+**Status:** Stable
 **Owner:** AI Development Kit
-**Last Updated:** 2026-07-25
+**Last Updated:** 2026-07-26
 **Established By:** Task-AI01-002
-**Refined By:** Task-AI01-004 — Governance Refinement
-**Next Review:** AI01-007 CLAUDE.md Integration
+**Refined By:** Task-AI01-004 — Governance Refinement; Task-AI01-005 — AI Development Kit v1.1.0 (Stable)
+**Next Review:** Not scheduled. Governed by the AI Kit Stability Policy (see `AI/VERSION.md`) — further changes require a Governance Backlog entry, opened only when a real Epic exposes a governance defect, and approved by the Product Owner.
+
+---
+
+> **An approved Epic is a complete authorization for implementation within its approved scope.**
+>
+> **The default behaviour is CONTINUE, not STOP.**
+
+This is the foundational axiom of this governance system. Every rule in this document and in [`AUTONOMOUS_DEVELOPMENT.md`](AUTONOMOUS_DEVELOPMENT.md) operates within it. See §11 (Autonomous Execution Loop) and `AUTONOMOUS_DEVELOPMENT.md` §7 for how it governs execution inside an approved Epic, and §8 (Approval Boundary) for the exhaustive, closed list of conditions where it does not apply.
+
+---
+
+## Core Principles
+
+These govern every decision an AI Agent makes in this repository, at both Task and Epic altitude. None of these are new rules — each names a mechanism already defined elsewhere in this document or in `AUTONOMOUS_DEVELOPMENT.md`; the pointer under each is where the actual rule lives.
+
+### Principle 0 — Product First
+
+Architecture exists to serve the product. An AI Agent must prioritize Product Value, User Journey, and MVP delivery over refactoring, framework perfection, metadata cleanup, or architectural elegance — unless one of those directly blocks product delivery. This principle sits above the other five: where they appear to conflict with it, Product First governs. See the Product Owner Principle (§22) and Product Roadmap Priority (`AUTONOMOUS_DEVELOPMENT.md` §4).
+
+### Development Strategy — Vertical Slice Development
+
+Prefer product slices over horizontal infrastructure completion. Every Epic should move the product measurably closer to a demonstrable MVP, not merely complete an architectural layer in isolation. This is the strategy by which Epics are selected and scoped — see Task Selection Rules (§6) and Epic Definition (`AUTONOMOUS_DEVELOPMENT.md` §2).
+
+### Principle 1 — Think Before Coding
+
+No code change begins before a Current-State Analysis. Already the mechanism of the AI Startup Sequence (§3) and Current-State Analysis (§5).
+
+### Principle 2 — Simplicity First
+
+Prefer the simplest solution that satisfies approved scope; avoid speculative or premature abstraction. Already governed by Implementation Rules (§10): "Do not introduce speculative abstractions."
+
+### Principle 3 — Surgical Changes
+
+Prefer the minimal, targeted change over a broad rewrite; do not bundle unrelated cleanup into an approved change. Already governed by Implementation Rules (§10): "Prefer the minimal change... Do not rewrite unrelated code... Do not silently fix unrelated issues."
+
+### Principle 4 — Goal-Driven Execution
+
+When a Task's literal instructions are ambiguous mid-execution, resolve the ambiguity by asking what serves the approved Epic's or Task's stated Objective — not by mechanically following the nearest matching rule in isolation. This is the one principle without a full prior equivalent elsewhere in this Kit; it complements the Product Owner Principle (§22) and the Epic Objective field (`AUTONOMOUS_DEVELOPMENT.md` §2).
 
 ---
 
@@ -225,18 +263,28 @@ Must stop and wait for explicit Approval.
 
 ## 8. Approval Boundary
 
-### Must Wait For Approval
+Per the foundational axiom at the top of this document: an approved Epic is a complete authorization for implementation within its approved scope, and the default behaviour is CONTINUE, not STOP. An AI Agent pauses only when one of the eight Stop Conditions below is met — never as a default, and never merely because a Task Plan or Task Completion Report exists (those are internal artifacts under Implementation Authority, §22, not approval gates in their own right — see §9 and §20 for how this reconciles with `Docs/WORKFLOW/IMPLEMENT_TASK.md` and `Docs/DEVELOPMENT_ROLES.md`).
 
-- No approved Specification exists (this refers to the Task or Epic's own foundational Specification — a missing *supporting* implementation spec inside an already-approved Epic is instead governed by Implementation Authority; see §22)
-- Scope is unclear
-- Risk is classified HIGH
-- Source documents conflict
-- Requires deleting or moving a large number of files
-- Requires a Database Schema change
-- Requires introducing a new Framework or Package
-- Requires changing a Public Contract
-- Requires addressing a pre-existing issue outside the current Task
-- Discovery of possible data loss or compatibility risk
+### Stop Conditions (Must Wait For Approval)
+
+Exactly eight categories. Every prior approval-boundary trigger folds into one of these; none is silently dropped:
+
+- **Product Decision** — no approved Specification or Epic definition exists (this refers to the Task or Epic's own foundational Specification — a missing *supporting* implementation spec inside an already-approved Epic is instead governed by Implementation Authority; see §22); source governing documents conflict in a way the Authority Order (§1) cannot resolve
+- **Scope Expansion** — scope is unclear; completing the task would require expanding approved scope; addressing a pre-existing issue outside the current Task; a new project or module outside approved scope; deleting or moving a large number of files outside approved scope
+- **High Risk** — risk is classified HIGH (§7); discovery of possible data loss or compatibility risk
+- **Database Schema** — requires a database schema change
+- **Public API** — requires changing a public contract, including a breaking change to one
+- **Security** — requires a security or authorization model change
+- **External Package** — requires introducing a new framework or package, including licensing implications
+- **Unrecoverable Build/Test failure** — a build or test failure that exposes a significant architectural problem and cannot be resolved within approved scope
+
+### Not Approval Boundaries — Operational Pre-Flight Checks
+
+These stop an AI Agent from safely starting at all. They are not Stop Conditions in the sense above and are unaffected by Epic pre-authorization — an Epic cannot pre-authorize working against an inaccessible repository or an undetermined request:
+
+- The repository is inaccessible
+- Required documents are missing and it is unsafe to proceed
+- The user's actual intent cannot be determined
 
 ### May Proceed Without Waiting
 
@@ -263,7 +311,7 @@ Before implementation, an AI Agent must list:
 - Out of Scope
 - Rollback considerations
 
-This is a required list of content categories. It does not replace the Task Plan document format defined in [`Docs/WORKFLOW/IMPLEMENT_TASK.md`](../../Docs/WORKFLOW/IMPLEMENT_TASK.md); that document remains the authoritative template.
+This is a required list of content categories. It does not replace the Task Plan document format defined in [`Docs/WORKFLOW/IMPLEMENT_TASK.md`](../../Docs/WORKFLOW/IMPLEMENT_TASK.md); that document remains the authoritative template for Task Plan *content and format*. Whether execution pauses for approval at any point, however, is governed exclusively by the Stop Conditions in §8 as scoped by an Epic's Risk Ceiling (`AUTONOMOUS_DEVELOPMENT.md` §2) — per the foundational axiom at the top of this document, the default behaviour inside an approved Epic is CONTINUE, not the per-Task stop language written in that or any other Task-level document.
 
 ---
 
@@ -436,15 +484,7 @@ Completion status in this report must be phrased as **"Implementation Complete �
 
 ## 19. Failure and Escalation Rules
 
-Stop when:
-
-- The repository is inaccessible
-- Required documents are missing and it is unsafe to proceed
-- The Specification and the code seriously conflict
-- The user's actual intent cannot be determined
-- Build or Test exposes a significant architectural problem
-- Completing the task would require expanding its Scope
-- Data loss or a security risk is discovered
+Stop when an Operational Pre-Flight Check (§8) fails, or when execution encounters one of the eight Stop Conditions (§8) mid-Task. In practice this most often surfaces as: Scope Expansion ("completing the task would require expanding its Scope"), Unrecoverable Build/Test failure ("build or test exposes a significant architectural problem"), Product Decision ("the Specification and the code seriously conflict"), or Security/High Risk ("data loss or a security risk is discovered"). §8 is the single source of truth for this list — it is not restated here.
 
 When stopping, report:
 
@@ -467,6 +507,8 @@ This document is the AI-Kit-level operating rulebook. It references, and does no
 | [`Docs/AI_PLAYBOOK.md`](../../Docs/AI_PLAYBOOK.md) | Pre-coding checklist, naming/architecture summary, review rules; this document's Self-Review Checklist (§17) and Completion Report (§18) extend its Review Rules rather than duplicate them |
 | [`Docs/AI_DEVELOPMENT_WORKFLOW.md`](../../Docs/AI_DEVELOPMENT_WORKFLOW.md) | The canonical project-wide workflow stages; this document's Autonomous Execution Loop (§11) operationalizes those stages for an individual AI Agent, it does not replace them |
 | [`Docs/02_CODING_RULES.md`](../../Docs/02_CODING_RULES.md) | Authoritative coding, naming, and style rules; not restated here |
+| [`Docs/WORKFLOW/IMPLEMENT_TASK.md`](../../Docs/WORKFLOW/IMPLEMENT_TASK.md) | Authoritative Task Plan *content and format* (§9); whether execution pauses for approval is governed by §8 and the Epic's Risk Ceiling, not by that document's own per-Task stop language, when operating inside an approved Epic |
+| [`Docs/DEVELOPMENT_ROLES.md`](../../Docs/DEVELOPMENT_ROLES.md) | Project-level roles and responsibilities; its Product Owner / Architect / Developer roles map onto Agent Roles (§2) and its Authority Principle aligns with the Authority Order (§1) — see that document's own alignment note |
 | [`Docs/03_PRODUCT_ROADMAP.md`](../../Docs/03_PRODUCT_ROADMAP.md) | Authoritative product roadmap; referenced in Task Selection Rules (§6), not restated |
 | Task Specifications (`Docs/SPECS/`) | Authoritative scope for a given task; outrank this document per the Authority Order in §1 |
 | ADRs (`Docs/ADR/`) | Authoritative architecture decisions; outrank this document per the Authority Order in §1 |

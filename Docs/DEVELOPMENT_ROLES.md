@@ -1,8 +1,8 @@
 # AI Development Contract
 
-版本：1.0
+版本：1.1
 
-最後更新：2026-07-01
+最後更新：2026-07-26
 
 ---
 
@@ -99,6 +99,8 @@ Developer 不修改 Architecture。
 
 Developer 不自行增加需求。
 
+（註：以上三個角色定義的是「職能」而非固定綁定特定工具或特定 AI。單一 AI Agent 在同一個 Session 中可能同時扮演多個角色，只要不跳過各角色應有的把關步驟即可，詳見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §2 Role Overlap。）
+
 ---
 
 # 三、開發流程
@@ -132,6 +134,8 @@ User Commit
 ```
 
 任何步驟不得省略。
+
+（本流程圖是 `Docs/AI_DEVELOPMENT_WORKFLOW.md` 所定義的專案通用 Workflow 在 VSP 專案下的細節展開，兩者為同一流程的不同顆粒度描述。若步驟順序或名稱有出入，以 `Docs/AI_DEVELOPMENT_WORKFLOW.md` 為準。Epic 範圍內執行時，Task 之間是否停止等待確認另見該流程與 `AI/OperatingSystem/AUTONOMOUS_DEVELOPMENT.md`。）
 
 ---
 
@@ -397,9 +401,9 @@ Review Before Completion
 
 所有 AI Agent 必須遵守：
 
-- 文件（Docs）為唯一正式規範（Single Source of Truth）
-- 不得依聊天內容直接開始 Coding
-- 若聊天內容與文件衝突，以文件為準
+- 文件（Docs）為正式規範（Single Source of Truth），惟優先順序依 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §1 Authority Order 為準（使用者當下明確指示 > Task/Epic Specification > ADR/正式架構文件 > Roadmap/Product Principles > 現有程式與測試 > AI Operating System > AI Memory）
+- 不得依聊天內容直接開始 Coding（Specification First 仍適用，見下）
+- 若聊天內容與文件出現無法依上述 Authority Order 解決的衝突，須提出並等待使用者決定，不得自行選擇任一方（見 `AI_OPERATING_SYSTEM.md` §1）
 - 若流程需要修改，應先更新文件，再開始開發
 
 AI 啟動順序：
