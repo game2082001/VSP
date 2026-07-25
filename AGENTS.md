@@ -1,8 +1,10 @@
 # VSP AI Agent Guide
 
+Entry point for any AI agent (ChatGPT, Codex, Claude Code, or others) working in this repository. This file is project-level and does not reference individual tasks — task specs are supplied per task (see "Task Instructions" below).
+
 ## Required Reading Order
 
-1. Read the shared AI Software Engineering Standard
+1. Shared AI Software Engineering Standard
 
 Repository:
 AI-Software-Engineering-Standard
@@ -11,32 +13,27 @@ Required files:
 
 - AGENTS.md
 - RULES/CODING_RULES.md
-
-For implementation tasks:
-
 - WORKFLOW/IMPLEMENT_TASK.md
-
-Before task completion:
-
 - CHECKLIST/REVIEW_CHECKLIST.md
 
----
+2. Docs/PROJECT.md — project reference (scope, tech stack, current solution structure)
 
-2. Read PROJECT.md
+3. Docs/AI_DEVELOPMENT_WORKFLOW.md — VSP workflow and reading order for architecture, coding rules, and review
 
----
-
-3. Read:
-
-Docs/
-
-- 00_ARCHITECTURE_VISION.md
-- PRODUCT_PRINCIPLES.md
-- AI_PLAYBOOK.md
-- 03_PRODUCT_ROADMAP.md
+4. Docs/DEVELOPMENT_ROLES.md — roles and responsibilities (Product Owner / Architect / Developer)
 
 ---
 
-4. Read Task Spec
+## Task Instructions
 
-Docs/SPECS/<Task>.md
+Task specs are provided per task (via prompt or `Docs/SPECS/`) and are not tracked in this file. Follow the process defined in Docs/AI_DEVELOPMENT_WORKFLOW.md for how a task spec is read, planned, implemented, and reviewed.
+
+## Approval Boundary
+
+No project files may be modified until the required approval has been explicitly granted. This rule applies repository-wide; see Docs/WORKFLOW/IMPLEMENT_TASK.md for the full Task Plan and Approval requirement.
+
+---
+
+## Claude Code
+
+Claude Code users: see [CLAUDE.md](CLAUDE.md) for tool-specific notes in addition to this file.

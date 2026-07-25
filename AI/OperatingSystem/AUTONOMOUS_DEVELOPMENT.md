@@ -2,8 +2,9 @@
 
 **Status:** Draft
 **Owner:** AI Development Kit
-**Last Updated:** 2026-07-24
+**Last Updated:** 2026-07-25
 **Established By:** Task-AI01-003 — AI Development Kit v1.0 Finalization
+**Refined By:** Task-AI01-004 — Governance Refinement
 **Next Review:** AI01-007 CLAUDE.md Integration
 
 ---
@@ -34,7 +35,9 @@ An approved Epic must define:
 - **Definition of Done** — the condition under which the Epic itself, not just its Tasks, is considered complete.
 - **Approval Record** — who approved the Epic, and when.
 
-An AI Agent must not begin Epic-mode execution against an Epic that is missing any of the above fields. A missing field is treated the same as "no approved Specification exists" under `AI_OPERATING_SYSTEM.md` §8 — it stops work.
+An AI Agent must not begin Epic-mode execution against an Epic that is missing any of the above fields. A missing field is treated the same as "no approved Specification exists" under `AI_OPERATING_SYSTEM.md` §8 — it stops work. Defining an Epic is a Product Decision (Approval Required, per `AI_OPERATING_SYSTEM.md` §22) and this rule is not relaxed by Implementation Authority.
+
+This is distinct from a missing *supporting* implementation spec for a constituent Task once the Epic itself is already approved (for example, a short design spec for one hook inside an approved Epic) — that case is governed by Implementation Authority (`AI_OPERATING_SYSTEM.md` §22): the AI Agent may create it directly as an implementation artifact, without stopping to ask, provided it stays within the approved Epic's scope.
 
 ---
 
@@ -56,7 +59,7 @@ An AI Agent must not begin Epic-mode execution against an Epic that is missing a
 - Define and approve an Epic's Objective, Scope Boundary, Risk Ceiling, and Definition of Done.
 - Approve the Epic's constituent Task list, or its decomposition policy, before execution begins.
 - Retain override authority at any point during Epic execution (per `AI_OPERATING_SYSTEM.md` §21 Human Override) — an override always takes precedence over the Epic's pre-authorized Risk Ceiling.
-- Approve Epic completion; an AI Agent's Epic Completion Report is a submission for approval, not a self-certifying "done" state.
+- Approve Epic completion; an AI Agent's Epic Completion Report is a submission for approval, not a self-certifying "done" state. Per the Product Owner Principle (`AI_OPERATING_SYSTEM.md` §22): the Product Owner approves product outcomes, not implementation details — but the outcome approval itself is exclusively the Product Owner's to give.
 
 ---
 
@@ -75,6 +78,7 @@ An AI Agent must not begin Epic-mode execution against an Epic that is missing a
 
 - An Epic's Risk Ceiling can never authorize skipping the HIGH-risk Approval Boundary defined in `AI_OPERATING_SYSTEM.md` §8. Epic-level pre-approval covers sequencing convenience, not risk exceptions.
 - Epic Scope Boundary must not silently expand. A candidate Task that falls outside the approved scope requires either rejecting that Task or requesting a Product-Owner scope amendment — an AI Agent must not fold it in silently under the theory that it is "related."
+- If implementation reveals that an already-approved feature cannot be completed within the approved Epic scope, the AI Agent must stop and submit a **Scope Expansion request** — it must not silently expand the Epic to cover the gap. A Scope Expansion request states: what was found, why the current scope is insufficient to complete the feature, and the options available to the Product Owner (reject the feature, amend scope, or approve expansion). This is the named mechanism for the scope-amendment path in the bullet above.
 - Every constituent Task still independently goes through `AI_OPERATING_SYSTEM.md`'s Startup Sequence (§3), Current-State Analysis (§5), Risk Classification (§7), and Implementation Rules (§10). Epic mode removes the need to pause for a full re-approval conversation between Tasks that are already inside approved scope at or below the Risk Ceiling — it does not remove any single-Task rule.
 - Conflicts between the Epic's stated scope and a formal document (ADR, Architecture, Roadmap) follow the same Single Source of Truth authority order defined in `AI_OPERATING_SYSTEM.md` §1 — the Epic's own description does not outrank ADRs, Architecture, or Roadmap.
 
@@ -138,6 +142,8 @@ Fixed format, produced when the Epic finishes or when execution stops before com
 12. Recommended Next Epic or Task
 
 Recommended Next Epic or Task is a suggestion only. An AI Agent must not automatically start it, consistent with `AI_OPERATING_SYSTEM.md` §18.
+
+Epic Summary status must be phrased as **"Implementation Complete — Pending Product Owner Acceptance,"** never as final product completion or "done." An AI Agent must never declare Product Acceptance under any wording, consistent with `AI_OPERATING_SYSTEM.md` §18 and §22.
 
 ---
 

@@ -2,8 +2,9 @@
 
 **Status:** Draft
 **Owner:** AI Development Kit
-**Last Updated:** 2026-07-24
+**Last Updated:** 2026-07-25
 **Established By:** Task-AI01-002
+**Refined By:** Task-AI01-004 — Governance Refinement
 **Next Review:** AI01-007 CLAUDE.md Integration
 
 ---
@@ -226,7 +227,7 @@ Must stop and wait for explicit Approval.
 
 ### Must Wait For Approval
 
-- No approved Specification exists
+- No approved Specification exists (this refers to the Task or Epic's own foundational Specification — a missing *supporting* implementation spec inside an already-approved Epic is instead governed by Implementation Authority; see §22)
 - Scope is unclear
 - Risk is classified HIGH
 - Source documents conflict
@@ -429,6 +430,8 @@ Fixed format:
 
 Recommended Next Task is a suggestion only. An AI Agent must not automatically start it.
 
+Completion status in this report must be phrased as **"Implementation Complete — Pending Product Owner Acceptance,"** never as final product completion or "done." An AI Agent must never declare Product Acceptance under any wording; acceptance belongs exclusively to the Product Owner, per the Product Owner Principle in §22.
+
 ---
 
 ## 19. Failure and Escalation Rules
@@ -510,3 +513,86 @@ If two AI Agents, or two roles held by different agent instances, produce confli
 ### Human Override
 
 The user may override any AI Agent's decision, role assignment, risk classification, or conflict resolution at any time. An AI Agent must comply with an explicit user override immediately. If the override concerns a HIGH-risk item (§7), the AI Agent must state its safety concern once before complying, but must not refuse or substitute its own judgment for the user's explicit instruction.
+
+---
+
+## 22. Decision Authority Model
+
+Established by Task-AI01-004, following the first real Epic Autonomous Development execution (Discovery Foundation), which surfaced a gap: an AI Agent could classify a change's *risk* (§7) but had no explicit model for who holds the *authority* to decide it.
+
+Decision Authority is a second, complementary axis to Risk Classification. Risk Classification (§7) measures the blast radius and reversibility of a change. Decision Authority measures who holds the authority to decide it. Every item is evaluated against both — a change can be low-risk but still require Product Owner approval (for example, renaming a public-facing setting), or medium-risk but fully within the AI Agent's own authority (for example, choosing an internal decorator pattern for an approved hook).
+
+### Autonomous
+
+Fully within the AI Agent's authority. No Product Owner involvement required.
+
+Examples:
+
+- Current-State Analysis
+- Internal Planning
+- Task decomposition
+- Implementation
+- Refactoring
+- Build
+- Testing
+- Documentation
+- Internal implementation documents
+- Implementation sequencing
+- Design pattern selection
+- Internal architecture decisions within the approved Epic
+
+### Conditional
+
+Autonomous unless scope changes.
+
+The AI Agent may:
+
+- create supporting implementation specifications
+- create implementation work items
+- refine internal documentation
+
+provided that:
+
+- scope remains entirely inside the approved Epic
+- no Product Decision is introduced
+- no public contract changes
+- no architecture outside the Epic
+
+Missing documentation should normally be treated as an omission rather than a prohibition — see Implementation Authority below.
+
+### Approval Required
+
+Requires explicit Product Owner approval, regardless of Risk Classification.
+
+Includes:
+
+- Public APIs
+- Database schema
+- Repository architecture
+- Breaking changes
+- New projects
+- Security model
+- Licensing
+- Third-party frameworks
+- Epic scope expansion
+- Product direction changes
+
+### Implementation Authority
+
+The AI Agent should assume that missing implementation documentation inside an approved Epic is an omission, not a prohibition. The AI Agent may create reasonable implementation documents required to complete the approved Epic.
+
+These documents become implementation artifacts, not Product Decisions. They do not require Product Owner approval before being created, though they remain subject to the Conditional-level constraints above (scope stays inside the approved Epic, no Product Decision, no public contract change, no architecture outside the Epic).
+
+This authority does not extend to the Epic's own definition — Epic ID, Objective, Scope Boundary, Risk Ceiling, Constituent Tasks, Definition of Done, and Approval Record, per `AUTONOMOUS_DEVELOPMENT.md` §2. A missing Epic definition remains Approval Required: defining an Epic is itself a Product Decision, not an implementation omission.
+
+### Implementation Ownership
+
+Within an approved Epic, the AI Agent owns implementation decisions while remaining inside the approved scope. This includes internal architecture choices, design pattern selection, task sequencing, and the creation of supporting implementation documents under Implementation Authority above.
+
+Ownership of implementation decisions does not extend to any Approval Required item, regardless of how the AI Agent frames or scopes it.
+
+### Product Owner Principle
+
+The Product Owner approves product outcomes, not implementation details.
+
+This principle governs the boundary between Conditional and Approval Required: if a decision changes what the product does, or what it promises to a user or another system, it is a Product Decision and requires Product Owner approval. If a decision only changes how an already-approved outcome is built, it is an Implementation Decision — Autonomous or Conditional — and does not require Product Owner approval.
