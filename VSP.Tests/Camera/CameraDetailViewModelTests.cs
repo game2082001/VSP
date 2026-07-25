@@ -1,5 +1,6 @@
 using VSP.Device.Interfaces;
 using VSP.Domain.Enums;
+using VSP.Tests.Drivers.RTSP;
 using VSP.UI.ViewModels;
 using EntityCamera = VSP.Domain.Entities.Camera;
 using Xunit;
@@ -452,6 +453,84 @@ public class CameraDetailViewModelTests
         Assert.Equal(string.Empty, viewModel.RtspUrl);
         Assert.Equal("Offline", viewModel.Status);
         Assert.Equal("No", viewModel.Recording);
+    }
+
+    [Fact]
+    public void TestConnectionCommand_NotAvailableInNewMode()
+    {
+        var viewModel = new CameraDetailViewModel(new FakeCameraRepository());
+
+        Assert.False(viewModel.TestConnectionCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void TestConnectionCommand_ValidationBlocksTest()
+    {
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
+        viewModel.HttpPort = "not-a-port";
+
+        viewModel.TestConnectionCommand.Execute(null);
+
+        Assert.Equal("Please fix validation errors before testing the connection.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void TestConnectionCommand_UnimplementedDriver_ReportsNotImplemented()
+    {
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.ONVIF;
+        var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
+
+        viewModel.TestConnectionCommand.Execute(null);
+
+        Assert.Equal("Driver not implemented.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void TestConnectionCommand_RtspFailure_ReportsConnectionFailed()
+    {
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
+        viewModel.RtspUrl = "not-a-valid-uri";
+
+        viewModel.TestConnectionCommand.Execute(null);
+
+        Assert.Equal("Connection failed.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void TestConnectionCommand_RtspSuccess_ReportsConnectionSuccessful()
+    {
+        using var server = new LoopbackRtspTestServer("RTSP/1.0 200 OK\r\nCSeq: 1\r\n\r\n");
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
+        viewModel.RtspUrl = $"rtsp://127.0.0.1:{server.Port}/stream";
+
+        viewModel.TestConnectionCommand.Execute(null);
+
+        Assert.Equal("Connection successful.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void TestConnectionCommand_UsesCurrentFormValues_NotStaleSavedRtspUrl()
+    {
+        using var server = new LoopbackRtspTestServer("RTSP/1.0 200 OK\r\nCSeq: 1\r\n\r\n");
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        camera.RtspUrl = "not-a-valid-uri";
+        var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
+
+        viewModel.TestConnectionCommand.Execute(null);
+        var resultBeforeEdit = viewModel.StatusMessage;
+
+        viewModel.EditCommand.Execute(null);
+        viewModel.RtspUrl = $"rtsp://127.0.0.1:{server.Port}/stream";
+        viewModel.TestConnectionCommand.Execute(null);
+
+        Assert.Equal("Connection failed.", resultBeforeEdit);
+        Assert.Equal("Connection successful.", viewModel.StatusMessage);
     }
 
     private static CameraDetailViewModel CreateViewModel(ICameraRepository repository)

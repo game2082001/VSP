@@ -13,6 +13,10 @@ using VSP.UI.Views;
 
 namespace VSP.UI.ViewModels;
 
+// Legacy: superseded by CameraListViewModel (Epic-005, Camera Management Workspace).
+// No longer wired into MainWindowViewModel. Kept to minimize migration risk;
+// scheduled for removal in a future Legacy Cleanup Epic.
+[Obsolete("Superseded by CameraListViewModel. Scheduled for removal in a future Legacy Cleanup Epic.")]
 public class DeviceCenterViewModel : ObservableObject
 {
     private const string AllOption = "All";

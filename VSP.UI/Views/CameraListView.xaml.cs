@@ -29,6 +29,7 @@ public partial class CameraListView : UserControl
         _cameraRepository = cameraRepository;
         DataContext = _viewModel;
         _viewModel.RequestAddCamera += HandleRequestAddCamera;
+        _viewModel.RequestImport += HandleRequestImport;
         _viewModel.RequestBatchEdit += HandleRequestBatchEdit;
         _viewModel.RequestBatchConnectionTest += HandleRequestBatchConnectionTest;
         _viewModel.RequestExport += HandleRequestExport;
@@ -81,6 +82,18 @@ public partial class CameraListView : UserControl
         {
             await _viewModel.RefreshAsync(detailViewModel.SavedCameraId);
         }
+    }
+
+    private async void HandleRequestImport()
+    {
+        var importWizard = new ImportWizard
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        importWizard.ShowDialog();
+
+        await _viewModel.RefreshAsync();
     }
 
     private async void HandleRequestBatchEdit(IReadOnlyList<Camera> selectedCameras)

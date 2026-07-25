@@ -40,6 +40,7 @@
                     <ColumnDefinition Width="140"/>
                     <ColumnDefinition Width="140"/>
                     <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="100"/>
                     <ColumnDefinition Width="120"/>
                 </Grid.ColumnDefinitions>
 
@@ -80,6 +81,12 @@
                         Margin="0,0,8,0"/>
 
                 <Button Grid.Column="6"
+                        Content="Import"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding ImportCommand}"
+                        Margin="0,0,8,0"/>
+
+                <Button Grid.Column="7"
                         Content="Add Camera"
                         Style="{StaticResource PrimaryButton}"
                         Command="{Binding AddCameraCommand}"/>

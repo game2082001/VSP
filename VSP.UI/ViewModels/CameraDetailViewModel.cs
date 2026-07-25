@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using VSP.Core.Commands;
 using VSP.Core.MVVM;
+using VSP.Device.Drivers;
 using VSP.Device.Interfaces;
 using VSP.Domain.Entities;
 using VSP.Domain.Enums;
@@ -71,6 +72,7 @@ public class CameraDetailViewModel : ObservableObject
     public ICommand EditCommand { get; }
     public ICommand SaveCommand => _saveCommand;
     public ICommand DeleteCommand { get; }
+    public ICommand TestConnectionCommand { get; }
 
     public event Action? RequestClose;
     public event Action? RequestUnsavedChangesConfirmation;
@@ -116,6 +118,7 @@ public class CameraDetailViewModel : ObservableObject
         EditCommand = new RelayCommand(EnterEditMode, () => !IsNewMode);
         _saveCommand = new RelayCommand(Save, () => IsEditMode);
         DeleteCommand = new RelayCommand(Delete, () => !IsNewMode);
+        TestConnectionCommand = new RelayCommand(TestConnection, () => !IsNewMode);
 
         IsEditMode = isNewMode;
         _savedSnapshot = CreateSnapshot();
@@ -381,6 +384,36 @@ public class CameraDetailViewModel : ObservableObject
     {
         IsEditMode = true;
         StatusMessage = "Edit mode enabled.";
+    }
+
+    private void TestConnection()
+    {
+        ValidateAll();
+
+        if (!IsFormValid)
+        {
+            StatusMessage = "Please fix validation errors before testing the connection.";
+            return;
+        }
+
+        var testCamera = new Camera
+        {
+            ConnectionType = _camera.ConnectionType
+        };
+        MapToCamera(testCamera);
+
+        var driver = DriverFactory.CreateCameraDriver(testCamera.ConnectionType);
+        var isSuccess = driver.TestConnection(testCamera);
+
+        if (isSuccess)
+        {
+            StatusMessage = "Connection successful.";
+            return;
+        }
+
+        StatusMessage = DriverFactory.IsDriverImplemented(testCamera.ConnectionType)
+            ? "Connection failed."
+            : "Driver not implemented.";
     }
 
     private void Save()

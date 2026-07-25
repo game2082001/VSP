@@ -323,6 +323,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <TextBlock Text="{Binding StatusMessage}"
@@ -330,6 +331,22 @@
                        VerticalAlignment="Center"/>
 
             <Button Grid.Column="1"
+                    Content="Test Connection"
+                    Margin="0,0,10,0"
+                    Command="{Binding TestConnectionCommand}">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsNewMode}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+
+            <Button Grid.Column="2"
                     Content="Delete"
                     Margin="0,0,10,0"
                     Command="{Binding DeleteCommand}">
@@ -345,13 +362,13 @@
                 </Button.Style>
             </Button>
 
-            <Button Grid.Column="2"
+            <Button Grid.Column="3"
                     Content="Save"
                     Style="{StaticResource SecondaryButton}"
                     Margin="0,0,10,0"
                     Command="{Binding SaveCommand}"/>
 
-            <Button Grid.Column="3"
+            <Button Grid.Column="4"
                     Content="Close"
                     Style="{StaticResource PrimaryButton}"
                     Command="{Binding CloseCommand}"/>

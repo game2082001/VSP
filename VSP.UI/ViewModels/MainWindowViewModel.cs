@@ -1,5 +1,4 @@
-﻿using VSP.UI.Views.DeviceCenter;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using VSP.Core.MVVM;
 using VSP.UI.Views;
 
@@ -58,7 +57,7 @@ public class MainWindowViewModel : ObservableObject
         {
             Title = "Devices",
             Icon = "Server",
-            View = new DeviceCenterView()
+            View = new CameraListView()
         });
 
         Navigation.Add(new NavigationItem

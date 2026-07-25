@@ -12,4 +12,18 @@ public static class DriverFactory
     {
         return DefaultRegistry.CreateCameraDriver(connectionType) ?? new RtspCameraDriver();
     }
+
+    public static bool IsDriverImplemented(DeviceConnectionType connectionType)
+    {
+        return connectionType switch
+        {
+            DeviceConnectionType.HikvisionISAPI => false,
+            DeviceConnectionType.HikvisionSDK => false,
+            DeviceConnectionType.DahuaNetSDK => false,
+            DeviceConnectionType.ONVIF => false,
+            DeviceConnectionType.RTSP => true,
+            DeviceConnectionType.AxisVAPIX => false,
+            _ => false
+        };
+    }
 }

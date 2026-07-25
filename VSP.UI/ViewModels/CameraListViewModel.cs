@@ -80,11 +80,13 @@ public class CameraListViewModel : ObservableObject
     public ICommand ClearCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand AddCameraCommand { get; }
+    public ICommand ImportCommand { get; }
     public ICommand BatchEditCommand { get; }
     public ICommand BatchConnectionTestCommand { get; }
     public ICommand ExportCommand { get; }
 
     public event Action? RequestAddCamera;
+    public event Action? RequestImport;
     public event Action<IReadOnlyList<Camera>>? RequestBatchEdit;
     public event Action<IReadOnlyList<Camera>>? RequestBatchConnectionTest;
     public event Action<IReadOnlyList<Camera>>? RequestExport;
@@ -96,6 +98,7 @@ public class CameraListViewModel : ObservableObject
         ClearCommand = new RelayCommand(ClearSearch);
         RefreshCommand = new RelayCommand(() => _ = RefreshAsync());
         AddCameraCommand = new RelayCommand(RaiseAddCameraRequest);
+        ImportCommand = new RelayCommand(RaiseImportRequest);
         BatchEditCommand = new RelayCommand(RaiseBatchEditRequest, () => SelectedItemCount >= 2);
         BatchConnectionTestCommand = new RelayCommand(RaiseBatchConnectionTestRequest, () => SelectedItemCount >= 1);
         ExportCommand = new RelayCommand(RaiseExportRequest, () => Cameras.Count > 0);
@@ -266,6 +269,11 @@ public class CameraListViewModel : ObservableObject
     private void RaiseAddCameraRequest()
     {
         RequestAddCamera?.Invoke();
+    }
+
+    private void RaiseImportRequest()
+    {
+        RequestImport?.Invoke();
     }
 
     private void RaiseBatchEditRequest()

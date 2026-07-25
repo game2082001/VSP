@@ -1,5 +1,40 @@
 ﻿# CHANGELOG
 
+## 2026-07-26
+
+### Version 1.9 - Epic-005 Camera Management Workspace
+
+Status:
+Implementation Complete — Pending Product Owner Acceptance (uncommitted — pending user commit)
+
+Summary:
+- Established `CameraListView`/`CameraListViewModel` as the primary device management workspace, hosted in `MainWindowViewModel`'s "Devices" navigation tab in place of the older `DeviceCenterView`/`DeviceCenterViewModel`. This makes the already-built, already-tested camera list, search/filter, `CameraDetailWindow` (Save/Delete with validation and unsaved-changes protection), Batch Edit, Batch Connection Test, and Export flows reachable from the running application for the first time.
+- Added an "Import" entry point to `CameraListView`, wired to the existing `ImportWizard` (CSV/Excel import, preview, validation, duplicate handling, `ImportSummaryWindow`), which previously had no reachable entry point anywhere in the UI. The camera list refreshes automatically after the Import Wizard closes.
+- Added a dedicated "Test Connection" action to `CameraDetailWindow` (hidden in New Mode, matching the `Delete` button's visibility rule), restoring the single-camera connection test experience previously available in `DeviceCenterView`. Tests the *current, possibly-unsaved form values* (not the last-saved camera), validating the form first and reporting one of "Connection successful.", "Connection failed.", "Driver not implemented.", or a validation message. Added `DriverFactory.IsDriverImplemented(DeviceConnectionType)` as the single shared source of truth for the implemented/not-implemented distinction, replacing the copy that previously lived only in the now-retired `DeviceCenterViewModel`.
+- `DeviceCenterView`/`DeviceCenterView.xaml.cs`/`DeviceCenterViewModel` are no longer hosted in `MainWindowViewModel` but were **not deleted** — marked `[Obsolete]` with an explanatory comment ("superseded by CameraListView/CameraListViewModel, scheduled for removal in a future Legacy Cleanup Epic") to minimize migration risk. Confirmed via reference search that nothing else in the solution depends on them.
+- Added 6 unit tests for the new Test Connection behavior in `CameraDetailViewModel` (unimplemented driver, RTSP failure, RTSP success via loopback server, validation blocking, disabled in New Mode, and current-vs-stale form values). All other functionality in this Epic is integration/wiring work over already-tested components (Import, Batch Edit, Batch Connection Test predate this Epic and keep their existing test coverage unchanged).
+- Import flow confirmed end-to-end: **Import Wizard → Import Summary → Camera List Refresh.** Clicking "Import" in `ImportWizardViewModel` fires `ImportCompleted`, which `ImportWizard` handles by showing `ImportSummaryWindow` modally; once the user closes Import Summary *and* then closes the Import Wizard itself, `CameraListView.xaml.cs`'s `HandleRequestImport` resumes past `ShowDialog()` and calls `_viewModel.RefreshAsync()`. The refresh is keyed to the Import Wizard closing, not to the Summary closing — if a user runs a second import within the same Wizard session, the list only refreshes once, when the Wizard itself finally closes.
+
+Files:
+- VSP.UI/ViewModels/MainWindowViewModel.cs
+- VSP.UI/ViewModels/CameraListViewModel.cs
+- VSP.UI/ViewModels/CameraDetailViewModel.cs
+- VSP.UI/ViewModels/DeviceCenterViewModel.cs (marked `[Obsolete]`, not deleted)
+- VSP.UI/Views/CameraListView.xaml
+- VSP.UI/Views/CameraListView.xaml.cs
+- VSP.UI/Views/CameraDetailWindow.xaml
+- VSP.UI/Views/DeviceCenter/DeviceCenterView.xaml.cs (marked `[Obsolete]`, not deleted)
+- VSP.Device/Drivers/DriverFactory.cs
+- VSP.Tests/Camera/CameraDetailViewModelTests.cs
+- Docs/CHANGELOG.md
+
+Known limitations (not addressed — out of approved scope for this Epic):
+- `DeviceCenterView`/`DeviceCenterViewModel` remain in the codebase as unreferenced, `[Obsolete]`-marked legacy code. Their actual removal is deferred to a future Legacy Cleanup Epic, not this one.
+- `CameraConnectionTestResult` (used by Batch Test) still reports only `IsSuccess`, not the "driver not implemented" distinction that `CameraDetailWindow`'s new single-camera Test Connection action now surfaces via `DriverFactory.IsDriverImplemented`. This is pre-existing behavior from Epic-002's Batch Connection Test feature; extending Batch Test to use the same distinction was not part of this Epic's approved scope.
+- `CameraListViewModel.BrandOptions` (`All, Hikvision, Dahua, VIVOTEK`) does not match the `CameraBrand` enum (`Unknown, Hikvision, Dahua, ONVIF, RTSP`) — a pre-existing inconsistency predating this Epic, left unchanged per Surgical Changes (not related to this Epic's scope).
+
+---
+
 ## 2026-07-25
 
 ### Version 1.8 - Epic-003 RTSP Connection Foundation
