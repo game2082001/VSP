@@ -290,6 +290,168 @@ public class DiscoveryOrchestratorTests
     }
 
     [Fact]
+    public async Task DiscoverCandidatesAsync_WithSingleCompatibleDriver_ReturnsApprovedWithoutTouchingRepository()
+    {
+        var repository = new FakeCameraRepository();
+        var orchestrator = CreateOrchestrator(repository, CreateHostDriver("generic.host"));
+
+        var results = await orchestrator.DiscoverCandidatesAsync(new DiscoveryOrchestrationRequest
+        {
+            Candidates = [CreateCandidate()]
+        });
+
+        var candidateResult = Assert.Single(results);
+        Assert.Equal(CandidateOrchestrationStatus.Approved, candidateResult.Status);
+        Assert.NotNull(candidateResult.DriverApprovalResult?.ApprovedDriver);
+        Assert.Null(candidateResult.CameraFactoryResult);
+        Assert.Null(candidateResult.RegistrationResult);
+        Assert.Equal(0, repository.AddCallCount);
+    }
+
+    [Fact]
+    public async Task DiscoverCandidatesAsync_WithMultipleCompatibleDrivers_ReturnsAwaitingApprovalWithCompatibleDriverList()
+    {
+        var orchestrator = CreateOrchestrator(
+            new FakeCameraRepository(),
+            CreateHostDriver("generic.host.one"),
+            CreateHostDriver("generic.host.two", DeviceConnectionType.ONVIF));
+
+        var results = await orchestrator.DiscoverCandidatesAsync(new DiscoveryOrchestrationRequest
+        {
+            Candidates = [CreateCandidate()]
+        });
+
+        var candidateResult = Assert.Single(results);
+        Assert.Equal(CandidateOrchestrationStatus.AwaitingApproval, candidateResult.Status);
+        Assert.Equal(2, candidateResult.DriverApprovalResult?.CompatibleDrivers.Count);
+        Assert.Null(candidateResult.CameraFactoryResult);
+    }
+
+    [Fact]
+    public async Task DiscoverCandidatesAsync_WithNoCompatibleDriver_ReturnsNoCompatibleDriver()
+    {
+        var orchestrator = CreateOrchestrator(new FakeCameraRepository());
+
+        var results = await orchestrator.DiscoverCandidatesAsync(new DiscoveryOrchestrationRequest
+        {
+            Candidates = [CreateCandidate()]
+        });
+
+        var candidateResult = Assert.Single(results);
+        Assert.Equal(CandidateOrchestrationStatus.NoCompatibleDriver, candidateResult.Status);
+    }
+
+    [Fact]
+    public async Task DiscoverCandidatesAsync_WithInvalidRequest_ThrowsArgumentException()
+    {
+        var orchestrator = CreateOrchestrator(new FakeCameraRepository(), CreateHostDriver("generic.host"));
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => orchestrator.DiscoverCandidatesAsync(new DiscoveryOrchestrationRequest()));
+    }
+
+    [Fact]
+    public async Task RegisterCandidate_WithApprovedDriverAndNameOverride_RegistersCameraUsingOverride()
+    {
+        var repository = new FakeCameraRepository();
+        var orchestrator = CreateOrchestrator(repository, CreateHostDriver("generic.host"));
+        var candidate = CreateCandidate();
+
+        var evaluated = await orchestrator.DiscoverCandidatesAsync(new DiscoveryOrchestrationRequest
+        {
+            Candidates = [candidate]
+        });
+        var approvedDriver = evaluated.Single().DriverApprovalResult!.ApprovedDriver!;
+
+        var result = orchestrator.RegisterCandidate(
+            candidate,
+            approvedDriver,
+            new DiscoveryOrchestrationRequest { DuplicatePolicy = DuplicatePolicy.Reject },
+            nameOverride: "Front Entrance Camera");
+
+        Assert.Equal(CandidateOrchestrationStatus.Registered, result.Status);
+        Assert.Equal(1, repository.AddCallCount);
+        Assert.Equal("Front Entrance Camera", repository.LastAddedCamera?.Name);
+    }
+
+    [Fact]
+    public async Task RegisterCandidate_WithoutNameOverride_FallsBackToCandidateDerivedName()
+    {
+        var repository = new FakeCameraRepository();
+        var orchestrator = CreateOrchestrator(repository, CreateHostDriver("generic.host"));
+        var candidate = CreateCandidate();
+
+        var evaluated = await orchestrator.DiscoverCandidatesAsync(new DiscoveryOrchestrationRequest
+        {
+            Candidates = [candidate]
+        });
+        var approvedDriver = evaluated.Single().DriverApprovalResult!.ApprovedDriver!;
+
+        var result = orchestrator.RegisterCandidate(
+            candidate,
+            approvedDriver,
+            new DiscoveryOrchestrationRequest { DuplicatePolicy = DuplicatePolicy.Reject });
+
+        Assert.Equal(CandidateOrchestrationStatus.Registered, result.Status);
+        Assert.Equal(candidate.Name, repository.LastAddedCamera?.Name);
+    }
+
+    [Fact]
+    public async Task RegisterCandidate_WhenDuplicateAndPolicyIsSkip_DoesNotWriteRepository()
+    {
+        var repository = new FakeCameraRepository
+        {
+            ExistingCameras = [new EntityCamera { Name = "Lobby", IpAddress = "192.168.1.10" }]
+        };
+        var orchestrator = CreateOrchestrator(repository, CreateHostDriver("generic.host"));
+        var candidate = CreateCandidate();
+
+        var evaluated = await orchestrator.DiscoverCandidatesAsync(new DiscoveryOrchestrationRequest
+        {
+            Candidates = [candidate]
+        });
+        var approvedDriver = evaluated.Single().DriverApprovalResult!.ApprovedDriver!;
+
+        var result = orchestrator.RegisterCandidate(
+            candidate,
+            approvedDriver,
+            new DiscoveryOrchestrationRequest { DuplicatePolicy = DuplicatePolicy.Skip });
+
+        Assert.Equal(CandidateOrchestrationStatus.DuplicateSkipped, result.Status);
+        Assert.Equal(0, repository.AddCallCount);
+    }
+
+    [Fact]
+    public async Task DiscoverThenRegisterCandidate_ProducesSameOutcomeAsExecuteAsync_ForSingleCompatibleDriver()
+    {
+        var repositoryForExecute = new FakeCameraRepository();
+        var orchestratorForExecute = CreateOrchestrator(repositoryForExecute, CreateHostDriver("generic.host"));
+        var candidate = CreateCandidate();
+
+        var executeResult = await orchestratorForExecute.ExecuteAsync(new DiscoveryOrchestrationRequest
+        {
+            Candidates = [candidate]
+        });
+
+        var repositoryForTwoPhase = new FakeCameraRepository();
+        var orchestratorForTwoPhase = CreateOrchestrator(repositoryForTwoPhase, CreateHostDriver("generic.host"));
+        var evaluated = await orchestratorForTwoPhase.DiscoverCandidatesAsync(new DiscoveryOrchestrationRequest
+        {
+            Candidates = [candidate]
+        });
+        var approvedDriver = evaluated.Single().DriverApprovalResult!.ApprovedDriver!;
+        var registerResult = orchestratorForTwoPhase.RegisterCandidate(
+            candidate,
+            approvedDriver,
+            new DiscoveryOrchestrationRequest());
+
+        Assert.Equal(CandidateOrchestrationStatus.Registered, executeResult.CandidateResults.Single().Status);
+        Assert.Equal(CandidateOrchestrationStatus.Registered, registerResult.Status);
+        Assert.Equal(1, repositoryForExecute.AddCallCount);
+        Assert.Equal(1, repositoryForTwoPhase.AddCallCount);
+    }
+
+    [Fact]
     public async Task SessionFactory_MapsCancelledResultToCancelledSession()
     {
         var factory = new DiscoverySessionFactory();
@@ -448,6 +610,8 @@ public class DiscoveryOrchestratorTests
 
         public int AddCallCount { get; private set; }
 
+        public EntityCamera? LastAddedCamera { get; private set; }
+
         public IEnumerable<EntityCamera> GetAll()
         {
             return ExistingCameras;
@@ -461,6 +625,7 @@ public class DiscoveryOrchestratorTests
         public void Add(EntityCamera camera)
         {
             AddCallCount++;
+            LastAddedCamera = camera;
             OnAdd?.Invoke();
         }
 

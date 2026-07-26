@@ -41,6 +41,38 @@ public class CameraListViewModelTests
     }
 
     [Fact]
+    public void IsShowingDiscovery_DefaultsToFalse()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository());
+
+        Assert.False(viewModel.IsShowingDiscovery);
+        Assert.True(viewModel.IsShowingCameraList);
+    }
+
+    [Fact]
+    public void ShowDiscoveryCommand_SwitchesToDiscoverySection()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository());
+
+        viewModel.ShowDiscoveryCommand.Execute(null);
+
+        Assert.True(viewModel.IsShowingDiscovery);
+        Assert.False(viewModel.IsShowingCameraList);
+    }
+
+    [Fact]
+    public void ShowCameraListCommand_SwitchesBackToCameraListSection()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository());
+        viewModel.ShowDiscoveryCommand.Execute(null);
+
+        viewModel.ShowCameraListCommand.Execute(null);
+
+        Assert.False(viewModel.IsShowingDiscovery);
+        Assert.True(viewModel.IsShowingCameraList);
+    }
+
+    [Fact]
     public async Task LoadAsync_HandlesRepositoryException()
     {
         var viewModel = CreateViewModel(new ThrowingCameraRepository());

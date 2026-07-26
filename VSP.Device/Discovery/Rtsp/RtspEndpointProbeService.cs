@@ -1,9 +1,10 @@
 using System.Diagnostics;
 using System.Net.Sockets;
+using VSP.Device.Discovery.AutoDiscovery;
 
 namespace VSP.Device.Discovery.Rtsp;
 
-public sealed class RtspEndpointProbeService
+public sealed class RtspEndpointProbeService : IRtspEndpointProbeService
 {
     private readonly IRtspProbeTransport _transport;
     private readonly RtspRequestFactory _requestFactory;

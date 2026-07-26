@@ -1,0 +1,162 @@
+<UserControl x:Class="VSP.UI.Views.CameraDiscoveryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#1E1E1E">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="40"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12">
+            <TextBlock Text="Camera Discovery"
+                       Foreground="White"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center"/>
+        </Border>
+
+        <Border Grid.Row="1"
+                Margin="0,16,0,0"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16">
+            <StackPanel Orientation="Horizontal">
+                <CheckBox Content="ONVIF"
+                          Foreground="White"
+                          IsChecked="{Binding EnableOnvifDiscovery, Mode=TwoWay}"
+                          VerticalAlignment="Center"
+                          Margin="0,0,20,0"/>
+
+                <CheckBox Content="Network Scan"
+                          Foreground="White"
+                          IsChecked="{Binding EnableNetworkScan, Mode=TwoWay}"
+                          VerticalAlignment="Center"
+                          Margin="0,0,8,0"/>
+
+                <CheckBox Content="RTSP Probe"
+                          Foreground="White"
+                          IsChecked="{Binding EnableRtspEndpointProbe, Mode=TwoWay}"
+                          VerticalAlignment="Center"
+                          Margin="0,0,20,0"/>
+
+                <TextBox Text="{Binding TargetHostsText, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource VspTextBox}"
+                         ToolTip="Hosts for Network Scan / RTSP Probe: comma or newline separated, e.g. 192.168.1.10, 192.168.1.20-30"
+                         Width="320"
+                         VerticalContentAlignment="Center"
+                         Margin="0,0,8,0"/>
+
+                <TextBox Text="{Binding TargetPort, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource VspTextBox}"
+                         ToolTip="Port used for Network Scan reachability checks"
+                         Width="70"
+                         VerticalContentAlignment="Center"
+                         Margin="0,0,20,0"/>
+
+                <Button Content="Scan"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding ScanCommand}"
+                        Margin="0,0,8,0"/>
+
+                <Button Content="Cancel"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding CancelScanCommand}"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2"
+                Margin="0,16,0,0"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           Foreground="#B0B0B0"
+                           VerticalAlignment="Center"/>
+
+                <Button Grid.Column="1"
+                        Content="Register Selected"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding RegisterSelectedCommand}"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3"
+                Margin="0,16,0,12"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="16">
+            <DataGrid ItemsSource="{Binding Candidates}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserResizeRows="False"
+                      CanUserSortColumns="False"
+                      IsReadOnly="False"
+                      HeadersVisibility="Column">
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="Select"
+                                            Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            Width="60"/>
+                    <DataGridTextColumn Header="Name"
+                                        Binding="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="200"/>
+                    <DataGridTextColumn Header="Host"
+                                        Binding="{Binding Host}"
+                                        Width="140"
+                                        IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Sources"
+                                        Binding="{Binding Sources}"
+                                        Width="140"
+                                        IsReadOnly="True"/>
+                    <DataGridTemplateColumn Header="Driver" Width="200">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ComboBox ItemsSource="{Binding DriverOptions}"
+                                          SelectedItem="{Binding SelectedDriver, Mode=TwoWay}"
+                                          DisplayMemberPath="DisplayName"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Status"
+                                        Binding="{Binding StatusMessage}"
+                                        Width="*"
+                                        IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <Border Grid.Row="4"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12,0">
+            <TextBlock Text="{Binding Candidates.Count, StringFormat='{}{0} candidate(s)'}"
+                       Foreground="#B0B0B0"
+                       VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+</UserControl>

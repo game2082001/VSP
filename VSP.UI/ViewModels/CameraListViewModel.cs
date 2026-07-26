@@ -76,6 +76,21 @@ public class CameraListViewModel : ObservableObject
 
     public int SelectedItemCount => Cameras.Count(camera => camera.IsSelected);
 
+    private bool _isShowingDiscovery;
+    public bool IsShowingDiscovery
+    {
+        get => _isShowingDiscovery;
+        private set
+        {
+            if (SetProperty(ref _isShowingDiscovery, value))
+            {
+                OnPropertyChanged(nameof(IsShowingCameraList));
+            }
+        }
+    }
+
+    public bool IsShowingCameraList => !IsShowingDiscovery;
+
     public ICommand SearchCommand { get; }
     public ICommand ClearCommand { get; }
     public ICommand RefreshCommand { get; }
@@ -84,6 +99,8 @@ public class CameraListViewModel : ObservableObject
     public ICommand BatchEditCommand { get; }
     public ICommand BatchConnectionTestCommand { get; }
     public ICommand ExportCommand { get; }
+    public ICommand ShowDiscoveryCommand { get; }
+    public ICommand ShowCameraListCommand { get; }
 
     public event Action? RequestAddCamera;
     public event Action? RequestImport;
@@ -102,6 +119,8 @@ public class CameraListViewModel : ObservableObject
         BatchEditCommand = new RelayCommand(RaiseBatchEditRequest, () => SelectedItemCount >= 2);
         BatchConnectionTestCommand = new RelayCommand(RaiseBatchConnectionTestRequest, () => SelectedItemCount >= 1);
         ExportCommand = new RelayCommand(RaiseExportRequest, () => Cameras.Count > 0);
+        ShowDiscoveryCommand = new RelayCommand(() => IsShowingDiscovery = true);
+        ShowCameraListCommand = new RelayCommand(() => IsShowingDiscovery = false);
     }
 
     public async Task LoadAsync()

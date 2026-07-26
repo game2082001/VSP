@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
+using VSP.Device.Discovery.AutoDiscovery;
 
 namespace VSP.Device.Discovery.NetworkScan;
 
-public sealed class NetworkScanService
+public sealed class NetworkScanService : INetworkScanService
 {
     private readonly INetworkReachabilityProbe _probe;
 

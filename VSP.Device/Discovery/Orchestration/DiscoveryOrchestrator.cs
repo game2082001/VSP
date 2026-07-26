@@ -99,6 +99,56 @@ public sealed class DiscoveryOrchestrator
         }
     }
 
+    /// <summary>
+    /// Discovery-only entry point: evaluates every candidate against driver selection and
+    /// the configured <see cref="IDriverApprovalPolicy"/>, but never calls
+    /// <see cref="CameraFactory"/> or <see cref="DeviceRegistrationService"/> — nothing is
+    /// written to the repository. Reuses the exact same evaluation logic as
+    /// <see cref="ExecuteAsync"/>/<see cref="ProcessCandidate"/>, just stopping one step earlier.
+    /// A candidate evaluated here is later committed via <see cref="RegisterCandidate"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<CandidateOrchestrationResult>> DiscoverCandidatesAsync(
+        DiscoveryOrchestrationRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        var validationReasons = ValidateRequest(request);
+        if (validationReasons.Count > 0)
+        {
+            throw new ArgumentException(validationReasons[0].Message, nameof(request));
+        }
+
+        var candidates = await GetCandidatesAsync(request!, cancellationToken).ConfigureAwait(false);
+        var results = new List<CandidateOrchestrationResult>();
+
+        foreach (var candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            results.Add(EvaluateCandidate(request!, candidate));
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Commits a single candidate that was already evaluated via <see cref="DiscoverCandidatesAsync"/>
+    /// once a caller (typically an interactive reviewer) has chosen an approved driver and,
+    /// optionally, an edited name. Reuses the exact same commit logic as
+    /// <see cref="ExecuteAsync"/>/<see cref="ProcessCandidate"/> — <see cref="DeviceRegistrationService"/>
+    /// remains the only place that writes a camera to the repository.
+    /// </summary>
+    public CandidateOrchestrationResult RegisterCandidate(
+        AutoDiscoveryCandidate candidate,
+        ApprovedDriverReference approvedDriver,
+        DiscoveryOrchestrationRequest request,
+        string? nameOverride = null)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        ArgumentNullException.ThrowIfNull(approvedDriver);
+        ArgumentNullException.ThrowIfNull(request);
+
+        return CommitCandidate(candidate, approvedDriver, request, nameOverride);
+    }
+
     private async Task<IReadOnlyList<AutoDiscoveryCandidate>> GetCandidatesAsync(
         DiscoveryOrchestrationRequest request,
         CancellationToken cancellationToken)
@@ -119,6 +169,27 @@ public sealed class DiscoveryOrchestrator
         DiscoveryOrchestrationRequest request,
         AutoDiscoveryCandidate candidate)
     {
+        var evaluated = EvaluateCandidate(request, candidate);
+
+        if (evaluated.Status != CandidateOrchestrationStatus.Approved
+            || evaluated.DriverApprovalResult?.ApprovedDriver is null)
+        {
+            return evaluated;
+        }
+
+        return CommitCandidate(
+            candidate,
+            evaluated.DriverApprovalResult.ApprovedDriver,
+            request,
+            nameOverride: null,
+            evaluated.DriverSelectionResult,
+            evaluated.DriverApprovalResult);
+    }
+
+    private CandidateOrchestrationResult EvaluateCandidate(
+        DiscoveryOrchestrationRequest request,
+        AutoDiscoveryCandidate candidate)
+    {
         var evidence = _evidenceMapper.Map(candidate);
         var driverSelectionResult = _driverSelectionService.Evaluate(new DriverSelectionRequest
         {
@@ -136,23 +207,28 @@ public sealed class DiscoveryOrchestrator
             CorrelationId = request.CorrelationId
         });
 
-        if (driverApprovalResult.Status != DriverApprovalStatus.Approved
-            || driverApprovalResult.ApprovedDriver is null)
+        return new CandidateOrchestrationResult
         {
-            return new CandidateOrchestrationResult
-            {
-                Candidate = candidate,
-                Status = MapApprovalStatus(driverApprovalResult.Status),
-                DriverSelectionResult = driverSelectionResult,
-                DriverApprovalResult = driverApprovalResult,
-                Reasons = driverApprovalResult.Reasons
-            };
-        }
+            Candidate = candidate,
+            Status = MapApprovalStatus(driverApprovalResult.Status),
+            DriverSelectionResult = driverSelectionResult,
+            DriverApprovalResult = driverApprovalResult,
+            Reasons = driverApprovalResult.Reasons
+        };
+    }
 
+    private CandidateOrchestrationResult CommitCandidate(
+        AutoDiscoveryCandidate candidate,
+        ApprovedDriverReference approvedDriver,
+        DiscoveryOrchestrationRequest request,
+        string? nameOverride,
+        DriverSelectionResult? driverSelectionResult = null,
+        DriverApprovalResult? driverApprovalResult = null)
+    {
         var cameraFactoryResult = _cameraFactory.Create(new CameraFactoryRequest
         {
-            ApprovedDriver = driverApprovalResult.ApprovedDriver,
-            InitializationData = CreateInitializationData(candidate),
+            ApprovedDriver = approvedDriver,
+            InitializationData = CreateInitializationData(candidate, nameOverride),
             Timestamp = request.Timestamp
         });
 
@@ -196,16 +272,20 @@ public sealed class DiscoveryOrchestrator
         };
     }
 
-    private static CameraInitializationData CreateInitializationData(AutoDiscoveryCandidate candidate)
+    private static CameraInitializationData CreateInitializationData(
+        AutoDiscoveryCandidate candidate,
+        string? nameOverride = null)
     {
         var rtspUrl = IsRtspEndpoint(candidate.Endpoint) ? candidate.Endpoint : null;
         var port = candidate.Port;
 
         return new CameraInitializationData
         {
-            Name = string.IsNullOrWhiteSpace(candidate.Name)
-                ? FirstNonEmpty(candidate.Host, candidate.Endpoint, candidate.CandidateKey)
-                : candidate.Name,
+            Name = string.IsNullOrWhiteSpace(nameOverride)
+                ? (string.IsNullOrWhiteSpace(candidate.Name)
+                    ? FirstNonEmpty(candidate.Host, candidate.Endpoint, candidate.CandidateKey)
+                    : candidate.Name)
+                : nameOverride,
             IpAddress = candidate.Host,
             Brand = CameraBrand.Unknown,
             Model = candidate.Model,
@@ -291,6 +371,7 @@ public sealed class DiscoveryOrchestrator
     {
         return status switch
         {
+            DriverApprovalStatus.Approved => CandidateOrchestrationStatus.Approved,
             DriverApprovalStatus.AwaitingApproval => CandidateOrchestrationStatus.AwaitingApproval,
             DriverApprovalStatus.NoCompatibleDriver => CandidateOrchestrationStatus.NoCompatibleDriver,
             DriverApprovalStatus.Rejected => CandidateOrchestrationStatus.Rejected,

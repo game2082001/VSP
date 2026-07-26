@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Net;
+using VSP.Device.Discovery.AutoDiscovery;
 
 namespace VSP.Device.Discovery.Onvif;
 
-public sealed class OnvifDiscoveryService
+public sealed class OnvifDiscoveryService : IOnvifDiscoveryService
 {
     private static readonly IPEndPoint MulticastEndpoint = new(IPAddress.Parse("239.255.255.250"), 3702);
 
