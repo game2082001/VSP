@@ -7,7 +7,8 @@ public sealed class DriverSettingDefinition
         string displayName,
         bool isRequired = false,
         object? defaultValue = null,
-        bool isSensitive = false)
+        bool isSensitive = false,
+        DriverSettingValueKind valueKind = DriverSettingValueKind.Text)
     {
         if (string.IsNullOrWhiteSpace(displayName))
         {
@@ -19,6 +20,7 @@ public sealed class DriverSettingDefinition
         IsRequired = isRequired;
         DefaultValue = defaultValue;
         IsSensitive = isSensitive;
+        ValueKind = valueKind;
     }
 
     public DriverSettingKey Key { get; }
@@ -30,4 +32,6 @@ public sealed class DriverSettingDefinition
     public object? DefaultValue { get; }
 
     public bool IsSensitive { get; }
+
+    public DriverSettingValueKind ValueKind { get; }
 }

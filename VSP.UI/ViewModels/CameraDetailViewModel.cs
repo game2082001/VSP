@@ -1,7 +1,10 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows.Input;
 using VSP.Core.Commands;
 using VSP.Core.MVVM;
 using VSP.Device.Drivers;
+using VSP.Device.Drivers.Settings;
 using VSP.Device.Interfaces;
 using VSP.Domain.Entities;
 using VSP.Domain.Enums;
@@ -23,10 +26,13 @@ public enum DeleteConfirmationDecision
 
 public class CameraDetailViewModel : ObservableObject
 {
+    private static readonly DriverRegistry Drivers = DriverRegistry.CreateDefault();
+
     private readonly Camera _camera;
     private readonly ICameraRepository _cameraRepository;
     private readonly RelayCommand _saveCommand;
     private readonly bool _isNewMode;
+    private bool _isRebuildingDriverSettings;
 
     private string _savedSnapshot = string.Empty;
     private string _name;
@@ -34,12 +40,7 @@ public class CameraDetailViewModel : ObservableObject
     private string _model;
     private string _location;
     private string _ipAddress;
-    private string _httpPort;
-    private string _rtspPort;
-    private string _sdkPort;
-    private string _username;
-    private string _password;
-    private string _rtspUrl;
+    private string _connectionType;
     private string _statusMessage = "Read-only mode.";
     private bool _isEditMode;
 
@@ -47,12 +48,6 @@ public class CameraDetailViewModel : ObservableObject
     private bool _isNameValid = true;
     private string _ipAddressError = string.Empty;
     private bool _isIpAddressValid = true;
-    private string _httpPortError = string.Empty;
-    private bool _isHttpPortValid = true;
-    private string _rtspPortError = string.Empty;
-    private bool _isRtspPortValid = true;
-    private string _sdkPortError = string.Empty;
-    private bool _isSdkPortValid = true;
     private string _lastModifyTime;
     private string _status;
     private string _recording;
@@ -61,6 +56,9 @@ public class CameraDetailViewModel : ObservableObject
     public string Title => IsNewMode ? "Add Camera" : "Camera Detail";
     public string HeaderTitle => Title;
     public IReadOnlyList<string> BrandOptions { get; } = Enum.GetNames<CameraBrand>();
+    public IReadOnlyList<string> ConnectionTypeOptions { get; } = Enum.GetNames<DeviceConnectionType>();
+
+    public ObservableCollection<DriverSettingEditorViewModel> DriverSettings { get; } = new();
 
     public string LastModifyTime
     {
@@ -102,12 +100,7 @@ public class CameraDetailViewModel : ObservableObject
         _model = camera.Model;
         _location = camera.Location;
         _ipAddress = camera.IpAddress;
-        _httpPort = camera.HttpPort.ToString();
-        _rtspPort = camera.RtspPort.ToString();
-        _sdkPort = camera.SdkPort.ToString();
-        _username = camera.Username;
-        _password = camera.Password;
-        _rtspUrl = camera.RtspUrl;
+        _connectionType = camera.ConnectionType.ToString();
         _status = camera.Status.ToString();
         _recording = camera.Recording ? "Yes" : "No";
         _createTime = camera.CreateTime.ToString("yyyy-MM-dd HH:mm:ss");
@@ -121,6 +114,7 @@ public class CameraDetailViewModel : ObservableObject
         TestConnectionCommand = new RelayCommand(TestConnection, () => !IsNewMode);
 
         IsEditMode = isNewMode;
+        RebuildDriverSettings(seedFromCamera: true);
         _savedSnapshot = CreateSnapshot();
         ValidateAll();
     }
@@ -199,79 +193,14 @@ public class CameraDetailViewModel : ObservableObject
         }
     }
 
-    public string HttpPort
+    public string ConnectionType
     {
-        get => _httpPort;
+        get => _connectionType;
         set
         {
-            if (SetProperty(ref _httpPort, value))
+            if (SetProperty(ref _connectionType, value))
             {
-                ValidateAll();
-                OnPropertyChanged(nameof(IsDirty));
-            }
-        }
-    }
-
-    public string RtspPort
-    {
-        get => _rtspPort;
-        set
-        {
-            if (SetProperty(ref _rtspPort, value))
-            {
-                ValidateAll();
-                OnPropertyChanged(nameof(IsDirty));
-            }
-        }
-    }
-
-    public string SdkPort
-    {
-        get => _sdkPort;
-        set
-        {
-            if (SetProperty(ref _sdkPort, value))
-            {
-                ValidateAll();
-                OnPropertyChanged(nameof(IsDirty));
-            }
-        }
-    }
-
-    public string Username
-    {
-        get => _username;
-        set
-        {
-            if (SetProperty(ref _username, value))
-            {
-                OnPropertyChanged(nameof(IsDirty));
-            }
-        }
-    }
-
-    public string Password
-    {
-        get => _password;
-        set
-        {
-            if (SetProperty(ref _password, value))
-            {
-                OnPropertyChanged(nameof(MaskedPassword));
-                OnPropertyChanged(nameof(IsDirty));
-            }
-        }
-    }
-
-    public string MaskedPassword => MaskPassword(Password);
-
-    public string RtspUrl
-    {
-        get => _rtspUrl;
-        set
-        {
-            if (SetProperty(ref _rtspUrl, value))
-            {
+                RebuildDriverSettings(seedFromCamera: false);
                 OnPropertyChanged(nameof(IsDirty));
             }
         }
@@ -319,48 +248,10 @@ public class CameraDetailViewModel : ObservableObject
         private set => SetProperty(ref _isIpAddressValid, value);
     }
 
-    public string HttpPortError
-    {
-        get => _httpPortError;
-        private set => SetProperty(ref _httpPortError, value);
-    }
-
-    public bool IsHttpPortValid
-    {
-        get => _isHttpPortValid;
-        private set => SetProperty(ref _isHttpPortValid, value);
-    }
-
-    public string RtspPortError
-    {
-        get => _rtspPortError;
-        private set => SetProperty(ref _rtspPortError, value);
-    }
-
-    public bool IsRtspPortValid
-    {
-        get => _isRtspPortValid;
-        private set => SetProperty(ref _isRtspPortValid, value);
-    }
-
-    public string SdkPortError
-    {
-        get => _sdkPortError;
-        private set => SetProperty(ref _sdkPortError, value);
-    }
-
-    public bool IsSdkPortValid
-    {
-        get => _isSdkPortValid;
-        private set => SetProperty(ref _isSdkPortValid, value);
-    }
-
     public bool IsFormValid =>
         IsNameValid &&
         IsIpAddressValid &&
-        IsHttpPortValid &&
-        IsRtspPortValid &&
-        IsSdkPortValid;
+        DriverSettings.All(setting => setting.IsValid);
 
     public string Status
     {
@@ -477,9 +368,6 @@ public class CameraDetailViewModel : ObservableObject
     {
         ValidateName();
         ValidateIpAddress();
-        ValidatePort(NameofPort.HttpPort);
-        ValidatePort(NameofPort.RtspPort);
-        ValidatePort(NameofPort.SdkPort);
         OnPropertyChanged(nameof(IsFormValid));
     }
 
@@ -495,20 +383,6 @@ public class CameraDetailViewModel : ObservableObject
         var isValid = IsValidIPv4(IpAddress);
         IsIpAddressValid = isValid;
         IpAddressError = isValid ? string.Empty : "Invalid IP address.";
-    }
-
-    private void ValidatePort(NameofPort portName)
-    {
-        var (value, setValid, setError, message) = portName switch
-        {
-            NameofPort.HttpPort => (HttpPort, (Action<bool>)(v => IsHttpPortValid = v), (Action<string>)(m => HttpPortError = m), "HTTP port must be between 1 and 65535."),
-            NameofPort.RtspPort => (RtspPort, (Action<bool>)(v => IsRtspPortValid = v), (Action<string>)(m => RtspPortError = m), "RTSP port must be between 1 and 65535."),
-            _ => (SdkPort, (Action<bool>)(v => IsSdkPortValid = v), (Action<string>)(m => SdkPortError = m), "SDK port must be between 1 and 65535.")
-        };
-
-        var isValid = int.TryParse(value, out var port) && port >= 1 && port <= 65535;
-        setValid(isValid);
-        setError(isValid ? string.Empty : message);
     }
 
     private void Close()
@@ -576,18 +450,18 @@ public class CameraDetailViewModel : ObservableObject
 
     private string CreateSnapshot()
     {
+        var settingsSnapshot = string.Join(
+            ";",
+            DriverSettings.Select(setting => $"{setting.Key}={setting.Value}"));
+
         return string.Join("|",
             NormalizeSnapshotValue(Name),
             NormalizeSnapshotValue(Brand),
             NormalizeSnapshotValue(Model),
             NormalizeSnapshotValue(Location),
             NormalizeSnapshotValue(IpAddress),
-            NormalizeSnapshotValue(HttpPort),
-            NormalizeSnapshotValue(RtspPort),
-            NormalizeSnapshotValue(SdkPort),
-            NormalizeSnapshotValue(Username),
-            Password,
-            NormalizeSnapshotValue(RtspUrl));
+            NormalizeSnapshotValue(ConnectionType),
+            settingsSnapshot);
     }
 
     private static string NormalizeSnapshotValue(string value)
@@ -604,12 +478,124 @@ public class CameraDetailViewModel : ObservableObject
         camera.Model = Model.Trim();
         camera.Location = Location.Trim();
         camera.IpAddress = IpAddress.Trim();
-        camera.HttpPort = int.Parse(HttpPort);
-        camera.RtspPort = int.Parse(RtspPort);
-        camera.SdkPort = int.Parse(SdkPort);
-        camera.Username = Username.Trim();
-        camera.Password = Password;
-        camera.RtspUrl = RtspUrl.Trim();
+        camera.ConnectionType = Enum.TryParse<DeviceConnectionType>(ConnectionType, out var connectionType)
+            ? connectionType
+            : DeviceConnectionType.Unknown;
+
+        foreach (var setting in DriverSettings)
+        {
+            ApplyCameraSettingValue(camera, setting.Key, setting.Value);
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds <see cref="DriverSettings"/> from the selected <see cref="ConnectionType"/>'s
+    /// <see cref="DriverSettingsDefinition"/> — the only place Camera Detail knows which
+    /// fields exist for the current driver. Values are preserved across a rebuild where the
+    /// same <see cref="DriverSettingKey"/> exists in both the old and new definition, so
+    /// switching driver type mid-edit does not silently discard already-typed values.
+    /// </summary>
+    private void RebuildDriverSettings(bool seedFromCamera)
+    {
+        _isRebuildingDriverSettings = true;
+        try
+        {
+            var previousValues = DriverSettings.ToDictionary(setting => setting.Key, setting => setting.Value);
+
+            foreach (var setting in DriverSettings)
+            {
+                setting.PropertyChanged -= HandleDriverSettingPropertyChanged;
+            }
+
+            DriverSettings.Clear();
+
+            var connectionType = Enum.TryParse<DeviceConnectionType>(ConnectionType, out var parsedConnectionType)
+                ? parsedConnectionType
+                : DeviceConnectionType.Unknown;
+            var definitions = Drivers.GetByConnectionType(connectionType)?.SettingsDefinition?.Settings
+                ?? Array.Empty<DriverSettingDefinition>();
+
+            foreach (var definition in definitions)
+            {
+                var initialValue = previousValues.TryGetValue(definition.Key, out var preservedValue)
+                    ? preservedValue
+                    : seedFromCamera
+                        ? GetCameraSettingValue(_camera, definition.Key)
+                        : definition.DefaultValue?.ToString() ?? string.Empty;
+
+                var settingViewModel = new DriverSettingEditorViewModel(definition, initialValue);
+                settingViewModel.PropertyChanged += HandleDriverSettingPropertyChanged;
+                DriverSettings.Add(settingViewModel);
+            }
+        }
+        finally
+        {
+            _isRebuildingDriverSettings = false;
+        }
+
+        OnPropertyChanged(nameof(IsFormValid));
+    }
+
+    private void HandleDriverSettingPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_isRebuildingDriverSettings)
+        {
+            return;
+        }
+
+        if (e.PropertyName == nameof(DriverSettingEditorViewModel.IsValid))
+        {
+            OnPropertyChanged(nameof(IsFormValid));
+        }
+
+        if (e.PropertyName == nameof(DriverSettingEditorViewModel.Value))
+        {
+            OnPropertyChanged(nameof(IsDirty));
+        }
+    }
+
+    private static string GetCameraSettingValue(Camera camera, DriverSettingKey key)
+    {
+        return key switch
+        {
+            DriverSettingKey.HttpPort => camera.HttpPort.ToString(),
+            DriverSettingKey.RtspPort => camera.RtspPort.ToString(),
+            DriverSettingKey.SdkPort => camera.SdkPort.ToString(),
+            DriverSettingKey.Username => camera.Username,
+            DriverSettingKey.Password => camera.Password,
+            DriverSettingKey.RtspUrl => camera.RtspUrl,
+            _ => string.Empty
+        };
+    }
+
+    private static void ApplyCameraSettingValue(Camera camera, DriverSettingKey key, string value)
+    {
+        switch (key)
+        {
+            case DriverSettingKey.HttpPort:
+                camera.HttpPort = ParsePortOrDefault(value, camera.HttpPort);
+                break;
+            case DriverSettingKey.RtspPort:
+                camera.RtspPort = ParsePortOrDefault(value, camera.RtspPort);
+                break;
+            case DriverSettingKey.SdkPort:
+                camera.SdkPort = ParsePortOrDefault(value, camera.SdkPort);
+                break;
+            case DriverSettingKey.Username:
+                camera.Username = value.Trim();
+                break;
+            case DriverSettingKey.Password:
+                camera.Password = value;
+                break;
+            case DriverSettingKey.RtspUrl:
+                camera.RtspUrl = value.Trim();
+                break;
+        }
+    }
+
+    private static int ParsePortOrDefault(string value, int fallback)
+    {
+        return int.TryParse(value, out var port) ? port : fallback;
     }
 
     private void SyncDisplayFieldsFromCamera()
@@ -647,16 +633,6 @@ public class CameraDetailViewModel : ObservableObject
         };
     }
 
-    private static string MaskPassword(string password)
-    {
-        if (string.IsNullOrEmpty(password))
-        {
-            return string.Empty;
-        }
-
-        return new string('*', password.Length);
-    }
-
     private static bool IsValidIPv4(string ipAddress)
     {
         if (string.IsNullOrWhiteSpace(ipAddress))
@@ -679,12 +655,5 @@ public class CameraDetailViewModel : ObservableObject
         }
 
         return true;
-    }
-
-    private enum NameofPort
-    {
-        HttpPort,
-        RtspPort,
-        SdkPort
     }
 }

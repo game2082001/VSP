@@ -2,6 +2,143 @@
 
 ## 2026-07-26
 
+### Version 1.12 - Epic-008 Driver Settings UI
+
+Status:
+Implementation Complete — Pending Product Owner Acceptance (uncommitted — pending user commit)
+
+Summary:
+- `CameraDetailWindow` now renders every driver's editable settings exclusively from `DriverSettingsDefinition` (Task-303, backend-only until now) instead of six hardcoded fields (`HttpPort`, `RtspPort`, `SdkPort`, `Username`, `Password`, `RtspUrl`) shown identically regardless of the selected driver. Verified by inspection: the only `DriverSettingKey`-keyed switch remaining anywhere in `CameraDetailViewModel`/`CameraDetailWindow` is the persistence bridge mapping the generic settings collection onto `Camera`'s fixed columns — the same shared vocabulary across every driver, not a per-driver/per-key conditional (no `Hikvision`/`Dahua`/`ONVIF`/`RTSP` string literals appear anywhere in either file).
+- **Found and fixed a structural gap discovered during Current-State Analysis, not anticipated when this Epic was proposed:** there was no `ConnectionType` selector anywhere in Camera Detail — only `Brand`. `ConnectionType` (the field `DriverRegistry` actually keys off) was set once to `Unknown` in `CreateNewCamera()` and never changed, meaning every manually-added camera silently fell back to the RTSP driver regardless of the chosen Brand. Added a `ConnectionType` selector (mirroring `Brand`'s existing edit/display pattern) as a necessary prerequisite for the approved DoD — not a new feature, and not a resolution of `Brand`'s (still independent, still undefined) relationship to `ConnectionType`.
+- Added `DriverSettingValueKind` (`Text`/`Port`/`Url`) to `DriverSettingDefinition` (additive, default `Text`) so validation format also comes from metadata, not a UI-side switch on field identity — the alternative would still have been a form of hardcoding, just on key identity instead of driver identity.
+- Added `DriverSettingEditorViewModel`: one per definition entry, self-validating from `IsRequired`/`ValueKind`, computed masked `DisplayValue` from `IsSensitive`.
+- `CameraDetailViewModel.DriverSettings` rebuilds whenever `ConnectionType` changes, preserving values for `DriverSettingKey`s present in both the old and new definition (e.g. `Username`/`Password` survive switching between Hikvision and Dahua, both HTTP-based) rather than discarding in-progress edits.
+- `CameraDetailWindow.xaml` replaced three hardcoded field rows with one generic `ItemsControl`/`DataTemplate` over `DriverSettings` — `IsSensitive` (from the item) switches TextBox/PasswordBox, `IsEditMode` (reached via standard `RelativeSource AncestorType=Window` ambient binding) switches display/edit. `.xaml.cs`'s single hardcoded `Password`/`PasswordBox` wiring was replaced with generic `Loaded`/`PasswordChanged` handlers keyed off each item's own `DataContext`, working for any sensitive setting on any driver without change.
+- **A real, foreseeable behavior change surfaced by the new `ValueKind.Url` validation, not a regression:** `RtspUrl` is now format-validated client-side (must parse as an absolute URI) before Test Connection is attempted, where previously a malformed value would only be caught by the RTSP driver itself failing to connect. Two pre-existing tests whose non-absolute-URI test value ("not-a-valid-uri") was previously only caught by the driver now get caught one step earlier by this validation; repointed to a syntactically-valid-but-wrong-scheme URL to keep exercising the driver-level failure path they were written to test.
+- Rewrote `CameraDetailViewModelTests.cs` (637 lines, 26 tests, 37 references to the removed fields — quantified during Current-State Analysis, not estimated): test fixture now sets a real `ConnectionType` matching its `Brand`; all references to the removed properties rewritten against `DriverSettings`; added coverage for connection-type-change rebuild/value-preservation/dropped-keys behavior and for `MapToCamera` only touching keys in the active definition (verified a camera's `RtspPort` survives a Hikvision-context save untouched). Added `DriverSettingEditorViewModelTests.cs` (new) for the editor ViewModel in isolation.
+- Full suite: 532/532 passing (509 pre-existing + 23 new/net). Build passing.
+
+Files:
+- Docs/SPECS/EPIC-008_DRIVER_SETTINGS_UI.md
+- VSP.Device/Drivers/Settings/DriverSettingValueKind.cs
+- VSP.Device/Drivers/Settings/DriverSettingDefinition.cs
+- VSP.Device/Drivers/Plugins/BuiltInCameraDriverPlugin.cs
+- VSP.UI/ViewModels/DriverSettingEditorViewModel.cs
+- VSP.UI/ViewModels/CameraDetailViewModel.cs
+- VSP.UI/Views/CameraDetailWindow.xaml
+- VSP.UI/Views/CameraDetailWindow.xaml.cs
+- VSP.Tests/Camera/CameraDetailViewModelTests.cs
+- VSP.Tests/Camera/DriverSettingEditorViewModelTests.cs
+- Docs/CHANGELOG.md
+
+Known limitations (not addressed — out of approved scope for this Epic):
+- No relationship between `Brand` and `ConnectionType` was introduced or fixed; both remain independently editable, exactly as undefined as before this Epic.
+- Not manually smoke-tested in a running instance of the application — WPF's interactive GUI is outside what this environment can exercise directly; verification here is build + full automated test suite only. Flagged explicitly rather than claimed.
+- Axis (`DeviceConnectionType.AxisVAPIX`) still has no registered driver or settings definition; selecting it in the new Connection Type dropdown yields an empty settings list (consistent, honest behavior for an unregistered type, not a new gap introduced by this Epic).
+- `DriverSettingValueKind` currently has three cases (`Text`/`Port`/`Url`); no validation exists yet for other conceivable kinds (e.g. IP address) since none of the current four drivers' definitions need one.
+
+---
+
+### Version 1.11 - Epic-007 Camera Connectivity Foundation
+
+Status:
+Implementation Complete — Pending Product Owner Acceptance (uncommitted — pending user commit)
+
+Summary:
+- Established the foundation of the Camera Connectivity layer: real `TestConnection` and `GetDeviceInformation` for ONVIF, the first implementation on a shared, Hikvision-reusable HTTP transport. Per the approved Definition of Done, **every driver where `DriverFactory.IsDriverImplemented() == true` now has a real implementation** — today that is RTSP (Epic-003) and ONVIF (this Epic); no implemented driver remains a stub.
+- Added `IDeviceDriver.GetDeviceInformation(Camera) -> DeviceInformation?` (new interface member, alongside `TestConnection`) and `DeviceCapability.SupportsDeviceInformation` (new, additive flag). `OnvifCameraDriver` is the only driver that implements it for real (`SupportsDeviceInformation = true`); `RtspCameraDriver`, `HikvisionIsapiCameraDriver`, and `DahuaNetSdkCameraDriver` return `null`, honestly reflecting that they don't support it yet, rather than claiming a capability that doesn't exist.
+- `OnvifCameraDriver.TestConnection` calls ONVIF `GetSystemDateAndTime` (unauthenticated per the ONVIF spec) against `http://{Camera.IpAddress}:{Camera.HttpPort}/onvif/device_service`; success requires both a 2xx HTTP status and a well-formed, non-SOAP-Fault response. `GetDeviceInformation` calls ONVIF `GetDeviceInformation`, including a WS-Security UsernameToken (PasswordDigest profile, SHA-1 via BCL `System.Security.Cryptography`, no external package) whenever `Camera.Username` is non-empty, and returns `Manufacturer`/`Model`/`FirmwareVersion`/`SerialNumber` when present in the response (`null` field-by-field when a given field is absent, `null` overall on failure/fault).
+- Added `VSP.Device/Drivers/Http/HttpDriverTransport`: a small, protocol-agnostic, static HTTP send/receive helper (`HttpClient.Send`, a genuinely synchronous .NET 5+ API — not a blocking wrapper over the async API, and not a change to `IDeviceDriver`'s synchronous calling convention). Deliberately mirrors `TcpRtspTransport`'s static, throw-on-failure shape (the caller's own `try/catch` translates failures to `false`/`null`, exactly as `RtspCameraDriver` already does) rather than introducing a Result-wrapper/interface pattern foreign to this layer. Carries zero ONVIF-specific logic, verified by inspection, and is ready for a future Hikvision ISAPI Epic to reuse without modification.
+- Added `OnvifDeviceManagementRequestFactory`/`OnvifDeviceManagementResponseParser`/`OnvifWsSecurityHeaderBuilder`, hand-rolled XML via `System.Xml.Linq`, matching this repository's existing house style (`OnvifWsDiscoveryProbeBuilder`/`ResponseParser`) rather than introducing a SOAP toolkit or WS-Security package.
+- `DriverFactory.IsDriverImplemented(ONVIF)` flipped `false -> true`.
+- **Found and fixed a real bug during test-writing, not a pre-existing one:** `StringContent`'s `mediaType` constructor parameter must be a bare media type (e.g. `"application/soap+xml"`) — passing `"application/soap+xml; charset=utf-8"` (charset already appended) caused every real HTTP round trip to fail fast. Caught by the new `OnvifCameraDriverTests` loopback-server tests before this reached the Product Owner, not after.
+- Extending `IDeviceDriver` required updating every implementer to keep the solution compiling: 3 stub drivers (RTSP/Hikvision/Dahua, one-line `return null;` each) and **5** test-double `ICameraDriver` fakes across `DriverSelectionTests`, `DriverRegistryTests`, `DriverPluginTests`, `DriverCompatibilityCapabilityTests`, and `DriverSettingsTests` (the fifth was missed by an initial grep that didn't match its fully-qualified `VSP.Device.Drivers.Abstractions.ICameraDriver` usage — caught by the very next build).
+- Flipping `IsDriverImplemented(ONVIF)` broke one pre-existing test whose "unimplemented driver" example hard-coded ONVIF (`CameraDetailViewModelTests.TestConnectionCommand_UnimplementedDriver_ReportsNotImplemented`); repointed to Hikvision ISAPI, which is still genuinely unimplemented — the test's intent is unchanged, only the example driver.
+- Added 28 new unit tests: `OnvifWsSecurityHeaderBuilderTests` (digest correctness independently recomputed, nonce randomness/length), `OnvifDeviceManagementRequestFactoryTests` (Security header present/absent), `OnvifDeviceManagementResponseParserTests` (success/fault/malformed/partial-field parsing), `OnvifCameraDriverTests` (end-to-end against a real loopback HTTP server — `LoopbackHttpTestServer`, `HttpListener`-based, bound to a specific loopback port to avoid the Windows URL-ACL requirement that wildcard prefixes need). Full suite: 509/509 passing (481 pre-existing + 28 new), stable across 3 consecutive full runs. Build passing.
+
+Files:
+- Docs/SPECS/EPIC-007_CAMERA_CONNECTIVITY_FOUNDATION.md
+- VSP.Device/Drivers/Abstractions/IDeviceDriver.cs
+- VSP.Device/Drivers/Abstractions/DeviceInformation.cs
+- VSP.Device/Drivers/DriverFactory.cs
+- VSP.Device/Drivers/ONVIF/OnvifCameraDriver.cs
+- VSP.Device/Drivers/ONVIF/OnvifDeviceManagementRequestFactory.cs
+- VSP.Device/Drivers/ONVIF/OnvifDeviceManagementResponseParser.cs
+- VSP.Device/Drivers/ONVIF/OnvifWsSecurityHeaderBuilder.cs
+- VSP.Device/Drivers/RTSP/RtspCameraDriver.cs
+- VSP.Device/Drivers/Hikvision/HikvisionIsapiCameraDriver.cs
+- VSP.Device/Drivers/Dahua/DahuaNetSdkCameraDriver.cs
+- VSP.Device/Drivers/Http/HttpDriverRequest.cs
+- VSP.Device/Drivers/Http/HttpDriverResponse.cs
+- VSP.Device/Drivers/Http/HttpDriverTransport.cs
+- VSP.Domain/Enums/DeviceCapability.cs
+- VSP.Tests/Drivers/ONVIF/LoopbackHttpTestServer.cs
+- VSP.Tests/Drivers/ONVIF/OnvifWsSecurityHeaderBuilderTests.cs
+- VSP.Tests/Drivers/ONVIF/OnvifDeviceManagementRequestFactoryTests.cs
+- VSP.Tests/Drivers/ONVIF/OnvifDeviceManagementResponseParserTests.cs
+- VSP.Tests/Drivers/ONVIF/OnvifCameraDriverTests.cs
+- VSP.Tests/Drivers/DriverSelectionTests.cs
+- VSP.Tests/Drivers/DriverRegistryTests.cs
+- VSP.Tests/Drivers/DriverPluginTests.cs
+- VSP.Tests/Drivers/DriverCompatibilityCapabilityTests.cs
+- VSP.Tests/Drivers/DriverSettingsTests.cs
+- VSP.Tests/Camera/CameraDetailViewModelTests.cs
+- Docs/CHANGELOG.md
+
+Known limitations (not addressed — out of approved scope for this Epic):
+- Hikvision ISAPI implementation itself is explicitly excluded (Product Owner refinement); only the shared, protocol-agnostic HTTP transport is built now.
+- Dahua NetSDK (native vendor SDK, not a hand-rollable wire protocol) and Axis (no driver class exists at all) are both untouched — separate, larger decisions flagged during Current-State Analysis, not resolved here.
+- WS-Security auth is sent proactively when credentials are configured; ONVIF-specific SOAP Fault-code parsing to retry-with-auth after an initial unauthenticated attempt is not implemented (explicitly out of scope).
+- `StartLive`/`StopLive`/`Snapshot` remain stubs for every driver, including ONVIF — Live View territory, a separate, larger, likely-external-package Epic, not started.
+- No change to `IDeviceDriver`'s synchronous calling convention or to any UI call site — `CameraDetailViewModel`'s Test Connection command and `CameraConnectionTester` (Batch Test) needed no changes to pick up the real ONVIF behavior, since both already went through the existing uniform interface.
+
+---
+
+### Version 1.10 - Epic-006 Camera Discovery Workspace (post-Architecture-Review refactor)
+
+Status:
+Implementation Complete — Reviewed — Accepted by Product Owner (uncommitted — pending user commit)
+
+Summary:
+- **Superseded a same-day, pre-review design** after the Product Owner's Architecture Review (see `Docs/SPECS/EPIC-006_CAMERA_DISCOVERY_WORKSPACE.md`) identified real duplication and coupling problems in it; that design was never committed. This entry describes the design actually being submitted for acceptance.
+- `DiscoveryOrchestrator` remains the single orchestration pipeline. It was extended, not duplicated: `ProcessCandidate` was split into `EvaluateCandidate` (evidence mapping + driver selection + approval-policy evaluation — unchanged logic, just extracted) and `CommitCandidate` (`CameraFactory` + `DeviceRegistrationService` — unchanged logic, just extracted, plus an additive optional name override). Two new public entry points reuse those same private helpers: `DiscoverCandidatesAsync` (evaluates every candidate, never calls `CameraFactory`/`DeviceRegistrationService` — discovery always ends at candidates) and `RegisterCandidate` (commits one previously-evaluated candidate given an approved driver and, optionally, an edited name). The existing single-pass `ExecuteAsync` is behaviorally unchanged — its own full test suite passes without modification, plus a new test asserts `ExecuteAsync` and `DiscoverCandidatesAsync`+`RegisterCandidate` produce identical outcomes for the same candidate.
+- `CandidateOrchestrationStatus.Approved` (an enum member that already existed, unused, in the Task-501 foundation) is now the status `DiscoverCandidatesAsync` returns for a candidate with exactly one compatible driver — no new status vocabulary was invented.
+- Deleted `CameraDiscoveryWorkspaceService` and `DiscoveryCandidatePreview`, which duplicated `DiscoveryOrchestrator`'s evaluation/commit logic and bypassed the `IDriverApprovalPolicy` seam Task-501 reserved for exactly this need. `CameraDiscoveryOrchestratorFactory` (`VSP.Device/Discovery/Workspace/`) replaces `CameraDiscoveryWorkspaceServiceFactory` as the hand-wired composition root — it now composes `DiscoveryOrchestrator` directly.
+- `CameraDiscoveryViewModel`/`CameraDiscoveryCandidateViewModel` now depend on `DiscoveryOrchestrator`/`CandidateOrchestrationResult` directly (no intermediate service). Ambiguous driver matches are still resolved inline via a per-row driver `ComboBox`, now populated from `CandidateOrchestrationResult.DriverApprovalResult.CompatibleDrivers` and pre-selected from `DriverApprovalResult.ApprovedDriver` when the policy already approved exactly one.
+- **Discovery moved from a top-level main-navigation tab into a feature inside the Camera Management Workspace**, per the Product Owner's Architecture Review direction (`Devices → Camera List / Import / Discovery / Batch / Export`, not `Devices` / `Discovery` as navigation siblings). `CameraListViewModel` gained `IsShowingDiscovery`/`IsShowingCameraList` and `ShowDiscoveryCommand`/`ShowCameraListCommand`; `CameraListView.xaml` embeds `CameraDiscoveryView` as a persistent (state-preserving, not recreated on toggle), Visibility-toggled section reached via a "Discovery" button next to the workspace title, instead of a `MainWindowViewModel` navigation entry.
+- `OnvifDiscoveryService`/`NetworkScanService`/`RtspEndpointProbeService` implementing their `AutoDiscovery` interfaces, and `NetworkScanTargetParser`, are unaffected by this refactor and retained as-is.
+- Naming (e.g. `CameraDiscoveryOrchestratorFactory`) was left otherwise unoptimized per the Product Owner's explicit direction to finalize responsibilities before naming; the factory's own name was changed only because its previous name became factually inaccurate once the type it constructs changed.
+- Full suite: 481/481 passing (457 pre-existing + 7 `NetworkScanTargetParserTests`, kept + 9 new/rewritten `DiscoveryOrchestratorTests` cases + 5 `CameraDiscoveryViewModelTests` + 3 new `CameraListViewModel` toggle tests). Build passing.
+
+Files:
+- Docs/SPECS/EPIC-006_CAMERA_DISCOVERY_WORKSPACE.md
+- VSP.Device/Discovery/Onvif/OnvifDiscoveryService.cs
+- VSP.Device/Discovery/NetworkScan/NetworkScanService.cs
+- VSP.Device/Discovery/Rtsp/RtspEndpointProbeService.cs
+- VSP.Device/Discovery/Orchestration/DiscoveryOrchestrator.cs
+- VSP.Device/Discovery/Workspace/NetworkScanTargetParser.cs
+- VSP.Device/Discovery/Workspace/CameraDiscoveryOrchestratorFactory.cs
+- VSP.UI/ViewModels/CameraDiscoveryCandidateViewModel.cs
+- VSP.UI/ViewModels/CameraDiscoveryViewModel.cs
+- VSP.UI/Views/CameraDiscoveryView.xaml / .xaml.cs
+- VSP.UI/ViewModels/CameraListViewModel.cs
+- VSP.UI/Views/CameraListView.xaml
+- VSP.Tests/Discovery/Workspace/NetworkScanTargetParserTests.cs
+- VSP.Tests/Discovery/DiscoveryOrchestratorTests.cs
+- VSP.Tests/Camera/CameraDiscoveryViewModelTests.cs
+- VSP.Tests/Camera/CameraListViewModelTests.cs
+- Docs/CHANGELOG.md
+
+Known limitations (not addressed — out of approved scope for this Epic):
+- Network Scan / RTSP Probe require explicit target input (single hosts, comma/newline lists, or a last-octet range); there is no CIDR/subnet auto-enumeration.
+- The Hikvision/Dahua "always compatible" driver-metadata gap itself is unchanged — resolved at the UI layer (inline driver choice) for this Epic, per the Product Owner's default scope decision recorded in the Epic definition. Correcting the underlying metadata remains Driver Framework (Task-405) territory.
+- Registering a camera from the Discovery section does not automatically refresh the Camera List grid if it was already loaded in the same session (pre-existing app pattern — `CameraListView` only reloads on its own explicit `Refresh` action or first load, consistent with how it already behaved for Import/Batch actions before this Epic).
+- The embedded `CameraDiscoveryView` keeps its own internal header/footer chrome inside the Camera Management Workspace's Discovery section, which reads as a minor nested-chrome redundancy rather than a fully unified layout; not addressed, since restyling either view was not part of this Epic's approved scope.
+- No Discovery Session history/audit UI, no user-configurable Retry/Timeout policy in the UI, no `RejectAmbiguousPolicy`/`HighestConfidencePolicy` — all explicitly out of scope.
+- `DiscoverCandidatesAsync`'s UI-side "suggested name" pre-fill (`CameraDiscoveryCandidateViewModel.BuildSuggestedName`) duplicates the small, non-authoritative "pick first non-empty string" heuristic also used internally by `DiscoveryOrchestrator.CreateInitializationData`'s own fallback (triggered only when a caller submits a blank name override). This is judged to be a display-only concern, not the evaluation/registration logic Direction 1 protects, since the fallback that actually governs what gets persisted remains solely in `DiscoveryOrchestrator`.
+
+---
+
 ### Version 1.9 - Epic-005 Camera Management Workspace
 
 Status:

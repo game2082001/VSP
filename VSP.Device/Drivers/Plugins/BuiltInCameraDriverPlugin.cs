@@ -88,7 +88,12 @@ public sealed class BuiltInCameraDriverPlugin : IDriverPlugin
             CreatePortSetting(DriverSettingKey.RtspPort, "RTSP Port", 554),
             new DriverSettingDefinition(DriverSettingKey.Username, "Username"),
             new DriverSettingDefinition(DriverSettingKey.Password, "Password", isSensitive: true),
-            new DriverSettingDefinition(DriverSettingKey.RtspUrl, "RTSP URL", isRequired: true, defaultValue: string.Empty)
+            new DriverSettingDefinition(
+                DriverSettingKey.RtspUrl,
+                "RTSP URL",
+                isRequired: true,
+                defaultValue: string.Empty,
+                valueKind: DriverSettingValueKind.Url)
         ]);
     }
 
@@ -136,6 +141,10 @@ public sealed class BuiltInCameraDriverPlugin : IDriverPlugin
         string displayName,
         int defaultValue)
     {
-        return new DriverSettingDefinition(key, displayName, defaultValue: defaultValue);
+        return new DriverSettingDefinition(
+            key,
+            displayName,
+            defaultValue: defaultValue,
+            valueKind: DriverSettingValueKind.Port);
     }
 }

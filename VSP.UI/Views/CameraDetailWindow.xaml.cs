@@ -16,7 +16,6 @@ public partial class CameraDetailWindow : Window
         _viewModel.RequestClose += HandleRequestClose;
         _viewModel.RequestUnsavedChangesConfirmation += HandleUnsavedChangesConfirmation;
         _viewModel.RequestDeleteConfirmation += HandleDeleteConfirmation;
-        EditPasswordBox.Password = _viewModel.Password;
     }
 
     private void HandleRequestClose()
@@ -57,11 +56,24 @@ public partial class CameraDetailWindow : Window
         _viewModel.HandleDeleteConfirmationDecision(decision);
     }
 
-    private void HandlePasswordChanged(object sender, RoutedEventArgs e)
+    // Generic — works for any sensitive DriverSetting regardless of driver or key, since
+    // WPF's PasswordBox does not support data-binding its Password property directly.
+    // DataContext on a generated ItemsControl container is the DriverSettingEditorViewModel
+    // itself, exactly like any other item template binding.
+
+    private void HandleSettingPasswordBoxLoaded(object sender, RoutedEventArgs e)
     {
-        if (sender is PasswordBox passwordBox)
+        if (sender is PasswordBox { DataContext: DriverSettingEditorViewModel setting } passwordBox)
         {
-            _viewModel.Password = passwordBox.Password;
+            passwordBox.Password = setting.Value;
+        }
+    }
+
+    private void HandleSettingPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is PasswordBox { DataContext: DriverSettingEditorViewModel setting } passwordBox)
+        {
+            setting.Value = passwordBox.Password;
         }
     }
 }

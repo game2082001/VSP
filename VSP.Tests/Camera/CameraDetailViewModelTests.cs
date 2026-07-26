@@ -1,3 +1,4 @@
+using VSP.Device.Drivers.Settings;
 using VSP.Device.Interfaces;
 using VSP.Domain.Enums;
 using VSP.Tests.Drivers.RTSP;
@@ -18,12 +19,11 @@ public class CameraDetailViewModelTests
         Assert.Equal("Hikvision", viewModel.Brand);
         Assert.Equal("DS-2CD2143G2", viewModel.Model);
         Assert.Equal("192.168.10.15", viewModel.IpAddress);
-        Assert.Equal("80", viewModel.HttpPort);
-        Assert.Equal("554", viewModel.RtspPort);
-        Assert.Equal("8000", viewModel.SdkPort);
-        Assert.Equal("admin", viewModel.Username);
-        Assert.Equal("********", viewModel.MaskedPassword);
-        Assert.Equal("rtsp://192.168.10.15/live", viewModel.RtspUrl);
+        Assert.Equal("HikvisionISAPI", viewModel.ConnectionType);
+        Assert.Equal("80", GetSetting(viewModel, DriverSettingKey.HttpPort).Value);
+        Assert.Equal("8000", GetSetting(viewModel, DriverSettingKey.SdkPort).Value);
+        Assert.Equal("admin", GetSetting(viewModel, DriverSettingKey.Username).Value);
+        Assert.Equal("********", GetSetting(viewModel, DriverSettingKey.Password).DisplayValue);
         Assert.Equal("Online", viewModel.Status);
         Assert.Equal("Yes", viewModel.Recording);
         Assert.Equal("Entrance", viewModel.Location);
@@ -31,6 +31,15 @@ public class CameraDetailViewModelTests
         Assert.Equal("2026-07-02 09:45:00", viewModel.LastModifyTime);
         Assert.False(viewModel.IsEditMode);
         Assert.False(viewModel.IsNewMode);
+    }
+
+    [Fact]
+    public void Constructor_DoesNotIncludeSettingsForKeysNotInTheDriverDefinition()
+    {
+        var viewModel = new CameraDetailViewModel(CreateCamera(), new FakeCameraRepository());
+
+        Assert.DoesNotContain(viewModel.DriverSettings, setting => setting.Key == DriverSettingKey.RtspPort);
+        Assert.DoesNotContain(viewModel.DriverSettings, setting => setting.Key == DriverSettingKey.RtspUrl);
     }
 
     [Fact]
@@ -53,17 +62,58 @@ public class CameraDetailViewModelTests
         Assert.True(viewModel.IsEditMode);
         Assert.Equal("Add Camera", viewModel.Title);
         Assert.Equal("Unknown", viewModel.Brand);
+        Assert.Equal("Unknown", viewModel.ConnectionType);
         Assert.Equal("Offline", viewModel.Status);
         Assert.Equal("No", viewModel.Recording);
-        Assert.Equal("80", viewModel.HttpPort);
-        Assert.Equal("554", viewModel.RtspPort);
-        Assert.Equal("8000", viewModel.SdkPort);
-        Assert.Equal(string.Empty, viewModel.Username);
-        Assert.Equal(string.Empty, viewModel.Password);
-        Assert.Equal(string.Empty, viewModel.RtspUrl);
         Assert.Equal("Ready to add camera.", viewModel.StatusMessage);
         Assert.False(viewModel.IsDirty);
         Assert.False(viewModel.DeleteCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void NewMode_WithUnknownConnectionType_HasNoDriverSettings()
+    {
+        var viewModel = new CameraDetailViewModel(new FakeCameraRepository());
+
+        Assert.Empty(viewModel.DriverSettings);
+    }
+
+    [Fact]
+    public void SelectingConnectionType_PopulatesDriverSettingsFromDefinition()
+    {
+        var viewModel = new CameraDetailViewModel(new FakeCameraRepository());
+
+        viewModel.ConnectionType = nameof(DeviceConnectionType.RTSP);
+
+        Assert.Equal("554", GetSetting(viewModel, DriverSettingKey.RtspPort).Value);
+        Assert.Equal(string.Empty, GetSetting(viewModel, DriverSettingKey.RtspUrl).Value);
+        Assert.DoesNotContain(viewModel.DriverSettings, setting => setting.Key == DriverSettingKey.HttpPort);
+    }
+
+    [Fact]
+    public void ChangingConnectionType_PreservesValuesForSharedKeys()
+    {
+        var viewModel = new CameraDetailViewModel(CreateCamera(), new FakeCameraRepository());
+        viewModel.EditCommand.Execute(null);
+        GetSetting(viewModel, DriverSettingKey.Username).Value = "edited-user";
+
+        viewModel.ConnectionType = nameof(DeviceConnectionType.DahuaNetSDK);
+
+        Assert.Equal("edited-user", GetSetting(viewModel, DriverSettingKey.Username).Value);
+    }
+
+    [Fact]
+    public void ChangingConnectionType_DropsSettingsNotInTheNewDefinition()
+    {
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
+        viewModel.EditCommand.Execute(null);
+
+        viewModel.ConnectionType = nameof(DeviceConnectionType.ONVIF);
+
+        Assert.DoesNotContain(viewModel.DriverSettings, setting => setting.Key == DriverSettingKey.RtspUrl);
+        Assert.DoesNotContain(viewModel.DriverSettings, setting => setting.Key == DriverSettingKey.RtspPort);
     }
 
     [Fact]
@@ -82,6 +132,16 @@ public class CameraDetailViewModelTests
         var viewModel = new CameraDetailViewModel(new FakeCameraRepository());
 
         viewModel.Name = "Lobby";
+
+        Assert.True(viewModel.IsDirty);
+    }
+
+    [Fact]
+    public void IsDirty_ChangesWhenDriverSettingValueChanges()
+    {
+        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
+
+        GetSetting(viewModel, DriverSettingKey.Username).Value = "changed";
 
         Assert.True(viewModel.IsDirty);
     }
@@ -115,22 +175,10 @@ public class CameraDetailViewModelTests
     {
         var viewModel = CreateEditableViewModel(new FakeCameraRepository());
 
-        viewModel.HttpPort = "70000";
+        GetSetting(viewModel, DriverSettingKey.HttpPort).Value = "70000";
 
-        Assert.False(viewModel.IsHttpPortValid);
-        Assert.Equal("HTTP port must be between 1 and 65535.", viewModel.HttpPortError);
-        Assert.False(viewModel.IsFormValid);
-    }
-
-    [Fact]
-    public void RtspPort_MustBeInRange()
-    {
-        var viewModel = CreateEditableViewModel(new FakeCameraRepository());
-
-        viewModel.RtspPort = "0";
-
-        Assert.False(viewModel.IsRtspPortValid);
-        Assert.Equal("RTSP port must be between 1 and 65535.", viewModel.RtspPortError);
+        Assert.False(GetSetting(viewModel, DriverSettingKey.HttpPort).IsValid);
+        Assert.Equal("HTTP Port must be between 1 and 65535.", GetSetting(viewModel, DriverSettingKey.HttpPort).ErrorMessage);
         Assert.False(viewModel.IsFormValid);
     }
 
@@ -139,10 +187,39 @@ public class CameraDetailViewModelTests
     {
         var viewModel = CreateEditableViewModel(new FakeCameraRepository());
 
-        viewModel.SdkPort = "-1";
+        GetSetting(viewModel, DriverSettingKey.SdkPort).Value = "-1";
 
-        Assert.False(viewModel.IsSdkPortValid);
-        Assert.Equal("SDK port must be between 1 and 65535.", viewModel.SdkPortError);
+        Assert.False(GetSetting(viewModel, DriverSettingKey.SdkPort).IsValid);
+        Assert.Equal("SDK Port must be between 1 and 65535.", GetSetting(viewModel, DriverSettingKey.SdkPort).ErrorMessage);
+        Assert.False(viewModel.IsFormValid);
+    }
+
+    [Fact]
+    public void RtspPort_MustBeInRange()
+    {
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
+        viewModel.EditCommand.Execute(null);
+
+        GetSetting(viewModel, DriverSettingKey.RtspPort).Value = "0";
+
+        Assert.False(GetSetting(viewModel, DriverSettingKey.RtspPort).IsValid);
+        Assert.Equal("RTSP Port must be between 1 and 65535.", GetSetting(viewModel, DriverSettingKey.RtspPort).ErrorMessage);
+        Assert.False(viewModel.IsFormValid);
+    }
+
+    [Fact]
+    public void RtspUrl_RequiresValue()
+    {
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
+        viewModel.EditCommand.Execute(null);
+
+        GetSetting(viewModel, DriverSettingKey.RtspUrl).Value = string.Empty;
+
+        Assert.False(GetSetting(viewModel, DriverSettingKey.RtspUrl).IsValid);
         Assert.False(viewModel.IsFormValid);
     }
 
@@ -153,9 +230,8 @@ public class CameraDetailViewModelTests
 
         viewModel.Name = "Lobby";
         viewModel.IpAddress = "10.0.0.50";
-        viewModel.HttpPort = "80";
-        viewModel.RtspPort = "554";
-        viewModel.SdkPort = "8000";
+        GetSetting(viewModel, DriverSettingKey.HttpPort).Value = "80";
+        GetSetting(viewModel, DriverSettingKey.SdkPort).Value = "8000";
 
         Assert.True(viewModel.IsFormValid);
     }
@@ -173,6 +249,32 @@ public class CameraDetailViewModelTests
         Assert.Equal("Lobby", repository.LastUpdatedCamera!.Name);
         Assert.Equal("Camera saved successfully.", viewModel.StatusMessage);
         Assert.False(viewModel.IsDirty);
+    }
+
+    [Fact]
+    public void SaveCommand_PersistsEditedDriverSettingOntoCamera()
+    {
+        var repository = new FakeCameraRepository();
+        var viewModel = CreateEditableViewModel(repository);
+
+        GetSetting(viewModel, DriverSettingKey.Username).Value = "new-user";
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal("new-user", repository.LastUpdatedCamera!.Username);
+    }
+
+    [Fact]
+    public void SaveCommand_DoesNotOverwriteCameraFieldsOutsideTheActiveDriverDefinition()
+    {
+        var repository = new FakeCameraRepository();
+        var camera = CreateCamera();
+        camera.RtspPort = 9999;
+        var viewModel = new CameraDetailViewModel(camera, repository);
+        viewModel.EditCommand.Execute(null);
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal(9999, repository.LastUpdatedCamera!.RtspPort);
     }
 
     [Fact]
@@ -442,6 +544,7 @@ public class CameraDetailViewModelTests
     {
         var camera = new EntityCamera
         {
+            ConnectionType = DeviceConnectionType.RTSP,
             CreateTime = new DateTime(2026, 7, 1, 8, 30, 0),
             LastModifyTime = new DateTime(2026, 7, 2, 9, 45, 0)
         };
@@ -450,7 +553,7 @@ public class CameraDetailViewModelTests
 
         Assert.Equal(string.Empty, viewModel.Name);
         Assert.Equal(string.Empty, viewModel.Model);
-        Assert.Equal(string.Empty, viewModel.RtspUrl);
+        Assert.Equal(string.Empty, GetSetting(viewModel, DriverSettingKey.RtspUrl).Value);
         Assert.Equal("Offline", viewModel.Status);
         Assert.Equal("No", viewModel.Recording);
     }
@@ -467,7 +570,7 @@ public class CameraDetailViewModelTests
     public void TestConnectionCommand_ValidationBlocksTest()
     {
         var viewModel = CreateEditableViewModel(new FakeCameraRepository());
-        viewModel.HttpPort = "not-a-port";
+        GetSetting(viewModel, DriverSettingKey.HttpPort).Value = "not-a-port";
 
         viewModel.TestConnectionCommand.Execute(null);
 
@@ -478,7 +581,7 @@ public class CameraDetailViewModelTests
     public void TestConnectionCommand_UnimplementedDriver_ReportsNotImplemented()
     {
         var camera = CreateCamera();
-        camera.ConnectionType = DeviceConnectionType.ONVIF;
+        camera.ConnectionType = DeviceConnectionType.HikvisionISAPI;
         var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
 
         viewModel.TestConnectionCommand.Execute(null);
@@ -492,7 +595,8 @@ public class CameraDetailViewModelTests
         var camera = CreateCamera();
         camera.ConnectionType = DeviceConnectionType.RTSP;
         var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
-        viewModel.RtspUrl = "not-a-valid-uri";
+        viewModel.EditCommand.Execute(null);
+        GetSetting(viewModel, DriverSettingKey.RtspUrl).Value = "http://192.168.10.15/wrong-scheme";
 
         viewModel.TestConnectionCommand.Execute(null);
 
@@ -506,7 +610,8 @@ public class CameraDetailViewModelTests
         var camera = CreateCamera();
         camera.ConnectionType = DeviceConnectionType.RTSP;
         var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
-        viewModel.RtspUrl = $"rtsp://127.0.0.1:{server.Port}/stream";
+        viewModel.EditCommand.Execute(null);
+        GetSetting(viewModel, DriverSettingKey.RtspUrl).Value = $"rtsp://127.0.0.1:{server.Port}/stream";
 
         viewModel.TestConnectionCommand.Execute(null);
 
@@ -519,18 +624,23 @@ public class CameraDetailViewModelTests
         using var server = new LoopbackRtspTestServer("RTSP/1.0 200 OK\r\nCSeq: 1\r\n\r\n");
         var camera = CreateCamera();
         camera.ConnectionType = DeviceConnectionType.RTSP;
-        camera.RtspUrl = "not-a-valid-uri";
+        camera.RtspUrl = "http://192.168.10.15/wrong-scheme";
         var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
 
         viewModel.TestConnectionCommand.Execute(null);
         var resultBeforeEdit = viewModel.StatusMessage;
 
         viewModel.EditCommand.Execute(null);
-        viewModel.RtspUrl = $"rtsp://127.0.0.1:{server.Port}/stream";
+        GetSetting(viewModel, DriverSettingKey.RtspUrl).Value = $"rtsp://127.0.0.1:{server.Port}/stream";
         viewModel.TestConnectionCommand.Execute(null);
 
         Assert.Equal("Connection failed.", resultBeforeEdit);
         Assert.Equal("Connection successful.", viewModel.StatusMessage);
+    }
+
+    private static DriverSettingEditorViewModel GetSetting(CameraDetailViewModel viewModel, DriverSettingKey key)
+    {
+        return viewModel.DriverSettings.Single(setting => setting.Key == key);
     }
 
     private static CameraDetailViewModel CreateViewModel(ICameraRepository repository)
@@ -552,6 +662,7 @@ public class CameraDetailViewModelTests
             Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
             Name = "North Gate",
             Brand = CameraBrand.Hikvision,
+            ConnectionType = DeviceConnectionType.HikvisionISAPI,
             Model = "DS-2CD2143G2",
             IpAddress = "192.168.10.15",
             HttpPort = 80,
