@@ -166,5 +166,7 @@ public class DriverRegistryTests
         public bool StopLive(EntityCamera camera) => false;
 
         public bool Snapshot(EntityCamera camera) => false;
+
+        public DeviceInformation? GetDeviceInformation(EntityCamera camera) => null;
     }
 }

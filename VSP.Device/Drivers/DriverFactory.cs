@@ -20,7 +20,7 @@ public static class DriverFactory
             DeviceConnectionType.HikvisionISAPI => false,
             DeviceConnectionType.HikvisionSDK => false,
             DeviceConnectionType.DahuaNetSDK => false,
-            DeviceConnectionType.ONVIF => false,
+            DeviceConnectionType.ONVIF => true,
             DeviceConnectionType.RTSP => true,
             DeviceConnectionType.AxisVAPIX => false,
             _ => false

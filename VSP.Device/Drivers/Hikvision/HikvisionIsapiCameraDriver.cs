@@ -25,6 +25,11 @@ public class HikvisionIsapiCameraDriver : ICameraDriver
         return false;
     }
 
+    public DeviceInformation? GetDeviceInformation(Camera camera)
+    {
+        return null;
+    }
+
     public bool StartLive(Camera camera)
     {
         return false;

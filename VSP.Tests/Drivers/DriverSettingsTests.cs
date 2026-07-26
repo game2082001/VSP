@@ -156,5 +156,7 @@ public class DriverSettingsTests
         public bool StopLive(VSP.Domain.Entities.Camera camera) => false;
 
         public bool Snapshot(VSP.Domain.Entities.Camera camera) => false;
+
+        public VSP.Device.Drivers.Abstractions.DeviceInformation? GetDeviceInformation(VSP.Domain.Entities.Camera camera) => null;
     }
 }

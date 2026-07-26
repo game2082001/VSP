@@ -11,4 +11,6 @@ public interface IDeviceDriver
     DeviceCapability Capability { get; }
 
     bool TestConnection(Camera camera);
+
+    DeviceInformation? GetDeviceInformation(Camera camera);
 }

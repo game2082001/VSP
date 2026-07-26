@@ -98,6 +98,11 @@ public class RtspCameraDriver : ICameraDriver
         return statusCode is >= 200 and < 300;
     }
 
+    public DeviceInformation? GetDeviceInformation(Camera camera)
+    {
+        return null;
+    }
+
     public bool StartLive(Camera camera)
     {
         // TODO: Milestone 4 Live View

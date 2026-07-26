@@ -9,4 +9,5 @@ public class DeviceCapability
     public bool SupportsEvent { get; set; }
     public bool SupportsSnapshot { get; set; }
     public bool SupportsDiscovery { get; set; }
+    public bool SupportsDeviceInformation { get; set; }
 }
