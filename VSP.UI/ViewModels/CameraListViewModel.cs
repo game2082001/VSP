@@ -5,12 +5,14 @@ using VSP.Core.Commands;
 using VSP.Core.MVVM;
 using VSP.Device.Services;
 using VSP.Domain.Entities;
+using VSP.UI.Services;
 
 namespace VSP.UI.ViewModels;
 
 public class CameraListViewModel : ObservableObject
 {
     private readonly CameraQueryService _cameraQueryService;
+    private readonly LiveViewCameraCoordinator? _liveViewCoordinator;
     private readonly List<CameraListItemViewModel> _allCameras = new();
 
     private string _title = "Camera List";
@@ -64,7 +66,13 @@ public class CameraListViewModel : ObservableObject
     public CameraListItemViewModel? SelectedCamera
     {
         get => _selectedCamera;
-        set => SetProperty(ref _selectedCamera, value);
+        set
+        {
+            if (SetProperty(ref _selectedCamera, value))
+            {
+                (ViewLiveCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            }
+        }
     }
 
     private bool _isLoaded;
@@ -101,6 +109,7 @@ public class CameraListViewModel : ObservableObject
     public ICommand ExportCommand { get; }
     public ICommand ShowDiscoveryCommand { get; }
     public ICommand ShowCameraListCommand { get; }
+    public ICommand ViewLiveCommand { get; }
 
     public event Action? RequestAddCamera;
     public event Action? RequestImport;
@@ -108,9 +117,10 @@ public class CameraListViewModel : ObservableObject
     public event Action<IReadOnlyList<Camera>>? RequestBatchConnectionTest;
     public event Action<IReadOnlyList<Camera>>? RequestExport;
 
-    public CameraListViewModel(CameraQueryService cameraQueryService)
+    public CameraListViewModel(CameraQueryService cameraQueryService, LiveViewCameraCoordinator? liveViewCoordinator = null)
     {
         _cameraQueryService = cameraQueryService;
+        _liveViewCoordinator = liveViewCoordinator;
         SearchCommand = new RelayCommand(ApplySearch);
         ClearCommand = new RelayCommand(ClearSearch);
         RefreshCommand = new RelayCommand(() => _ = RefreshAsync());
@@ -121,6 +131,7 @@ public class CameraListViewModel : ObservableObject
         ExportCommand = new RelayCommand(RaiseExportRequest, () => Cameras.Count > 0);
         ShowDiscoveryCommand = new RelayCommand(() => IsShowingDiscovery = true);
         ShowCameraListCommand = new RelayCommand(() => IsShowingDiscovery = false);
+        ViewLiveCommand = new RelayCommand(RaiseViewLiveRequest, () => SelectedCamera is not null);
     }
 
     public async Task LoadAsync()
@@ -283,6 +294,17 @@ public class CameraListViewModel : ObservableObject
     {
         return !string.Equals(SelectedBrand, "All", StringComparison.OrdinalIgnoreCase) ||
                !string.Equals(SelectedStatus, "All", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void RaiseViewLiveRequest()
+    {
+        var camera = SelectedCamera?.SourceCamera;
+        if (camera is null)
+        {
+            return;
+        }
+
+        _liveViewCoordinator?.RequestLiveView(camera);
     }
 
     private void RaiseAddCameraRequest()

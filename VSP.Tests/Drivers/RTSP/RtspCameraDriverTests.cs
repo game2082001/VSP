@@ -1,11 +1,34 @@
+using VSP.Core.Logging;
 using VSP.Device.Drivers.RTSP;
+using VSP.Tests.Logging;
 using Xunit;
 using CameraEntity = VSP.Domain.Entities.Camera;
 
 namespace VSP.Tests.Drivers.RTSP;
 
+[Collection("AppLog")]
 public class RtspCameraDriverTests
 {
+    [Fact]
+    public void TestConnection_WhenConnectionIsRefused_LogsWarningWithException()
+    {
+        var recorder = new RecordingLogger();
+        AppLog.Initialize(recorder);
+
+        using var server = new LoopbackRtspTestServer(firstResponse: null);
+        var closedPort = server.Port;
+        server.Dispose();
+        var camera = CreateCamera(closedPort);
+
+        var result = new RtspCameraDriver().TestConnection(camera);
+
+        Assert.False(result);
+        var call = Assert.Single(recorder.Calls);
+        Assert.Equal(LogLevel.Warning, call.Level);
+        Assert.NotNull(call.Exception);
+        Assert.DoesNotContain(camera.RtspUrl, call.Message);
+    }
+
     [Fact]
     public void TestConnection_ReturnsTrue_WhenDescribeReturns200()
     {

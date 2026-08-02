@@ -8,6 +8,7 @@ using VSP.Device.Repositories;
 using VSP.Device.Services;
 using VSP.Domain.Entities;
 using VSP.UI.Helpers;
+using VSP.UI.Services;
 using VSP.UI.ViewModels;
 
 namespace VSP.UI.Views;
@@ -19,6 +20,11 @@ public partial class CameraListView : UserControl
 
     public CameraListView()
         : this(new CameraListViewModel(new CameraQueryService(new CameraRepository())), new CameraRepository())
+    {
+    }
+
+    public CameraListView(LiveViewCameraCoordinator liveViewCoordinator)
+        : this(new CameraListViewModel(new CameraQueryService(new CameraRepository()), liveViewCoordinator), new CameraRepository())
     {
     }
 

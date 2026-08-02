@@ -1,4 +1,5 @@
-﻿using VSP.Device.Drivers.Abstractions;
+﻿using VSP.Core.Logging;
+using VSP.Device.Drivers.Abstractions;
 using VSP.Domain.Entities;
 
 namespace VSP.Device.Drivers.RTSP;
@@ -68,8 +69,9 @@ public class RtspCameraDriver : ICameraDriver
 
             return IsSuccess(retryResponse.StatusCode);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            AppLog.Warning($"RTSP TestConnection failed for camera at {camera.IpAddress}.", ex);
             return false;
         }
     }

@@ -1,3 +1,4 @@
+using VSP.Core.Logging;
 using VSP.Device.Drivers.Abstractions;
 using VSP.Device.Drivers.Http;
 using VSP.Domain.Entities;
@@ -45,8 +46,9 @@ public class OnvifCameraDriver : ICameraDriver
 
             return IsSuccess(response.StatusCode) && ResponseParser.IsSuccessfulResponse(response.Body);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            AppLog.Warning($"ONVIF TestConnection failed for camera at {camera.IpAddress}:{camera.HttpPort}.", ex);
             return false;
         }
     }
@@ -70,8 +72,9 @@ public class OnvifCameraDriver : ICameraDriver
 
             return IsSuccess(response.StatusCode) ? ResponseParser.ParseDeviceInformation(response.Body) : null;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            AppLog.Warning($"ONVIF GetDeviceInformation failed for camera at {camera.IpAddress}:{camera.HttpPort}.", ex);
             return null;
         }
     }

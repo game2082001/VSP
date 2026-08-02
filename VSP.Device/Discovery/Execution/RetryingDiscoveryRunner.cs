@@ -1,3 +1,4 @@
+using VSP.Core.Logging;
 using VSP.Device.Discovery.Orchestration;
 
 namespace VSP.Device.Discovery.Execution;
@@ -35,8 +36,9 @@ public sealed class RetryingDiscoveryRunner : IDiscoveryRunner
             {
                 throw;
             }
-            catch when (!isLastAttempt)
+            catch (Exception ex) when (!isLastAttempt)
             {
+                AppLog.Warning($"Discovery attempt {attempt}/{_policy.MaxAttempts} failed; retrying.", ex);
                 await Task.Delay(_policy.Delay, cancellationToken).ConfigureAwait(false);
                 continue;
             }

@@ -5,13 +5,28 @@ namespace VSP.Infrastructure.Database;
 
 public class DatabaseService
 {
-    private static readonly string DatabaseFile =
-        Path.Combine(AppContext.BaseDirectory, "vsp.db");
+    private static readonly string DefaultDatabaseDirectory =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VSP");
+
+    private readonly string _databaseDirectory;
+    private readonly string _databaseFile;
+
+    public DatabaseService() : this(DefaultDatabaseDirectory)
+    {
+    }
+
+    /// <summary>Test seam: resolves against an arbitrary directory instead of %LocalAppData%\VSP.</summary>
+    internal DatabaseService(string databaseDirectory)
+    {
+        _databaseDirectory = databaseDirectory;
+        _databaseFile = Path.Combine(_databaseDirectory, "vsp.db");
+    }
 
     public SqliteConnection CreateConnection()
     {
-        
+        Directory.CreateDirectory(_databaseDirectory);
+
         return new SqliteConnection(
-            $"Data Source={DatabaseFile}");
+            $"Data Source={_databaseFile}");
     }
 }

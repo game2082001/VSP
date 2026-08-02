@@ -1,13 +1,122 @@
-﻿<UserControl x:Class="VSP.UI.Views.PlaybackView"
+<UserControl x:Class="VSP.UI.Views.PlaybackView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sysconv="clr-namespace:System.Windows.Controls;assembly=PresentationFramework"
+             xmlns:helpers="clr-namespace:VSP.UI.Helpers"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
              Background="#1E1E1E">
 
-	<Grid Background="#1E1E1E">
-		<TextBlock Text="Playback"
-                   Foreground="White"
-                   FontSize="28"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"/>
-	</Grid>
+    <UserControl.Resources>
+        <sysconv:BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <helpers:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <Grid Background="#1E1E1E">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Camera / recording picker -->
+        <Border Grid.Row="0"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Camera:" Foreground="#B0B0B0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox Width="220"
+                          automation:AutomationProperties.AutomationId="CameraComboBox"
+                          ItemsSource="{Binding Cameras}"
+                          SelectedItem="{Binding SelectedCamera}"
+                          DisplayMemberPath="Name"
+                          Margin="0,0,20,0"/>
+
+                <TextBlock Text="Recording:" Foreground="#B0B0B0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox Width="220"
+                          automation:AutomationProperties.AutomationId="RecordingComboBox"
+                          ItemsSource="{Binding Recordings}"
+                          SelectedItem="{Binding SelectedRecording}"
+                          DisplayMemberPath="DisplayName"
+                          Margin="0,0,20,0"/>
+
+                <!-- Only shown before a session exists; the transport bar's own Play/Pause/Stop
+                     below takes over once HasActiveSession is true, this one bootstraps it. -->
+                <Button Content="Play"
+                        automation:AutomationProperties.AutomationId="BootstrapPlayButton"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding PlayCommand}"
+                        Visibility="{Binding HasActiveSession, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Video surface -->
+        <Grid Grid.Row="1">
+            <TextBlock Text="Select a camera and a recording, then Play."
+                       Foreground="#B0B0B0"
+                       FontSize="20"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Visibility="{Binding HasActiveSession, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+
+            <Image Source="{Binding CurrentFrameSource}"
+                   Stretch="Uniform"
+                   Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibilityConverter}}"/>
+        </Grid>
+
+        <!-- Transport bar -->
+        <Border Grid.Row="2"
+                Background="#252526"
+                BorderBrush="#3E3E42"
+                BorderThickness="0,1,0,0"
+                Padding="16,10"
+                Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Button Content="Play"
+                                automation:AutomationProperties.AutomationId="TransportPlayButton"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding PlayCommand}"
+                                Margin="0,0,8,0"/>
+                        <Button Content="Pause"
+                                automation:AutomationProperties.AutomationId="PauseButton"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding PauseCommand}"
+                                Margin="0,0,8,0"/>
+                        <Button Content="Stop"
+                                automation:AutomationProperties.AutomationId="StopButton"
+                                Style="{StaticResource SecondaryButton}"
+                                Command="{Binding StopCommand}"/>
+                    </StackPanel>
+
+                    <Slider x:Name="SeekSlider"
+                            automation:AutomationProperties.AutomationId="SeekSlider"
+                            Grid.Column="1"
+                            Margin="16,0"
+                            VerticalAlignment="Center"
+                            Minimum="0"
+                            Maximum="{Binding SeekMaximumSeconds}"
+                            Value="{Binding CurrentPositionSeconds, Mode=OneWay}"
+                            IsMoveToPointEnabled="True"
+                            PreviewMouseLeftButtonUp="SeekSlider_PreviewMouseLeftButtonUp"/>
+
+                    <TextBlock Grid.Column="2"
+                               automation:AutomationProperties.AutomationId="PositionText"
+                               Text="{Binding PositionText}"
+                               Foreground="White"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <TextBlock automation:AutomationProperties.AutomationId="StatusMessage" Text="{Binding StatusMessage}" Foreground="#B0B0B0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
 </UserControl>

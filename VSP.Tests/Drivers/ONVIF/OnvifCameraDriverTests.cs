@@ -1,11 +1,50 @@
+using VSP.Core.Logging;
 using VSP.Device.Drivers.ONVIF;
+using VSP.Tests.Logging;
 using Xunit;
 using EntityCamera = VSP.Domain.Entities.Camera;
 
 namespace VSP.Tests.Drivers.ONVIF;
 
+[Collection("AppLog")]
 public class OnvifCameraDriverTests
 {
+    [Fact]
+    public void TestConnection_WithNoListeningServer_LogsWarningWithException()
+    {
+        var recorder = new RecordingLogger();
+        AppLog.Initialize(recorder);
+        var driver = new OnvifCameraDriver();
+        var camera = CreateCamera(port: 1);
+
+        var result = driver.TestConnection(camera);
+
+        Assert.False(result);
+        var call = Assert.Single(recorder.Calls);
+        Assert.Equal(LogLevel.Warning, call.Level);
+        Assert.NotNull(call.Exception);
+        Assert.DoesNotContain(camera.Password, call.Message);
+        Assert.DoesNotContain(camera.Username, call.Message);
+    }
+
+    [Fact]
+    public void GetDeviceInformation_WithNoListeningServer_LogsWarningWithException()
+    {
+        var recorder = new RecordingLogger();
+        AppLog.Initialize(recorder);
+        var driver = new OnvifCameraDriver();
+        var camera = CreateCamera(port: 1);
+
+        var info = driver.GetDeviceInformation(camera);
+
+        Assert.Null(info);
+        var call = Assert.Single(recorder.Calls);
+        Assert.Equal(LogLevel.Warning, call.Level);
+        Assert.NotNull(call.Exception);
+        Assert.DoesNotContain(camera.Password, call.Message);
+        Assert.DoesNotContain(camera.Username, call.Message);
+    }
+
     private const string SystemDateAndTimeResponse =
         """
         <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope">

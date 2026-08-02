@@ -2,6 +2,12 @@
 
 namespace VSP.Infrastructure.Database;
 
+/// <summary>
+/// Deliberately does not log its own failure (unlike the other five Epic-015 components) --
+/// the caller generates the single Error ID for a startup failure and logs the original
+/// exception together with that ID in one line, so the ID and the exception are never split
+/// across two separate log entries. See VSP.UI/App.xaml.cs's HandleDatabaseInitializationFailure.
+/// </summary>
 public class DatabaseInitializer
 {
     private readonly DatabaseService _databaseService;
@@ -11,12 +17,21 @@ public class DatabaseInitializer
         _databaseService = databaseService;
     }
 
-    public void Initialize()
+    public DatabaseInitializationResult Initialize()
     {
-        using var connection = _databaseService.CreateConnection();
+        try
+        {
+            using var connection = _databaseService.CreateConnection();
 
-        connection.Open();
+            connection.Open();
 
-        CameraTable.Create(connection);
+            CameraTable.Create(connection);
+
+            return DatabaseInitializationResult.Ok();
+        }
+        catch (Exception ex)
+        {
+            return DatabaseInitializationResult.Failed(ex);
+        }
     }
 }

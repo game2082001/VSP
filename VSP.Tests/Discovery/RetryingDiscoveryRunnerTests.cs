@@ -1,11 +1,35 @@
+using VSP.Core.Logging;
 using VSP.Device.Discovery.Execution;
 using VSP.Device.Discovery.Orchestration;
+using VSP.Tests.Logging;
 using Xunit;
 
 namespace VSP.Tests.Discovery;
 
+[Collection("AppLog")]
 public class RetryingDiscoveryRunnerTests
 {
+    [Fact]
+    public async Task ExecuteAsync_WhenInnerThrows_LogsWarningForEachNonFinalAttemptOnly()
+    {
+        var recorder = new RecordingLogger();
+        AppLog.Initialize(recorder);
+        var inner = new ThrowingDiscoveryRunner(new InvalidOperationException("transient"));
+        var runner = new RetryingDiscoveryRunner(inner, new DiscoveryRetryPolicy(3, TimeSpan.Zero));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.ExecuteAsync(new DiscoveryOrchestrationRequest()));
+
+        // 3 attempts total; the first 2 (non-final) are logged and retried, the 3rd (final)
+        // propagates uncaught here -- unchanged behavior, not this Epic's concern (see Out of Scope).
+        Assert.Equal(2, recorder.Calls.Count);
+        Assert.All(recorder.Calls, call =>
+        {
+            Assert.Equal(LogLevel.Warning, call.Level);
+            Assert.NotNull(call.Exception);
+        });
+    }
+
     [Fact]
     public async Task ExecuteAsync_WithSuccessOnFirstAttempt_DoesNotRetry()
     {

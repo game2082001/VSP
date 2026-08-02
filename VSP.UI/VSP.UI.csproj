@@ -36,4 +36,31 @@
     <PackageReference Include="MaterialDesignThemes" Version="5.3.2" />
   </ItemGroup>
 
+  <!--
+    DevEnvy.FFmpeg.Binaries.LGPL's own copy targets (CopyFFmpegBinaries / PublishFFmpegBinaries,
+    reached here via VSP.Player's PackageReference and NuGet's buildTransitive import)
+    unconditionally copy every RID under ffmpeg\ (win-x64, linux-x64, linux-arm64,
+    linux-musl-x64, osx-x64, osx-arm64) into every build, even though VSP.UI is win-x64-only
+    (net10.0-windows). That package's .targets file lives in the NuGet cache, not this repo, and
+    has no opt-out, so the smallest fix that survives a restore/package bump is to remove the
+    non-Windows subfolders right after that package's own targets run (Epic-013 Deployment
+    Foundation) rather than fork the package. These targets must live here, in VSP.UI itself
+    (the published project), not in VSP.Player: a plain Target defined in a referenced project
+    only runs for that project's own build, not for a project that merely references it.
+    Measured effect: ~411 MB ffmpeg payload -> ~33 MB (win-x64 only) in the published output.
+  -->
+  <Target Name="TrimNonWindowsFFmpegBinaries" AfterTargets="CopyFFmpegBinaries">
+    <ItemGroup>
+      <_NonWindowsFFmpegDirs Include="$(OutDir)ffmpeg\linux-x64;$(OutDir)ffmpeg\linux-arm64;$(OutDir)ffmpeg\linux-musl-x64;$(OutDir)ffmpeg\osx-x64;$(OutDir)ffmpeg\osx-arm64" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_NonWindowsFFmpegDirs)" Condition="Exists('%(_NonWindowsFFmpegDirs.Identity)')" />
+  </Target>
+
+  <Target Name="TrimNonWindowsFFmpegBinariesPublish" AfterTargets="PublishFFmpegBinaries">
+    <ItemGroup>
+      <_NonWindowsFFmpegPublishDirs Include="$(PublishDir)ffmpeg\linux-x64;$(PublishDir)ffmpeg\linux-arm64;$(PublishDir)ffmpeg\linux-musl-x64;$(PublishDir)ffmpeg\osx-x64;$(PublishDir)ffmpeg\osx-arm64" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_NonWindowsFFmpegPublishDirs)" Condition="Exists('%(_NonWindowsFFmpegPublishDirs.Identity)')" />
+  </Target>
+
 </Project>

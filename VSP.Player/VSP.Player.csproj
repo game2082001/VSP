@@ -4,10 +4,36 @@
 	<TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\VSP.Core\VSP.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FFmpeg.AutoGen" Version="8.0.0.1" />
+    <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLinked" Version="8.1.0" />
+    <PackageReference Include="DevEnvy.FFmpeg.Binaries.LGPL" Version="8.0.1.4" />
+  </ItemGroup>
+
+  <!--
+    The DevEnvy.FFmpeg.Binaries.LGPL win-x64 binaries are MinGW-w64 (GCC) builds and import
+    libstdc++-6.dll at load time (confirmed via PE import table inspection of avcodec-62.dll,
+    avutil-60.dll, avfilter-11.dll); libstdc++ in turn requires libgcc_s_seh-1.dll and
+    libwinpthread-1.dll. None of the three ship in the FFmpeg package, so without them present
+    next to the FFmpeg DLLs, loading fails wherever the toolchain's own runtime isn't already
+    on the process's DLL search path. See THIRD_PARTY_NOTICES.md for source/version/hash/license
+    per DLL. CopyToOutputDirectory + Link places them alongside the FFmpeg binaries at
+    ffmpeg\win-x64\ in every project's build output, and flows transitively into VSP.UI's and
+    VSP.Tests' build and publish output via ProjectReference, same as the FFmpeg DLLs themselves.
+  -->
+  <ItemGroup>
+    <None Include="Native\mingw-w64\win-x64\*.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>ffmpeg\win-x64\%(Filename)%(Extension)</Link>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

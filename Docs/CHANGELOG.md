@@ -1,6 +1,352 @@
 ﻿# CHANGELOG
 
+## 2026-08-01 (Epic-015)
+
+### Version 0.15.0 - Epic-015 Error Handling Foundation
+
+Status:
+Implementation Complete — Product Owner Accepted (uncommitted — pending user commit)
+
+Summary:
+- Objective (Product Owner, 2026-08-01): establish consistent exception handling only where exceptions currently disappear silently, using `AppLog` (Epic-014). Redirected from an initial "Feature Logging" proposal — normal business-event instrumentation (Camera Added, Recording Started, Playback Started, etc.) is explicitly deferred to a future Epic. Pattern: try → log → return the appropriate result, preserving all existing behavior.
+- Six components, each verified by full-file read before changing: **Database initialization** (`DatabaseInitializer.Initialize()`, `VSP.Infrastructure`) had zero error handling — now returns a new minimal `DatabaseInitializationResult { Success, Exception }` (not a generic Result framework) instead of `void`/throwing unhandled. **Repository operations** (`SQLiteCameraRepository`'s four methods) had zero error handling — now log-and-rethrow, preserving `ICameraRepository`'s 25-call-site contract exactly. **RTSP**/**ONVIF** `TestConnection`/`GetDeviceInformation` already caught-and-returned but discarded the exception unbound — now bind and log it. **Retry failures** (`RetryingDiscoveryRunner`) — every non-final retry attempt was silently discarded; now logged before each retry, final-attempt propagation (uncaught here, by design) unchanged. **Media reconnect failures** (`MediaController.ConnectionLoopAsync`) — bare `catch` discarded the exception; now bound and logged per failed attempt.
+- **Startup failure behavior (Database initialization)**: on failure, `VSP.UI/App.xaml.cs` generates a single Error ID, logs it together with the original exception in one `AppLog.Fatal` call (never split across two log lines — a correction applied after Product Owner review of the first implementation pass, so the same ID that appears in the dialog is always on the same log line as the actual exception/stack trace), shows a dialog naming the Error ID and the current log file's path, then `Environment.Exit(1)` — the app never proceeds to `MainWindow` without a working database.
+- **Security review** (Product Owner instruction): no log call in this Epic includes a password, authorization header, token, or credential-bearing URL. Camera identification in logs uses `Id`/`IpAddress`/`HttpPort` only; RTSP/Live-View logging never includes `RtspUrl` (which may embed credentials); ONVIF logging never includes SOAP request/response bodies (which may carry WS-Security material). Verified by code review and asserted directly in several new tests (`DoesNotContain` the URL/credentials in logged messages).
+- No new project reference required for the five call-site changes (`VSP.Device`, `VSP.Player` already referenced `VSP.Core`); `VSP.Infrastructure`'s reference was already added at Epic-014 acceptance.
+- Implementation-discovered deviations from the approved file list (disclosed, not silent): `DatabaseService.cs` gained a minimal `internal` test-seam constructor (same convention as `RecordingPathProvider`/`FileLogger`) since neither `SQLiteCameraRepository` nor `DatabaseInitializer` had any prior test coverage and there was no way to force a failure deterministically otherwise; new `VSP.Infrastructure/AssemblyInfo.cs` (`InternalsVisibleTo`) to support it; new shared `VSP.Tests/Logging/RecordingLogger.cs` + `AppLogTestCollection.cs` (`DisableParallelization`) since six test classes across this Epic now mutate `AppLog`'s single process-wide static target.
+
+Technical Debt:
+- TD-030: Platform Lifecycle — future versions shall replace direct process termination (`Environment.Exit`) with a unified lifecycle manager. Complements TD-029 (Epic-014) — same underlying concern, now three `Environment.Exit` call sites total (two from Epic-014, one from this Epic). Recorded only, not implemented — Product Owner direction.
+
+Verification:
+- New/extended tests: `SQLiteCameraRepositoryTests` (new, 5 cases — round-trip Add/Update/Delete plus two log-and-rethrow failure cases), `DatabaseInitializerTests` (new, 3 cases — success, failure result shape, and confirms `Initialize()` does not log itself), plus one new case each in `RtspCameraDriverTests`, `OnvifCameraDriverTests` (x2), `RetryingDiscoveryRunnerTests`, and `MediaControllerReconnectTests` asserting the new logging occurs at the right level with the exception present, and that no credential material leaks into the message.
+- Full suite: 632/633 in Debug (baseline 620 + 13 new); the one failure is the pre-existing `RtspMediaSessionIntegrationTests` timing flake (documented since Epic-011/012), confirmed passing 1/1 in isolation — not a regression, Product-Owner-accepted as such.
+- Manual validation (2026-08-01) of the startup failure path against the actual built `VSP.UI.exe`: the real `vsp.db` was renamed aside, replaced with a same-named directory to force a genuine `SqliteException`, the app was launched and driven via Windows UI Automation, and the real file was restored afterward (confirmed identical size, 12,288 bytes, before and after — no data lost). Confirmed: Fatal log written with the original exception; a single Error ID generated and present on that same log line; the same ID shown in the dialog; the dialog also shows the correct current log file path; the process exits with code 1 after the dialog is dismissed; `MainWindow` is never created. Full transcript in `Docs/SPECS/EPIC-015_ERROR_HANDLING_FOUNDATION.md` §12.
+
+Files:
+- VSP.Infrastructure/AssemblyInfo.cs (new)
+- VSP.Infrastructure/Database/DatabaseInitializationResult.cs (new)
+- VSP.Infrastructure/Database/DatabaseInitializer.cs, DatabaseService.cs
+- VSP.Infrastructure/Repositories/SQLiteCameraRepository.cs
+- VSP.Device/Drivers/RTSP/RtspCameraDriver.cs, VSP.Device/Drivers/ONVIF/OnvifCameraDriver.cs
+- VSP.Device/Discovery/Execution/RetryingDiscoveryRunner.cs
+- VSP.Player/Control/MediaController.cs
+- VSP.UI/App.xaml.cs
+- VSP.Tests/Infrastructure/SQLiteCameraRepositoryTests.cs, DatabaseInitializerTests.cs (new)
+- VSP.Tests/Logging/RecordingLogger.cs, AppLogTestCollection.cs (new)
+- VSP.Tests/Drivers/RTSP/RtspCameraDriverTests.cs, VSP.Tests/Drivers/ONVIF/OnvifCameraDriverTests.cs, VSP.Tests/Discovery/RetryingDiscoveryRunnerTests.cs, VSP.Tests/Player/MediaControllerReconnectTests.cs
+- Directory.Build.props
+- Docs/CHANGELOG.md, Docs/03_PRODUCT_ROADMAP.md, Docs/SPECS/EPIC-015_ERROR_HANDLING_FOUNDATION.md
+
+---
+
+## 2026-08-01
+
+### Version 0.14.0 - Epic-014 Logging Foundation
+
+Status:
+Implementation Complete — Product Owner Accepted (uncommitted — pending user commit)
+
+Summary:
+- Objective (Product Owner, 2026-08-01): give VSP a minimal, in-process logging mechanism so an otherwise-silent crash is captured to disk, and any future Epic has a `Log` call available — no external logging framework, no telemetry, no cloud, no database logging. Selected ahead of Settings because "every remaining Epic will benefit from having logging" and customer support depends on it more.
+- Added `VSP.Core/Logging/`: `LogLevel` (`Debug`/`Info`/`Warning`/`Error`/`Fatal`), `ILogger`, `FileLogger` (the one production implementation — fixed-format lines, `YYYY-MM-DD.log` daily rolling file, 30-day retention purge, explicit `FileStream`/`Flush(flushToDisk: true)` per write so a crash log is never left in an OS write buffer), and `AppLog` (a static gateway, matching the codebase's existing no-DI-container, hand-wired convention already used by `RecordingPathProvider`/`DatabaseService`; defaults to a no-op logger until `Initialize` is called). Lives in `VSP.Core/Logging/` — a folder already scaffolded, empty, in `VSP.Core.csproj` since before this Epic.
+- `VSP.Infrastructure` gained a `ProjectReference` to `VSP.Core` (Product Owner-approved: "logging is a platform capability, not a UI capability") — no log call was added inside `VSP.Infrastructure` itself in this Epic; only the reference exists so a future Epic can log from there without a further architecture change.
+- `VSP.UI/App.xaml.cs` wires three global unhandled-exception handlers in `OnStartup`, split by the Product Owner's approved two-category behavior: `DispatcherUnhandledException` (UI thread) is **recoverable** — log with a generated Error ID, show a message box naming the Error ID and the current log file's path (guidance to send both to support), `e.Handled = true`, application continues; `AppDomain.CurrentDomain.UnhandledException` (non-UI thread) is **fatal** — log with an Error ID, then a deliberate `Environment.Exit(1)`; `TaskScheduler.UnobservedTaskException` is logged (with an Error ID) and marked observed. A 30-day log retention purge runs once at startup.
+- Explicitly out of scope, per Product Owner instruction: Serilog, NLog, log4net, `Microsoft.Extensions.Logging`, ETW, OpenTelemetry, Elastic, database logging, network logging, cloud logging, telemetry. No call site in any existing feature (Camera Management, Discovery, Live View, Recording, Playback, Dashboard) was instrumented with a log call — this Epic delivers the mechanism only; feature-level logging begins with Epic-015.
+- `Directory.Build.props` bumped to `0.14.0`, continuing the per-Epic version convention established in Epic-013.
+
+Technical Debt:
+- TD-029: the fatal-path shutdown uses `Environment.Exit(1)` directly. Acceptable for v1.0 Logging Foundation; a future Platform Lifecycle Epic should provide a unified graceful-shutdown strategy across UI, Services, Plugins, and future distributed components. Recorded only, not implemented — Product Owner direction.
+
+Verification:
+- New tests: `FileLoggerTests` (9 cases — fixed-format line content, exception detail append, same-day append, day-boundary rollover via an injectable clock seam, retention-purge boundary and count, concurrent-write safety under 8 threads x 50 lines) and `AppLogTests` (2 cases — delegation of all five levels including exception, and reconfiguring the target logger via `Initialize`).
+- Full suite: 620/620 passing in Debug (previous baseline 611 + 9 new), zero new warnings, build green. One intermediate run showed the pre-existing `RtspMediaSessionIntegrationTests` timing flake (documented since Epic-011/012); confirmed passing both in isolation and on the final full run — not a regression.
+- Manual validation (2026-08-01, against the actual built `VSP.UI.exe`, via Windows UI Automation + process/log inspection, not code reading): UI-thread exception showed the dialog with a real Error ID and log file path, was dismissed via its OK button, and the app kept running afterward; background-thread exception exited the process with code 1 and left a matching `FATAL` log entry (confirms flush-before-exit held under a real exit); unobserved Task exception logged a matching `ERROR` entry and the process stayed responsive. Full detail in `Docs/SPECS/EPIC-014_LOGGING_FOUNDATION.md` §8.
+
+Files:
+- VSP.Core/AssemblyInfo.cs (new)
+- VSP.Core/Logging/LogLevel.cs, ILogger.cs, FileLogger.cs, AppLog.cs (new)
+- VSP.Tests/Logging/FileLoggerTests.cs, AppLogTests.cs (new)
+- VSP.Infrastructure/VSP.Infrastructure.csproj
+- VSP.UI/App.xaml.cs
+- Directory.Build.props
+- Docs/CHANGELOG.md, Docs/03_PRODUCT_ROADMAP.md, Docs/SPECS/EPIC-014_LOGGING_FOUNDATION.md, Docs/V1.0_CUSTOMER_RELEASE_DEFINITION.md
+
+---
+
+## 2026-07-31
+
+### Version 0.13.0 - Epic-013 Deployment Foundation
+
+Status:
+Implementation Complete — Pending Product Owner Acceptance (uncommitted — pending user commit)
+
+Summary:
+- Objective (Product Owner, 2026-07-31): a clean Windows machine can Publish -> Install (xcopy, not a wizard) -> Launch -> Use VSP. Explicitly out of scope: installer technology evaluation, auto-update, code signing, branding/icons, CI/CD, single-file publish, ReadyToRun/AOT, any new product capability.
+- Added `Directory.Build.props` at the repo root: single `<Version>0.13.0</Version>` shared by all 8 projects, replacing the previous accidental, disconnected `1.0.0.0` SDK default on every project. This is the first Epic where the CHANGELOG version header and the actual shipped assembly version are the same number. Per Product Owner direction, VSP becomes `1.0.0` only when all V1.0 GA requirements are complete and GA is formally approved -- `0.13.0` here reflects Epic-013, not a GA claim.
+- Fixed `DatabaseService` (`VSP.Infrastructure`): `vsp.db` was hardcoded to `AppContext.BaseDirectory` (next to the executable), which fails to create/open under a standard, non-admin install location (e.g. `Program Files`). Moved to `%LocalAppData%\VSP\vsp.db`, creating the directory on first connection -- mirrors the pattern `RecordingPathProvider` already used correctly for recordings.
+- Added `VSP.UI/Properties/PublishProfiles/win-x64.pubxml`: `RuntimeIdentifier=win-x64`, `SelfContained=true`, no single-file/ReadyToRun/AOT. This is the one supported, repeatable publish process (`dotnet publish VSP.UI\VSP.UI.csproj -c Release -p:PublishProfile=win-x64`) -- the .NET/WPF runtime is bundled, so a clean machine needs nothing preinstalled. Debug/dev inner-loop builds are unaffected (the profile only applies at publish time). Added a narrow `.gitignore` exception (`!VSP.UI/Properties/PublishProfiles/win-x64.pubxml`) since the repo's default `*.pubxml` rule would otherwise silently exclude this intentionally-checked-in profile (it carries no secrets, unlike the web-deploy profiles that rule was written for).
+- Fixed a packaging defect found during verification: `DevEnvy.FFmpeg.Binaries.LGPL`'s own copy targets (`CopyFFmpegBinaries` / `PublishFFmpegBinaries`) unconditionally copy every RID under `ffmpeg\` (win-x64, linux-x64, linux-arm64, linux-musl-x64, osx-x64, osx-arm64) into every build, even though VSP.UI is win-x64-only. Added two small `Target`s in `VSP.UI.csproj` (must live in the published project itself, not `VSP.Player` -- a project-local `Target` does not run for a project that merely references it, only NuGet's `buildTransitive` targets propagate that way) that remove the non-Windows subfolders right after the vendor's own targets run. Measured: ffmpeg payload dropped from 411 MB to 33 MB (win-x64 only) in both plain `Build` and `Publish` output.
+
+Verification:
+- Published via the new profile, confirmed self-contained (`coreclr.dll`/`hostfxr.dll`/`PresentationFramework.dll` bundled, `runtimeconfig.json` shows `includedFrameworks`), `ffmpeg\` contains win-x64 only, SQLite native asset is win-x64 only, total publish size 197 MB (down from 574 MB pre-trim).
+- Copied the published folder to an unrelated arbitrary path (simulating an xcopy install into e.g. `Program Files`) and launched it there directly -- confirmed `vsp.db` was created fresh under `%LocalAppData%\VSP\vsp.db`, not next to the exe.
+- Launched the installed copy with `PATH` stripped to bare `System32`/`Windows` (zero `dotnet.exe`, zero MinGW runtime DLLs reachable) -- app started and stayed responsive, proving no .NET runtime prerequisite.
+- Real functional smoke test against that same installed, PATH-stripped instance (not a mock): added a camera via the running app's own SQLite database, selected it in Live View, and confirmed a genuine `Live: <camera>` connection via the bundled, win-x64-only FFmpeg binaries -- both SQLite and FFmpeg native dependencies confirmed present and functional post-trim.
+- Full suite: 611/611 passing in Release; 610/611 in Debug with the one failure being the same pre-existing `RtspMediaSessionIntegrationTests` timing flake documented since Epic-011/012 (confirmed passes 1/1 in isolation; not modified, unrelated to this Epic's changes). Debug and Release builds both green, zero new warnings beyond the pre-existing baseline.
+
+Final pre-commit deployment validation (2026-07-31, Product Owner-requested):
+- Requested as a clean Windows VM/equivalent isolated environment; no Hyper-V, Windows Sandbox, or WSL is available in this environment (session not elevated, neither feature installed), so this was explicitly run as a **proxy validation on the development machine**, not an independently provisioned clean Windows VM -- documented here as such, not represented as VM-certified.
+- Full sequence performed for real: deleted any previous deployment folder and `%LocalAppData%\VSP`; published fresh via the approved `win-x64` profile; copied the published folder to a completely unrelated path; launched from there with `PATH` stripped of `dotnet`/MinGW. Verified in order: application starts; `vsp.db` is recreated fresh under `%LocalAppData%\VSP`; a camera is added through the real Add Camera dialog (not a DB shortcut) and persists via the real repository; Live View reaches a genuine `Live: <camera>` state; Recording produces a valid MP4 (verified with the deployed instance's own `ffprobe.exe`); Playback opens that recording and Play/Pause/Resume/Seek/Stop all work against real decode. Closed the application, relaunched it, and confirmed the camera and its recording were both still present and selectable -- persistence across restart holds.
+- One anomaly investigated and not attributed to any code path: during UI-automation testing, the Add Camera dialog intermittently disappeared and, in one instance, the whole process exited (clean `ExitCode=0`, not a crash -- no exception, no stack trace, nothing in `CameraDetailViewModel`/`CameraDetailWindow` involves a timer or delayed close). `query user` showed this machine's real interactive session as `Active` with zero idle time throughout testing, i.e. genuinely concurrent real-user activity on a shared desktop already running many unrelated applications -- the most likely explanation is input/focus interference from that concurrent use, not a reproducible product defect. Per instruction, no production code was changed on the basis of this unattributed, non-reproducible observation; a dedicated isolated environment would be needed to fully rule it out.
+
+Explicitly out of scope (per Product Owner direction, not gaps to silently fix):
+- No installer/wizard (MSI, MSIX, Inno Setup) -- "the goal is deployment, not distribution."
+- No auto-update, code signing, branding/icons, or CI/CD.
+- No single-file publish, ReadyToRun, or AOT.
+- Upgrade strategy / uninstall semantics beyond xcopy replace-in-place are not addressed -- deferred to whenever installer technology is revisited.
+
+Files:
+- Directory.Build.props (new)
+- VSP.Infrastructure/Database/DatabaseService.cs
+- VSP.UI/Properties/PublishProfiles/win-x64.pubxml (new)
+- VSP.UI/VSP.UI.csproj
+- .gitignore
+- Docs/CHANGELOG.md, Docs/03_PRODUCT_ROADMAP.md
+
+---
+
+## 2026-07-29
+
+### Version 1.16 - Epic-012 Playback Foundation
+
+Status:
+Implementation Complete — Pending Product Owner Acceptance (uncommitted — pending user commit)
+
+Summary:
+- Closes ADR-002's v3 Playback evolution row (file-backed `IMediaSession`, `IMediaClock.Seek` becomes meaningful) per the approved Epic-012 scope: Camera selection, recording list, Play, Pause, Stop, Seek only -- no Timeline, Calendar, Search, Bookmark, Snapshot, Export, Smart Search, variable playback rate, or multi-camera playback.
+- Added `RecordedFileMediaSession` (`VSP.Player.Decoder`), a second, small `IMediaSession` implementation (`Kind=RecordedFile`) alongside the untouched `RtspMediaSession` -- mirrors its open/read-loop/dispose shape and native-call locking pattern (`avformat_open_input` is protocol-agnostic) but differs where a file genuinely needs to: a real-time-paced read loop (local-delta pacing between consecutive packets' PTS, chunked in <=200ms waits so cancellation/seek stay responsive), a pause gate so Pause actually stops the file position from advancing (not just the renderer, unlike Live), a natural EOF-to-Closed transition instead of Faulted, and seek via `av_seek_frame`.
+- Closed accepted Epic-010 technical debt on schedule: `FfmpegVideoDecoder`'s constructor took the concrete `RtspMediaSession`, explicitly flagged as blocking Playback reuse. Added an internal `IFfmpegDemuxSource` seam (both sessions implement it via explicit interface implementation, keeping their existing internal `GetVideoCodecParameters`/`GetVideoStreamTimeBase` methods untouched) and changed the decoder's constructor to depend on that instead -- its accessibility became internal in the process, since its parameter type is internal (no FFmpeg-adjacent type may appear in a public signature, per ADR-002/ADR-003's isolation guarantee).
+- Added `PlaybackClock` (`VSP.Player.Pipeline`), a second `IMediaClock` implementation whose `Seek` is real (unlike the existing `MediaClock`, hardcoded to return null for Live) -- delegates to a callback `PlaybackController` wires to the session's seek plus a decoder flush.
+- Added `PlaybackController` (`VSP.Player.Control`), a second, small `IMediaController` implementation -- no reconnect loop (the wrong shape for "open a finished file, seek around in it, stop"), no encoded-tier recording dispatch. `IMediaController` itself gained exactly two new members (`Clock`, `Duration`) -- additive only, every existing member unchanged; `MediaController` (Live) implements both minimally (an unwired `MediaClock`; `Duration` always null) with zero behavior change to the already-shipped Live path.
+- Recordings are now organized per camera (approved scope addition): `RecordingPathProvider.GetCameraRecordingDirectory(Guid)` and a new `MediaController(..., cameraId)` constructor parameter (optional, defaults to the old flat-root behavior for existing tests) route Epic-011's recording writer into `{RecordingRoot}\{cameraId:N}\...`. New public `RecordingCatalog.ListRecordings(Guid cameraId)` lists a camera's `*.mp4` files (filesystem enumeration only, timestamp parsed from the existing filename convention -- no database, no catalog).
+- `PlaybackViewModel`/`PlaybackView` (previously empty placeholders, matching the pre-Epic-009 Dashboard shape) are now real: camera dropdown (`CameraQueryService`, reused from Dashboard), recording dropdown (`RecordingCatalog`), Play/Pause/Stop buttons, a seek slider (seeks on click-to-position/drag-release only, never on every position update, to avoid fighting the OneWay position binding), and a 500ms position-refresh timer. `MainWindowViewModel` needed no changes -- it already called the parameterless `new PlaybackView()`, now wired to real dependencies exactly like `DashboardView`'s own composition.
+
+Real defect found and fixed during implementation:
+- **`PlaybackController` swallowed an Open failure without ever reaching the Error state.** Unlike `MediaController`, `PlaybackController` has no reconnect loop to eventually reach Error after exhausting attempts -- its generic catch around a failed `OpenAsync` only cleaned up and returned, leaving the controller stuck at Connecting forever. Fixed by transitioning to Error immediately (using the `MediaError` already captured via the session's own Faulted `StateChanged` event) whenever Open fails for a reason other than cancellation. Caught by `PlaybackControllerTests.OpenAlwaysFails_ReachesError`.
+
+Test-fidelity defects found and fixed during implementation:
+- Two new `RecordedFileMediaSessionTests` initially asserted Duration/Seek against a raw `.mjpeg` elementary-stream test fixture (matching `RtspMediaSessionIntegrationTests`' existing convention) -- raw elementary streams carry no container-level duration/index metadata, so both came back null/failed, correctly, not a product defect. Fixed by switching the test source to an `.mp4` container (what a real Epic-011 recording actually is), which both capabilities need.
+- `PauseReading_StopsPacketFlow_ResumeReadingContinues` initially raced: `PauseReading` only takes effect before the read loop's next iteration, so a packet already past that check could still land after Pause was requested. Fixed by giving that one (at most) in-flight packet time to arrive before the test snapshots the "stable" count.
+
+Verification:
+- Full suite: 610/611 passing (582 pre-existing + 28 new/modified), Debug and Release. The one failure under full-suite load is the same pre-existing `RtspMediaSessionIntegrationTests` flake already documented in Epic-011's changelog (confirmed passes 1/1 in isolation here too) -- not modified, out of this Epic's scope.
+- New tests: `RecordedFileMediaSessionTests` (real, non-fake FFmpeg round trip -- decode, EOF-to-Closed, real-time pacing, Pause/Resume, Seek), `PlaybackControllerTests` (fake-session-based, mirroring `MediaControllerReconnectTests`), `PlaybackViewModelTests` (mirroring `LiveViewViewModelTests`), `RecordingCatalogTests`, and `RecordingPathProviderTests` additions for the per-camera directory.
+- Deployment: build green in both Debug and Release, zero new warnings beyond the pre-existing baseline; `VSP.UI.exe` launches and stays running (non-interactive smoke test), consistent with how Epic-010/011 were verified.
+
+Accepted technical debt (not addressed this Epic):
+- Seeking is only as precise as `av_seek_frame`'s nearest-preceding-keyframe; no frame-accurate seek.
+- Pacing sleeps are held under the same native lock a seek also needs, so a seek issued during an unusually large inter-packet gap (bounded at 2s) can be delayed up to that long in the worst case -- acceptable for Foundation scope given typical frame-rate gaps are tens of milliseconds; noted for a future Epic if it proves visible in practice.
+- No frame-accurate position display beyond the 500ms UI refresh timer.
+- Recordings made before this Epic (flat-root, no camera subfolder) are not migrated and will not appear in Playback's per-camera list -- Recording itself was still uncommitted/unreleased at the time of this Epic, so no real user data exists to migrate.
+- Search, Bookmark, Export, Snapshot, Smart Search, Timeline/Calendar UI, variable playback rate, and multi-camera playback are all explicitly out of the approved Epic-012 scope.
+
+Files:
+- VSP.Player/Interfaces/IMediaController.cs (added Clock, Duration)
+- VSP.Player/Control/MediaController.cs (Clock/Duration implementation, cameraId ctor parameter, per-camera `BuildRecordingFilePath`), PlaybackController.cs (new)
+- VSP.Player/Decoder/IFfmpegDemuxSource.cs, IPlaybackControl.cs, RecordedFileMediaSession.cs (new); RtspMediaSession.cs (implements IFfmpegDemuxSource); FfmpegVideoDecoder.cs (constructor depends on IFfmpegDemuxSource, now internal)
+- VSP.Player/Pipeline/PlaybackClock.cs (new)
+- VSP.Player/Recording/RecordingPathProvider.cs (GetCameraRecordingDirectory), RecordingCatalog.cs (new)
+- VSP.UI/ViewModels/PlaybackViewModel.cs (real implementation, RecordingItem), Views/PlaybackView.xaml, PlaybackView.xaml.cs
+- VSP.Tests/Player/RecordedFileMediaSessionTests.cs, PlaybackControllerTests.cs, PlaybackViewModelTests.cs, RecordingCatalogTests.cs (new); RecordingPathProviderTests.cs (per-camera directory tests); LiveViewViewModelTests.cs (FakeMediaController implements Clock/Duration)
+- Docs/CHANGELOG.md, Docs/03_PRODUCT_ROADMAP.md
+
+Known limitations (out of approved scope for this Epic):
+- No Timeline, Calendar, Search, Bookmark, Export, Snapshot, Smart Search, variable playback rate, or multi-camera playback -- all explicitly deferred per the approved Epic-012 scope.
+- Not manually smoke-tested against a real camera/real recording in the running WPF UI -- verification here is build + full automated suite + real (non-fake) FFmpeg record/playback round trips + non-interactive app-launch smoke test, consistent with how Epic-010/011 were reported in this environment.
+
+---
+
+## 2026-07-28
+
+### Version 1.15 - Epic-011 Recording Foundation
+
+Status:
+Implementation Complete — Pending Product Owner Acceptance (uncommitted — pending user commit)
+
+Summary:
+- Implemented continuous, stream-copy recording on top of the existing ADR-002 media pipeline and the Epic-010 FFmpeg integration, per the approved Epic-011 scope: Continuous mode only, a minimal Start/Stop Recording control + status indicator on Live View, `IMediaController.StartRecordingAsync`/`StopRecordingAsync`/`IsRecording` as the only new integration surface, and a single config-file-backed `RecordingRoot` setting (default `%LocalAppData%\VSP\Recordings`, auto-created, no Settings page, no folder browsing, no storage management).
+- Added the ADR-002 Recorder-mode contracts that had not yet been implemented: `IRecordingSession`, `IRecordingMode`, `RecordingModeContext` (`VSP.Player.Interfaces`/`Entities`), and `ContinuousRecordingMode` (`VSP.Player.Recording`) -- `ShouldRecord` always `true`, the only mode in this Epic.
+- `MediaController`: added a second, encoded-tier `FrameDispatcher<EncodedFrame>` that every received packet is dispatched to independent of decode (recording must not depend on decode succeeding or a Renderer being attached, per ADR-002). `StartRecordingAsync`/`StopRecordingAsync`/`IsRecording` subscribe/unsubscribe a recording session against that dispatcher with `BlockProducerWhenFull`; recording is intentionally independent of Pause/Resume (which remain renderer-only) and is finalized (trailer written) on `StopAsync`/`Dispose` so no in-progress recording is ever abandoned.
+- `FfmpegRecordingSession` (`VSP.Player.Recording`): real FFmpeg stream-copy muxer -- `avformat_alloc_output_context2` + `avformat_new_stream` + `avcodec_parameters_copy` + `avformat_write_header` + `av_interleaved_write_frame` + `av_write_trailer`. No decode, no encode call anywhere in this class. Takes the concrete `RtspMediaSession` (not `IMediaSession`), mirroring `FfmpegVideoDecoder`'s existing constructor pattern, purely to read codec parameters/time_base once at `StartAsync` via two small internal seams added to `RtspMediaSession` (`GetVideoCodecParameters` already existed for the decoder; `GetVideoStreamTimeBase` is new). Skips packets until the first keyframe so the output is playable from byte zero.
+- `RecordingPathProvider` (`VSP.Player.Recording`): resolves `RecordingRoot` from a small JSON file (`%LocalAppData%\VSP\recording-settings.json`) if present, otherwise the fixed default, and creates the directory if missing. Deliberately the smallest possible seam -- no Settings UI, no schema change.
+- `LiveViewViewModel`/`LiveView.xaml`: `StartRecordingCommand`/`StopRecordingCommand` (enabled based on `IMediaController.State`/`IsRecording`, mirroring the existing Pause/Resume pattern) and a small "REC" indicator next to the status text.
+
+Real defect found and fixed during implementation:
+- **FfmpegRecordingSession produced a valid-looking but permanently empty output file.** The output stream's `time_base` was never seeded before `avformat_write_header` (only read back afterward for rescaling), so every packet's rescaled pts/dts collapsed to non-monotonic/degenerate values that the MP4 muxer silently rejected -- confirmed via `ffprobe` on a real recorded file (valid container, zero readable packets) and root-caused against FFmpeg's own remuxing.c reference pattern, which explicitly seeds `out_stream->time_base` from the input stream before writing the header. Fixed by setting `outputStream->time_base = _sourceTimeBase` alongside the existing `codec_tag = 0` reset; verified via a real (non-fake) FFmpeg round-trip test that now passes.
+
+Test-infrastructure defect found and fixed during implementation:
+- **A new `LiveViewViewModelTests` case froze the entire test suite indefinitely** (reproduced consistently; confirmed via VSTest's `--blame-hang`/`Sequence.xml` diagnostic, which pinpointed the exact hung test after ~580 other tests had already passed). The test combined `await Task.Delay(50)` with `Dispatcher.PushFrame` -- since xUnit does not install a captured `SynchronizationContext`, the continuation after the delay resumed on an arbitrary thread-pool thread rather than the thread that owned the `Dispatcher`, and pumping a `Dispatcher`'s message loop from a thread other than its own thread hangs rather than throwing. Fixed by removing the artificial delay and keeping the test fully synchronous (`FakeMediaController`'s recording methods already complete synchronously), matching every other test in this file. This was purely a new-test defect, not a pre-existing or production issue -- confirmed by re-running the full suite clean (582/582, ~5s) immediately after the fix.
+
+Known pre-existing flake (not modified -- out of Epic-011 scope):
+- `RtspMediaSessionIntegrationTests.OpenAsync_AgainstRealFfmpegEncodedStream_ReceivesAndDecodesRealFrames` (Epic-010) occasionally times out under full-suite load (same class of "subscribe after Open" race as the one fixed in this Epic's own `RecordingIntegrationTests`) but passes reliably in isolation (verified 4/4) and in two clean full-suite runs. Flagged here for visibility; fixing it would mean editing an unrelated Epic-010 test file, outside this Epic's approved scope.
+
+Verification:
+- Full suite: 582/582 passing (567 pre-existing + 15 new), Debug and Release, ~5s each after the hang fix.
+- New tests: `ContinuousRecordingModeTests`, `RecordingPathProviderTests` (default/configured/malformed/blank config), `MediaControllerRecordingTests` (encoded-tier dispatch, start/stop lifecycle, state guards, Pause-does-not-stop-recording, Stop-finalizes-recording), a `LiveViewViewModelTests` case for the new commands/indicator, and `RecordingIntegrationTests` -- a real (non-fake) FFmpeg round-trip: encodes a genuine source via the bundled `ffmpeg.exe`, records it via `FfmpegRecordingSession`, then re-opens and decodes the recorded file for real, asserting correct dimensions and non-empty pixel data as evidence of a valid stream-copy (no re-encode call exists in the writer at all).
+- Deployment: build green in both Debug and Release; `VSP.UI.exe` launches and stays running (non-interactive smoke test), consistent with how Epic-010 was verified.
+
+Accepted technical debt (not addressed this Epic):
+- `av_interleaved_write_frame`'s return code is not checked -- a mux-level failure for a single packet is currently silent rather than surfaced.
+- `StartRecordingAsync`'s check-then-act guard against concurrent calls has the same theoretical TOCTOU window as the pre-existing `PauseAsync`/`ResumeAsync`/`StartAsync` -- not a new risk category, consistent with the existing accepted pattern.
+- Scheduled and Motion-triggered recording modes, a Recording Settings page, folder browsing, storage management/quotas/cleanup, and multiple recording roots are all explicitly out of scope per the approved Epic Definition.
+
+Files:
+- VSP.Player/Entities/MediaErrorCategory.cs (added `Recording`), RecordingModeContext.cs (new)
+- VSP.Player/Interfaces/IRecordingMode.cs, IRecordingSession.cs (new); IMediaController.cs (added `IsRecording`/`StartRecordingAsync`/`StopRecordingAsync`)
+- VSP.Player/Recording/ContinuousRecordingMode.cs, FfmpegRecordingSession.cs, RecordingPathProvider.cs (new)
+- VSP.Player/Decoder/RtspMediaSession.cs (added `GetVideoStreamTimeBase` seam)
+- VSP.Player/Control/MediaController.cs (encoded-tier dispatcher, recording lifecycle)
+- VSP.UI/ViewModels/LiveViewViewModel.cs, VSP.UI/Views/LiveView.xaml (Start/Stop Recording + indicator)
+- VSP.Tests/Player/ContinuousRecordingModeTests.cs, RecordingPathProviderTests.cs, MediaControllerRecordingTests.cs, RecordingIntegrationTests.cs (new); LiveViewViewModelTests.cs (recording command test + `IMediaController` fake updated)
+- Docs/CHANGELOG.md
+
+Known limitations (out of approved scope for this Epic):
+- No Playback, Timeline, Export, Motion recording, AI, multi-camera synchronization, retention policy, cloud, or cluster support -- all deferred per ADR-002's Future Evolution table and the approved Epic Definition.
+- Recording survives a mid-recording reconnect transparently (packets from a reconnected session continue into the same file, since the encoded-tier Dispatcher outlives any single `IMediaSession` instance) -- this was a natural consequence of the design, not a specifically tested scenario this Epic.
+- Not manually smoke-tested against a real camera in the running WPF UI -- verification here is build + full automated suite + a real (non-fake) FFmpeg record/remux round-trip + non-interactive app-launch smoke test, consistent with how Epic-010 was reported in this environment.
+
+---
+
 ## 2026-07-26
+
+### Version 1.14 - Epic-010 Live View Foundation
+
+Status:
+**Complete — Epic Close-Out Accepted** (uncommitted — pending user commit)
+
+FFmpeg Decision (ADR-003):
+Product Owner selected FFmpeg as the media library, evaluated against the ADR-002 target architecture. Status updated to Accepted; recorded as "Implemented by: Epic-010." Binding package is `FFmpeg.AutoGen.Bindings.DynamicallyLinked` (compile-time `DllImport`), not `FFmpeg.AutoGen.Bindings.DynamicallyLoaded` as first assumed — see the runtime-defect note below and Docs/DECISIONS/ADR-003_MEDIA_LIBRARY_SELECTION.md for the updated record.
+
+Summary:
+- Implemented the ADR-002 media pipeline as the first real `VSP.Player` implementation: `IMediaSession`/`IMediaController`/`IMediaClock`/`IFrameDispatcher`/`IFrameBuffer`/`IDispatcherMetrics`/`IFrameRenderer`, plus the three closing abstractions from ADR-003 — a neutral `DecodedFrame`/`EncodedFrame` payload (no FFmpeg type crosses out of `VSP.Player.Decoder`), a hardware-frame-capable shape (`FrameStorage.Cpu`/`Gpu`, `IGpuFrameHandle`, unused by the v1 software decoder but present so a future GPU decoder doesn't require a contract change), and a normalized `MediaError` type (FFmpeg codes/strings translated at the boundary, never surfaced raw).
+- FFmpeg adopted per ADR-003 via `FFmpeg.AutoGen` + `DevEnvy.FFmpeg.Binaries.LGPL` (real LGPL-licensed native binaries, `--disable-gpl --disable-nonfree`, auto-copied to output on Build/Publish). **Discovered and fixed a real runtime defect during implementation:** `FFmpeg.AutoGen.Bindings.DynamicallyLoaded`'s runtime `Marshal.GetDelegateForFunctionPointer`-based resolution throws `NotSupportedException` for every single function call (reproduced on both net8.0 and net10.0, independent of DLL search path and library version alignment — root-caused via the package's own upstream source). Switched to `FFmpeg.AutoGen.Bindings.DynamicallyLinked` (compile-time `DllImport` against the bundled DLLs' exact names, e.g. `avutil-60`), which works correctly; verified via an isolated repro before adopting it in `VSP.Player`.
+- `RtspMediaSession` (FFmpeg-backed `IMediaSession`): real `avformat_open_input`/`avformat_find_stream_info`/`av_read_frame`, forced `rtsp_transport=tcp`, a native `AVIOInterruptCB` wired to a cancellation flag so `Stop`/`Dispose` can interrupt a blocked read from another thread (not just set-and-hope).
+- `FfmpegVideoDecoder` (FFmpeg-backed `IVideoDecoder`): real `avcodec_send_packet`/`avcodec_receive_frame` + `sws_scale` conversion to BGRA32 (matching WPF's native pixel layout).
+- `MediaController`: composes session/decoder/dispatcher/renderer against the neutral interfaces (not the concrete FFmpeg types) via injectable factories — the reconnect state machine is unit-tested against a fake `IMediaSession` without a real network dependency. Bounded reconnect, pause/resume (renderer stops/starts without tearing down the connection), explicit stop (no further reconnect), `MediaSessionStatistics` (connected duration, reconnect attempts, last error).
+- `WpfFrameRenderer`: `WriteableBitmap.WritePixels` updates in place — a bound `Image` repaints automatically without a property-changed notification per frame; drops a frame rather than growing the UI dispatcher queue unbounded under UI lag.
+- **Camera selection now originates from the Camera Workspace, not internal Live View discovery**, per Product Owner direction: `LiveViewCameraCoordinator` mediates a "View Live" command on `CameraListViewModel` to `MainWindowViewModel` (composition root), which switches nav to Live View and loads the camera — `CameraListViewModel`/`LiveViewViewModel` stay decoupled from each other.
+- Live View reuses the existing `Camera.RtspUrl` field (Epic-007/008) — no new persistence, no schema change.
+
+Performance Baseline (1920×1080, synthetic test source, real FFmpeg decode/render/reconnect, measured against the actual production code via a standalone harness):
+- Decode+convert per frame: avg 2.84 ms, P95 3.30 ms, max 6.05 ms — well inside the 33.3 ms/frame budget for 30 fps.
+- Render per frame (real `WpfFrameRenderer` on a real pumped Dispatcher): P95 0.98 ms steady-state; one-time first-frame outlier (~152 ms, `WriteableBitmap` allocation/JIT warmup) pulls the average up — see Docs/PERFORMANCE_BASELINE.md for the full breakdown.
+- Reconnect: real `MediaController` against a real (finite, EOF-triggered) fault — 3017 ms fault-to-reconnected against a configured 3000 ms `reconnectDelay`, i.e. ~17 ms of actual reopen overhead beyond the intentional backoff.
+- Unthrottled throughput: 274–339 fps across runs (local file, not rate-limited like live RTSP) — confirms comfortable headroom above the 30 fps target.
+- CPU: ~100–127% of one logical core during decode (this harness process only, excluding the separate ffmpeg.exe encoder process used to generate the test source).
+- Memory: ~24–25 MB working set, no measurable growth over 150 frames.
+- Caveat, stated plainly: measured against MJPEG (available without GPL codecs), not H.264 (the real-world camera case); reconnect measured against local file reopen, not a real network/camera RTSP re-handshake. Full methodology, environment, and numbers are recorded in Docs/PERFORMANCE_BASELINE.md, which is now the baseline for all future Video Epics.
+
+Deployment Verification:
+- Full solution build green in both Debug and Release; native FFmpeg binaries (`ffmpeg/win-x64/*.dll` + `ffmpeg.exe`/`ffprobe.exe`) confirmed present in both output folders.
+- `VSP.UI.exe` launches and stays running (no startup crash) in both Debug and Release, confirming the new Live View composition-root wiring doesn't break app startup.
+
+Media Verification checklist (Open/Play/Pause/Resume/Stop/Reconnect/Dispose) — all verified by automated tests, no manual step skipped:
+- Open/Play: `MediaControllerReconnectTests.StartAsync_SuccessfulOpen_ReachesConnectedAndRecordsStatistics`, `PacketReceived_DecodesAndDispatchesFrames`; real (non-fake) decode end-to-end in `RtspMediaSessionIntegrationTests`.
+- Pause/Resume: `PauseAndResume_ToggleStateAndRejectInvalidTransitions`.
+- Stop: `StopAsync_StopsWithoutFurtherReconnectAttempts`.
+- Reconnect: `SessionFault_ReconnectsAndReturnsToConnected`, `OpenAlwaysFails_ExceedsMaxAttemptsAndReachesError`.
+- Dispose: `Dispose_StopsLoopAndRejectsFurtherUse`.
+- Full suite: 567/567 passing (547 pre-existing + 20 new). Build passing (Debug and Release).
+
+Architecture Review Summary:
+A dedicated Architecture Review (SOLID/SRP/God Objects, layer violations, FFmpeg abstraction leaks, memory hotspots, thread safety, lock contention, cancellation correctness, dispose/resource lifetime, native resource management, reconnect state machine correctness, event subscription leaks, performance bottlenecks, test coverage gaps, deployment risks) was performed against ADR-002, ADR-003, and the Epic-010 Definition of Done. 14 findings were raised (1 Critical, 2 High, 5 Medium, 6 Low). Per Product Owner direction, 5 were fixed and re-verified (full suite green, no regressions):
+- **Fixed (Critical):** `Dispose()` on `FfmpegVideoDecoder`/`RtspMediaSession` could free native pointers concurrently with an in-flight `Decode()`/read-loop call. Fixed with a native-call gate (`_nativeGate` lock) around every native-touching method in both classes.
+- **Fixed (High):** `OpenAsync`'s `CancellationToken` had no way to interrupt the blocking native open call — only `CloseAsync`/`Dispose` could set `_interruptRequested`, which can't run until the open call already returns (a chicken-and-egg hang risk for `Stop`/`Dispose` during a slow reconnect attempt). Fixed by registering the token to set `_interruptRequested` directly, wiring external cancellation into the already-present `AVIOInterruptCB`.
+- **Fixed (High):** `MediaController._controllerCts` was never disposed across repeated Start→Stop→Start cycles — a `CancellationTokenSource` leak per restart. Fixed by disposing the previous instance before replacing it.
+- **Fixed (Medium):** `_sessionEndedTcs` was a single shared field reused across reconnect iterations — a late event from an old, just-cleaned-up session could complete the wrong iteration's completion source. Fixed by capturing it as a per-iteration local closed over by that iteration's own event handler.
+- **Fixed (Medium):** `MediaController._session`/`_decoder` were read/written across threads without synchronization, risking dropped first-frame(s) after (re)connect. Fixed by marking both fields `volatile`.
+- **Accepted as technical debt (not addressed this Epic):** see below.
+
+Accepted Technical Debt (explicitly deferred, not addressed in Epic-010):
+- **MediaController decomposition** — the class combines the reconnect state machine, statistics aggregation, and session/decoder/dispatcher/renderer lifecycle orchestration (~400 lines, SRP concern, not yet a God Object). Future video Epics (Recording, Playback) will add further composition here.
+- **Decoder abstraction redesign** — `FfmpegVideoDecoder`'s only constructor takes the concrete `RtspMediaSession`, not `IMediaSession`; a future file-based session (Playback) can't reuse it without a source change.
+- **Buffer pooling** — `RtspMediaSession`/`FfmpegVideoDecoder` allocate a new `byte[]` per packet and per decoded frame (≈8.3 MB for 1080p BGRA32) with no pooling (e.g. `ArrayPool<byte>`).
+- **Busy-poll optimization** — `FrameDispatcher<T>.Subscription.Pump()` polls via `Thread.Sleep(2)` rather than an event-driven wait; one dedicated thread per subscriber.
+- **`AddDllDirectory` migration** — `FfmpegNativeLibraryLoader` uses `SetDllDirectory` (process-global, replaces rather than appends) instead of the additive `AddDllDirectory`.
+- **Error message normalization** — `MediaError.Message` embeds the raw native `av_strerror` text/code; normalized at the type level, not fully at the content level.
+- **Minor lock optimization** — `MediaController.SetState` acquires its lock twice in immediate succession.
+
+These are recorded here as the authoritative deferred-debt list for this Epic; none block Epic-010 completion, and any future Epic that would be affected by one of these items should check this list first.
+
+Files:
+- Docs/DECISIONS/ADR-002_MEDIA_PIPELINE_ARCHITECTURE.md
+- Docs/DECISIONS/ADR-003_MEDIA_LIBRARY_SELECTION.md
+- VSP.Player/VSP.Player.csproj
+- VSP.Player/AssemblyInfo.cs
+- VSP.Player/Entities/*.cs (VideoSourceKind, MediaSessionState, MediaControllerState, BufferPolicy, FramePixelFormat, FrameStorage, MediaErrorCategory, FrameTimestamp, MediaError, IGpuFrameHandle, EncodedFrame, DecodedFrame, MediaSessionStatistics, MediaSessionStateChangedEventArgs, MediaControllerStateChangedEventArgs, EncodedPacketReceivedEventArgs, FrameDroppedEventArgs)
+- VSP.Player/Interfaces/*.cs (IMediaSession, IVideoDecoder, IMediaClock, IFrameConsumer, IStreamingFrameConsumer, IFrameBuffer, IDispatcherMetrics, IFrameDispatcher, IFrameRenderer, IMediaController)
+- VSP.Player/Pipeline/*.cs (FrameBuffer, DispatcherMetrics, FrameDispatcher, MediaClock)
+- VSP.Player/Decoder/*.cs (FfmpegNativeLibraryLoader, FfmpegErrorTranslator, MediaSessionOpenException, RtspMediaSession, FfmpegVideoDecoder)
+- VSP.Player/Renderer/WpfFrameRenderer.cs
+- VSP.Player/Control/MediaController.cs
+- VSP.UI/Services/LiveViewCameraCoordinator.cs
+- VSP.UI/ViewModels/CameraListViewModel.cs
+- VSP.UI/ViewModels/LiveViewViewModel.cs
+- VSP.UI/ViewModels/MainWindowViewModel.cs
+- VSP.UI/Views/CameraListView.xaml, CameraListView.xaml.cs
+- VSP.UI/Views/LiveView.xaml, LiveView.xaml.cs
+- VSP.UI/Helpers/InverseBooleanToVisibilityConverter.cs
+- VSP.UI/AssemblyInfo.cs (InternalsVisibleTo VSP.Tests, needed for the fake-based reconnect/ViewModel tests)
+- VSP.Tests/Player/*.cs (FrameBufferTests, FrameDispatcherTests, MediaControllerReconnectTests, LiveViewViewModelTests, RtspMediaSessionIntegrationTests)
+- Docs/PERFORMANCE_BASELINE.md
+- Docs/CHANGELOG.md
+
+Known limitations (not addressed — out of approved scope for this Epic):
+- Single active stream only — no multi-camera grid view (future Epic).
+- No Recording, Playback, AI/Motion, hardware-accelerated decode implementation (abstraction present, not implemented), Transcoding, Recording Server, Cluster, or Cloud — all deferred per ADR-002's Future Evolution table.
+- Not manually smoke-tested interactively against a real camera or in the running WPF UI — verification here is build + full automated test suite + a real (non-fake) FFmpeg decode/render/reconnect measurement harness + non-interactive app-launch smoke test, consistent with how prior Epics were reported in this environment.
+- Performance baseline uses MJPEG test content and a standalone harness, not H.264 against a real camera through the shipped UI's interactive render path (see Docs/PERFORMANCE_BASELINE.md for full methodology and caveats).
+- See "Accepted Technical Debt" above for the deferred architecture-review findings.
+
+---
+
+### Version 1.13 - Epic-009 Dashboard Reality
+
+Status:
+Implementation Complete — Pending Product Owner Acceptance (uncommitted — pending user commit)
+
+Summary:
+- Replaced the empty `DashboardView`/`DashboardViewModel` placeholder (verified: no members, no `DataContext` ever set) with a real, read-only aggregation over already-existing Camera/Driver/Connection data — Total cameras, Online/Offline/Unknown, online rate, cameras by `ConnectionType`, cameras by `Brand`, implemented-vs-unimplemented driver coverage, recently added/modified cameras, last-refreshed timestamp, manual Refresh, and load-error state. Exactly the fixed v1 list approved by the Product Owner — nothing beyond it.
+- Added `CameraDashboardSummaryBuilder` (`VSP.Device/Services/`): a small, pure, static aggregation function over an already-loaded `IReadOnlyList<Camera>` + `IReadOnlyList<DriverDescriptor>` — no I/O, no repository access of its own, no schema change, no new package.
+- **Per Product Owner refinement, `ConnectionType`/`Brand` breakdowns are presented as neutral current-state counts only — never framed as Discovery activity, Last Scan, Found Devices, or registration provenance.** This is not just a labeling choice: verified during Current-State Analysis that neither is retrievable. `VSP.UI` never invokes `IDiscoveryRunner` (the shipped Discovery workspace calls `DiscoveryOrchestrator` directly, per the Epic-006 refactor), and every `IDiscoverySessionSink`/`IDiscoveryMetricsSink`/`IDiscoveryDiagnosticsSink` implementation that exists is a no-op. `RegistrationSource` is never persisted onto `Camera`. None of this data exists to show, so nothing claims to show it.
+- **Per Product Owner refinement, `Camera.Recording` is omitted entirely from `CameraDashboardSummary`** — not included and not labeled "Not implemented," simply absent, since it was outside the approved v1 field list. Verified during Current-State Analysis that no production code path ever sets it `true`.
+- "Unknown" status bucket is `CameraStatus.Connecting`/`CameraStatus.Error` (any status that is neither `Online` nor `Offline`) — an explicit interpretation of the Product Owner's "Online / Offline / Unknown" wording, stated here rather than left implicit.
+- No charts, no live thumbnails, no new package, no database schema change — plain WPF tiles/lists matching existing card styling, consistent with the approved constraint.
+- Added `CameraDashboardSummaryBuilderTests` (10 tests, pure-logic, thorough: empty input, status bucketing, online-rate rounding, grouping, driver coverage, recency ordering/limiting, null-argument guards) and `DashboardViewModelTests` (6 tests: load-once semantics, refresh-always-reloads, error state on repository failure, error-state recovery on next successful refresh).
+- Full suite: 547/547 passing (532 pre-existing + 15 new), stable across 2 consecutive runs. Build passing.
+
+Files:
+- Docs/SPECS/EPIC-009_DASHBOARD_REALITY.md
+- VSP.Device/Services/CameraDashboardSummary.cs
+- VSP.Device/Services/CameraCategoryCount.cs
+- VSP.Device/Services/CameraSummaryEntry.cs
+- VSP.Device/Services/CameraDashboardSummaryBuilder.cs
+- VSP.UI/ViewModels/DashboardViewModel.cs
+- VSP.UI/Views/DashboardView.xaml
+- VSP.UI/Views/DashboardView.xaml.cs
+- VSP.Tests/Services/CameraDashboardSummaryBuilderTests.cs
+- VSP.Tests/Camera/DashboardViewModelTests.cs
+- Docs/CHANGELOG.md
+
+Known limitations (not addressed — out of approved scope for this Epic):
+- No Discovery activity history, Last Scan, Found Devices, or Discovery-added counts — the underlying data does not exist (see Summary above), not merely deferred.
+- No registration-provenance breakdown — `RegistrationSource` is never persisted.
+- No Recording metric of any kind.
+- Not manually smoke-tested in a running instance of the application — WPF's interactive GUI is outside what this environment can exercise directly; verification here is build + full automated test suite only, consistent with how Epic-008 was reported.
+- No charts/graphs; plain numeric tiles and lists only, per approved constraint.
+
+---
 
 ### Version 1.12 - Epic-008 Driver Settings UI
 

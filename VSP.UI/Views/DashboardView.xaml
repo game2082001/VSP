@@ -1,14 +1,218 @@
-﻿<UserControl x:Class="VSP.UI.Views.DashboardView"
+<UserControl x:Class="VSP.UI.Views.DashboardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="#1E1E1E">
 
-	<Grid Background="#1E1E1E">
-		<TextBlock Text="Dashboard"
-                   Foreground="White"
-                   FontSize="28"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"/>
-	</Grid>
+    <UserControl.Resources>
+        <Style x:Key="TileBorder" TargetType="Border">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
 
+        <Style x:Key="KpiValueText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style x:Key="KpiLabelText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#B0B0B0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+
+        <Style x:Key="SectionTitleText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+
+        <Style x:Key="CategoryRow" TargetType="Grid">
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <DataTemplate x:Key="CategoryCountTemplate">
+            <Grid Style="{StaticResource CategoryRow}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Category}" Foreground="White"/>
+                <TextBlock Grid.Column="1" Text="{Binding Count}" Foreground="#B0B0B0"/>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="RecentEntryTemplate">
+            <Grid Style="{StaticResource CategoryRow}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="{Binding Name}" Foreground="White"/>
+                    <TextBlock Text="{Binding IpAddress}" Foreground="#808080" FontSize="11"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm'}"
+                           Foreground="#B0B0B0"
+                           VerticalAlignment="Top"/>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Style="{StaticResource TileBorder}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Dashboard"
+                           Foreground="White"
+                           FontSize="22"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
+
+                <StackPanel Grid.Column="1" Margin="0,0,16,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="#B0B0B0" FontSize="12" HorizontalAlignment="Right">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasError}" Value="True">
+                                        <Setter Property="Foreground" Value="#FF6B6B"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Foreground="#808080" FontSize="11" HorizontalAlignment="Right">
+                        <Run Text="Last refreshed: "/>
+                        <Run Text="{Binding LastRefreshedText, Mode=OneWay}"/>
+                    </TextBlock>
+                </StackPanel>
+
+                <Button Grid.Column="2"
+                        Content="Refresh"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding RefreshCommand}"
+                        VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Margin="0,16,0,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- KPI row -->
+                <UniformGrid Columns="5" Margin="0,0,0,16">
+                    <Border Style="{StaticResource TileBorder}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Summary.TotalCameras}" Style="{StaticResource KpiValueText}"/>
+                            <TextBlock Text="Total Cameras" Style="{StaticResource KpiLabelText}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource TileBorder}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Summary.OnlineCount}" Style="{StaticResource KpiValueText}"/>
+                            <TextBlock Text="Online" Style="{StaticResource KpiLabelText}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource TileBorder}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Summary.OfflineCount}" Style="{StaticResource KpiValueText}"/>
+                            <TextBlock Text="Offline" Style="{StaticResource KpiLabelText}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource TileBorder}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Summary.UnknownStatusCount}" Style="{StaticResource KpiValueText}"/>
+                            <TextBlock Text="Unknown" Style="{StaticResource KpiLabelText}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource TileBorder}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Summary.OnlineRatePercent, StringFormat='{}{0}%'}" Style="{StaticResource KpiValueText}"/>
+                            <TextBlock Text="Online Rate" Style="{StaticResource KpiLabelText}"/>
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <!-- By Connection Type / By Brand -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Style="{StaticResource TileBorder}">
+                        <StackPanel>
+                            <TextBlock Text="Cameras by Connection Type" Style="{StaticResource SectionTitleText}"/>
+                            <ItemsControl ItemsSource="{Binding Summary.ByConnectionType}" ItemTemplate="{StaticResource CategoryCountTemplate}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource TileBorder}">
+                        <StackPanel>
+                            <TextBlock Text="Cameras by Brand" Style="{StaticResource SectionTitleText}"/>
+                            <ItemsControl ItemsSource="{Binding Summary.ByBrand}" ItemTemplate="{StaticResource CategoryCountTemplate}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Driver coverage -->
+                <Border Style="{StaticResource TileBorder}" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="Driver Coverage" Style="{StaticResource SectionTitleText}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Summary.ImplementedDriverCameraCount}" Style="{StaticResource KpiValueText}"/>
+                                <TextBlock Text="Cameras with an implemented driver" Style="{StaticResource KpiLabelText}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{Binding Summary.UnimplementedDriverCameraCount}" Style="{StaticResource KpiValueText}"/>
+                                <TextBlock Text="Cameras with an unimplemented driver" Style="{StaticResource KpiLabelText}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Recently added / modified -->
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Style="{StaticResource TileBorder}">
+                        <StackPanel>
+                            <TextBlock Text="Recently Added" Style="{StaticResource SectionTitleText}"/>
+                            <ItemsControl ItemsSource="{Binding Summary.RecentlyAdded}" ItemTemplate="{StaticResource RecentEntryTemplate}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource TileBorder}">
+                        <StackPanel>
+                            <TextBlock Text="Recently Modified" Style="{StaticResource SectionTitleText}"/>
+                            <ItemsControl ItemsSource="{Binding Summary.RecentlyModified}" ItemTemplate="{StaticResource RecentEntryTemplate}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

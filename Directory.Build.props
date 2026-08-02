@@ -1,0 +1,12 @@
+<Project>
+
+  <!--
+    Single source of truth for the product version across every project in the solution
+    (Epic-013 Deployment Foundation). VSP becomes 1.0.0 only when all V1.0 GA requirements
+    are complete and the Product Owner formally approves GA; see Docs/03_PRODUCT_ROADMAP.md.
+  -->
+  <PropertyGroup>
+    <Version>0.15.0</Version>
+  </PropertyGroup>
+
+</Project>

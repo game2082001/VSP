@@ -185,6 +185,9 @@ publish/
 # Note: Comment the next line if you want to checkin your web deploy settings,
 # but database connection strings (with potential passwords) will be unencrypted
 *.pubxml
+# Epic-013 Deployment Foundation: the win-x64 self-contained publish profile is the intentional,
+# checked-in, repeatable publish process for VSP.UI (no secrets, just RID/self-contained flags).
+!VSP.UI/Properties/PublishProfiles/win-x64.pubxml
 *.publishproj
 
 # Microsoft Azure Web App publish settings. Comment the next line if you want to

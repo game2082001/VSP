@@ -1,11 +1,16 @@
 ﻿using System.Collections.ObjectModel;
+using System.Windows.Threading;
 using VSP.Core.MVVM;
+using VSP.UI.Services;
 using VSP.UI.Views;
 
 namespace VSP.UI.ViewModels;
 
 public class MainWindowViewModel : ObservableObject
 {
+    private readonly LiveViewCameraCoordinator _liveViewCoordinator = new();
+    private readonly LiveView _liveView;
+
     public ObservableCollection<NavigationItem> Navigation { get; } = new();
 
     private NavigationItem? _selectedItem;
@@ -32,6 +37,8 @@ public class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel()
     {
+        _liveView = new LiveView(new LiveViewViewModel(Dispatcher.CurrentDispatcher));
+
         Navigation.Add(new NavigationItem
         {
             Title = "Dashboard",
@@ -39,12 +46,13 @@ public class MainWindowViewModel : ObservableObject
             View = new DashboardView()
         });
 
-        Navigation.Add(new NavigationItem
+        var liveViewNavigationItem = new NavigationItem
         {
             Title = "Live View",
             Icon = "Video",
-            View = new LiveView()
-        });
+            View = _liveView
+        };
+        Navigation.Add(liveViewNavigationItem);
 
         Navigation.Add(new NavigationItem
         {
@@ -57,7 +65,7 @@ public class MainWindowViewModel : ObservableObject
         {
             Title = "Devices",
             Icon = "Server",
-            View = new CameraListView()
+            View = new CameraListView(_liveViewCoordinator)
         });
 
         Navigation.Add(new NavigationItem
@@ -68,5 +76,11 @@ public class MainWindowViewModel : ObservableObject
         });
 
         SelectedItem = Navigation[0];
+
+        _liveViewCoordinator.CameraSelected += camera =>
+        {
+            _liveView.LoadCamera(camera);
+            SelectedItem = liveViewNavigationItem;
+        };
     }
 }
