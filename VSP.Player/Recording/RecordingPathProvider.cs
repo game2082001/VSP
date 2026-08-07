@@ -1,5 +1,5 @@
 using System.IO;
-using System.Text.Json;
+using VSP.Core.Configuration;
 
 namespace VSP.Player.Recording;
 
@@ -9,12 +9,16 @@ namespace VSP.Player.Recording;
 /// <c>%LocalAppData%\VSP</c> if present, otherwise falls back to a fixed default. No Settings
 /// UI, no folder browsing, no SQLite: intentionally the smallest seam that avoids hardcoding
 /// the root for this and future Epics, per the approved Epic-011 scope.
+///
+/// File I/O for <c>recording-settings.json</c> is delegated to <see cref="SettingsFileStore"/>
+/// (<c>VSP.Core.Configuration</c>), shared with <c>VSP.Infrastructure.Settings.AppSettingsProvider</c>'s
+/// Settings UI so the file has exactly one reader/writer implementation, per Epic-016. This
+/// class's public API and every observable behavior -- default resolution, blank/malformed-value
+/// fallback, directory creation -- are unchanged; only this internal implementation detail
+/// changed (Epic-016 Approval Record).
 /// </summary>
 internal static class RecordingPathProvider
 {
-    private const string ConfigFileName = "recording-settings.json";
-    private const string RecordingsFolderName = "Recordings";
-
     private static readonly string DefaultConfigDirectory =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VSP");
 
@@ -23,10 +27,9 @@ internal static class RecordingPathProvider
     /// <summary>Test seam: resolves against an arbitrary config directory instead of %LocalAppData%\VSP.</summary>
     internal static string GetRecordingRoot(string configDirectory)
     {
-        var defaultRoot = Path.Combine(configDirectory, RecordingsFolderName);
-        var configFilePath = Path.Combine(configDirectory, ConfigFileName);
+        var defaultRoot = RecordingRootDefaults.Compute(configDirectory);
 
-        var root = ReadConfiguredRoot(configFilePath) ?? defaultRoot;
+        var root = ReadConfiguredRoot(configDirectory) ?? defaultRoot;
         Directory.CreateDirectory(root);
         return root;
     }
@@ -46,30 +49,21 @@ internal static class RecordingPathProvider
         return cameraDirectory;
     }
 
-    private static string? ReadConfiguredRoot(string configFilePath)
+    private static string? ReadConfiguredRoot(string configDirectory)
     {
         try
         {
-            if (!File.Exists(configFilePath))
-            {
-                return null;
-            }
-
-            var json = File.ReadAllText(configFilePath);
-            var settings = JsonSerializer.Deserialize<RecordingSettingsFile>(json);
-            return string.IsNullOrWhiteSpace(settings?.RecordingRoot) ? null : settings.RecordingRoot;
+            var configuredRoot = new SettingsFileStore(configDirectory).Load().RecordingRoot;
+            return string.IsNullOrWhiteSpace(configuredRoot) ? null : configuredRoot;
         }
         catch (Exception)
         {
             // A malformed or unreadable config falls back to the default root rather than
             // failing recording outright -- the same best-effort convention already used by
-            // MediaController's shutdown/cleanup paths.
+            // MediaController's shutdown/cleanup paths. SettingsFileStore.Load() already
+            // catches and logs malformed/unreadable files itself; this catch is a defensive
+            // backstop only, preserving this method's original never-throws contract exactly.
             return null;
         }
-    }
-
-    private sealed class RecordingSettingsFile
-    {
-        public string? RecordingRoot { get; set; }
     }
 }

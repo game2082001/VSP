@@ -2,19 +2,30 @@
 using System.Windows;
 using System.Windows.Threading;
 using VSP.Core.Logging;
+using VSP.Device.Interfaces;
+using VSP.Device.Repositories;
+using VSP.Domain.Entities;
 using VSP.Infrastructure.Database;
+using VSP.Infrastructure.Settings;
+using VSP.UI.Services;
+using VSP.UI.ViewModels;
+using VSP.UI.Views;
 
 namespace VSP.UI;
 
 public partial class App : Application
 {
     private FileLogger? _logger;
+    private IUserRepository? _userRepository;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
         InitializeLogging();
+
+        var appSettings = new AppSettingsProvider().Load();
+        ThemeService.Apply(appSettings.Theme);
 
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         DispatcherUnhandledException += OnDispatcherUnhandledException;
@@ -30,6 +41,92 @@ public partial class App : Application
             return;
         }
 
+        _userRepository = new UserRepository();
+        StartSession();
+    }
+
+    /// <summary>
+    /// Epic-018 Milestone 18C: one full Login -> (optional Forced Password Change) -> MainWindow
+    /// cycle. Recurses on Logout (MainWindowViewModel.LogoutRequested) to show a fresh
+    /// LoginWindow without restarting the process (§4.9) -- each cycle constructs a brand new
+    /// MainWindowViewModel/MainWindow pair, so nothing from the previous session is reused.
+    /// Any exit other than Logout (closing LoginWindow/ForcedPasswordChangeWindow via the title
+    /// bar X, or closing MainWindow itself) calls Shutdown() and does not recurse.
+    /// </summary>
+    private void StartSession()
+    {
+        var authenticatedUser = ShowLoginWindow(_userRepository!);
+        if (authenticatedUser is null)
+        {
+            Shutdown();
+            return;
+        }
+
+        if (authenticatedUser.MustChangePassword && !ShowForcedPasswordChangeWindow(authenticatedUser, _userRepository!))
+        {
+            Shutdown();
+            return;
+        }
+
+        // Milestone 18D: a brand new SessionService per login -- never reused across a Logout,
+        // matching MainWindowViewModel/MainWindow's own "construct fresh every cycle" convention.
+        var sessionService = new SessionService();
+        sessionService.Start(authenticatedUser);
+
+        var mainWindowViewModel = new MainWindowViewModel(sessionService);
+        var mainWindow = new MainWindow(mainWindowViewModel);
+        var isLoggingOut = false;
+
+        mainWindowViewModel.LogoutRequested += () =>
+        {
+            isLoggingOut = true;
+            mainWindow.Close();
+        };
+
+        mainWindow.Closed += (_, _) =>
+        {
+            if (isLoggingOut)
+            {
+                StartSession();
+            }
+            else
+            {
+                Shutdown();
+            }
+        };
+
+        MainWindow = mainWindow;
+        mainWindow.Show();
+    }
+
+    /// <summary>
+    /// Epic-018 §4.2/§4.3: MainWindow must never be constructed until this returns a non-null
+    /// User. Blocking via ShowDialog (not Show) is what guarantees no other startup code runs
+    /// concurrently with an unauthenticated session. Closing this window via the title bar X
+    /// (ShowDialog returns null, not true) is indistinguishable here from a plain failed login --
+    /// both return null, and the caller shuts the app down either way.
+    /// </summary>
+    private static User? ShowLoginWindow(IUserRepository userRepository)
+    {
+        var viewModel = new LoginViewModel(userRepository);
+        var window = new LoginWindow(viewModel);
+
+        return window.ShowDialog() == true ? viewModel.AuthenticatedUser : null;
+    }
+
+    /// <summary>
+    /// Epic-018 §4.18 (Decision 5): a second blocking gate, only shown when the just-authenticated
+    /// user has MustChangePassword set. Closing this window any way other than a successful
+    /// change (including the title bar's X button) returns false here, which aborts startup via
+    /// Shutdown() in the caller -- there is no path from this window into MainWindow other than
+    /// completing the change.
+    /// </summary>
+    private static bool ShowForcedPasswordChangeWindow(User user, IUserRepository userRepository)
+    {
+        var viewModel = new ForcedPasswordChangeViewModel(user, userRepository);
+        var window = new ForcedPasswordChangeWindow(viewModel);
+
+        return window.ShowDialog() == true;
     }
 
     /// <summary>

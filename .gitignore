@@ -21,6 +21,12 @@ mono_crash.*
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
+# Docs/RELEASES/ is source-controlled release-readiness documentation, not build output --
+# [Rr]eleases/ above (standard VS build-output rule, intended for bin/Release(s)/) matches it
+# case-insensitively on this repo's git config. Confirmed no other "Releases"-named directory
+# exists anywhere in the tree, so this exception is scoped and safe.
+!Docs/RELEASES/
+!Docs/RELEASES/**
 x64/
 x86/
 [Ww][Ii][Nn]32/

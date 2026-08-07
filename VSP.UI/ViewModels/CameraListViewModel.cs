@@ -5,6 +5,7 @@ using VSP.Core.Commands;
 using VSP.Core.MVVM;
 using VSP.Device.Services;
 using VSP.Domain.Entities;
+using VSP.Domain.Enums;
 using VSP.UI.Services;
 
 namespace VSP.UI.ViewModels;
@@ -13,6 +14,7 @@ public class CameraListViewModel : ObservableObject
 {
     private readonly CameraQueryService _cameraQueryService;
     private readonly LiveViewCameraCoordinator? _liveViewCoordinator;
+    private readonly Role _role;
     private readonly List<CameraListItemViewModel> _allCameras = new();
 
     private string _title = "Camera List";
@@ -77,6 +79,8 @@ public class CameraListViewModel : ObservableObject
 
     private bool _isLoaded;
 
+    public Role Role => _role;
+
     public ObservableCollection<CameraListItemViewModel> Cameras { get; } = new();
     public IReadOnlyList<string> BrandOptions { get; } = new[] { "All", "Hikvision", "Dahua", "VIVOTEK" };
     public IReadOnlyList<string> StatusOptions { get; } = new[] { "All", "Online", "Offline" };
@@ -117,19 +121,23 @@ public class CameraListViewModel : ObservableObject
     public event Action<IReadOnlyList<Camera>>? RequestBatchConnectionTest;
     public event Action<IReadOnlyList<Camera>>? RequestExport;
 
-    public CameraListViewModel(CameraQueryService cameraQueryService, LiveViewCameraCoordinator? liveViewCoordinator = null)
+    // Role defaults to Admin -- preserves every pre-Epic-018 call site/test's existing
+    // full-featured behavior unchanged; the two real production call sites (CameraListView.xaml.cs)
+    // always pass the authenticated user's actual role explicitly.
+    public CameraListViewModel(CameraQueryService cameraQueryService, LiveViewCameraCoordinator? liveViewCoordinator = null, Role role = Role.Admin)
     {
         _cameraQueryService = cameraQueryService;
         _liveViewCoordinator = liveViewCoordinator;
+        _role = role;
         SearchCommand = new RelayCommand(ApplySearch);
         ClearCommand = new RelayCommand(ClearSearch);
         RefreshCommand = new RelayCommand(() => _ = RefreshAsync());
-        AddCameraCommand = new RelayCommand(RaiseAddCameraRequest);
-        ImportCommand = new RelayCommand(RaiseImportRequest);
-        BatchEditCommand = new RelayCommand(RaiseBatchEditRequest, () => SelectedItemCount >= 2);
-        BatchConnectionTestCommand = new RelayCommand(RaiseBatchConnectionTestRequest, () => SelectedItemCount >= 1);
-        ExportCommand = new RelayCommand(RaiseExportRequest, () => Cameras.Count > 0);
-        ShowDiscoveryCommand = new RelayCommand(() => IsShowingDiscovery = true);
+        AddCameraCommand = new RelayCommand(RaiseAddCameraRequest, () => _role == Role.Admin);
+        ImportCommand = new RelayCommand(RaiseImportRequest, () => _role == Role.Admin);
+        BatchEditCommand = new RelayCommand(RaiseBatchEditRequest, () => SelectedItemCount >= 2 && _role == Role.Admin);
+        BatchConnectionTestCommand = new RelayCommand(RaiseBatchConnectionTestRequest, () => SelectedItemCount >= 1 && _role == Role.Admin);
+        ExportCommand = new RelayCommand(RaiseExportRequest, () => Cameras.Count > 0 && _role == Role.Admin);
+        ShowDiscoveryCommand = new RelayCommand(() => IsShowingDiscovery = true, () => _role == Role.Admin);
         ShowCameraListCommand = new RelayCommand(() => IsShowingDiscovery = false);
         ViewLiveCommand = new RelayCommand(RaiseViewLiveRequest, () => SelectedCamera is not null);
     }

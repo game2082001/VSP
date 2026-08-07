@@ -10,6 +10,48 @@ namespace VSP.Tests.Camera;
 
 public class CameraDetailViewModelTests
 {
+    // Epic-018 Milestone 18C: with an Operator role, Edit/Save/Delete all report
+    // CanExecute() == false -- Operator gets a read-only Camera Detail (§4.5/§8.4).
+    // TestConnectionCommand is deliberately unaffected (inspects connectivity, does not modify
+    // stored camera data).
+    [Fact]
+    public void OperatorRole_EditSaveDeleteCommands_AllReportCannotExecute()
+    {
+        var viewModel = new CameraDetailViewModel(CreateCamera(), new FakeCameraRepository(), Role.Operator);
+
+        Assert.False(viewModel.EditCommand.CanExecute(null));
+        Assert.False(viewModel.SaveCommand.CanExecute(null));
+        Assert.False(viewModel.DeleteCommand.CanExecute(null));
+        Assert.True(viewModel.TestConnectionCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void OperatorRole_EditCommandExecuted_DoesNotEnterEditMode()
+    {
+        // Defense in depth: even if something invoked Execute() directly bypassing the disabled
+        // UI button, EnterEditMode's own CanExecute-guarded command should never have been wired
+        // to actually change state for Operator. RelayCommand.Execute does not itself consult
+        // CanExecute, so this documents that Save stays blocked even if Edit were forced open.
+        var viewModel = new CameraDetailViewModel(CreateCamera(), new FakeCameraRepository(), Role.Operator);
+
+        viewModel.EditCommand.Execute(null);
+
+        Assert.False(viewModel.SaveCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void AdminRole_EditSaveDeleteCommands_UnaffectedRegressionGuard()
+    {
+        var viewModel = new CameraDetailViewModel(CreateCamera(), new FakeCameraRepository(), Role.Admin);
+
+        Assert.True(viewModel.EditCommand.CanExecute(null));
+        Assert.True(viewModel.DeleteCommand.CanExecute(null));
+
+        viewModel.EditCommand.Execute(null);
+
+        Assert.True(viewModel.SaveCommand.CanExecute(null));
+    }
+
     [Fact]
     public void Constructor_MapsCameraFields()
     {

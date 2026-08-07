@@ -29,4 +29,10 @@ public class DatabaseService
         return new SqliteConnection(
             $"Data Source={_databaseFile}");
     }
+
+    /// <summary>Full path to the live database file (Epic-017) -- does not guarantee the file exists.</summary>
+    public string GetDatabaseFilePath() => _databaseFile;
+
+    /// <summary>Directory the live database file lives in (Epic-017) -- does not guarantee the directory exists.</summary>
+    public string GetDatabaseDirectory() => _databaseDirectory;
 }

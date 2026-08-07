@@ -7,6 +7,7 @@ using VSP.Device.Interfaces;
 using VSP.Device.Repositories;
 using VSP.Device.Services;
 using VSP.Domain.Entities;
+using VSP.Domain.Enums;
 using VSP.UI.Helpers;
 using VSP.UI.Services;
 using VSP.UI.ViewModels;
@@ -17,22 +18,24 @@ public partial class CameraListView : UserControl
 {
     private readonly CameraListViewModel _viewModel;
     private readonly ICameraRepository _cameraRepository;
+    private readonly Role _role;
 
     public CameraListView()
-        : this(new CameraListViewModel(new CameraQueryService(new CameraRepository())), new CameraRepository())
+        : this(new CameraListViewModel(new CameraQueryService(new CameraRepository())), new CameraRepository(), Role.Admin)
     {
     }
 
-    public CameraListView(LiveViewCameraCoordinator liveViewCoordinator)
-        : this(new CameraListViewModel(new CameraQueryService(new CameraRepository()), liveViewCoordinator), new CameraRepository())
+    public CameraListView(LiveViewCameraCoordinator liveViewCoordinator, Role role)
+        : this(new CameraListViewModel(new CameraQueryService(new CameraRepository()), liveViewCoordinator, role), new CameraRepository(), role)
     {
     }
 
-    internal CameraListView(CameraListViewModel viewModel, ICameraRepository cameraRepository)
+    internal CameraListView(CameraListViewModel viewModel, ICameraRepository cameraRepository, Role role)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _cameraRepository = cameraRepository;
+        _role = role;
         DataContext = _viewModel;
         _viewModel.RequestAddCamera += HandleRequestAddCamera;
         _viewModel.RequestImport += HandleRequestImport;
@@ -60,7 +63,7 @@ public partial class CameraListView : UserControl
             return;
         }
 
-        var detailViewModel = new CameraDetailViewModel(_viewModel.SelectedCamera.SourceCamera, _cameraRepository);
+        var detailViewModel = new CameraDetailViewModel(_viewModel.SelectedCamera.SourceCamera, _cameraRepository, _role);
         var detailWindow = new CameraDetailWindow(detailViewModel)
         {
             Owner = Window.GetWindow(this)
@@ -76,7 +79,7 @@ public partial class CameraListView : UserControl
 
     private async void HandleRequestAddCamera()
     {
-        var detailViewModel = new CameraDetailViewModel(_cameraRepository);
+        var detailViewModel = new CameraDetailViewModel(_cameraRepository, _role);
         var detailWindow = new CameraDetailWindow(detailViewModel)
         {
             Owner = Window.GetWindow(this)

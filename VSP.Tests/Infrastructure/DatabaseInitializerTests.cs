@@ -1,5 +1,8 @@
 using VSP.Core.Logging;
+using VSP.Core.Security;
+using VSP.Domain.Enums;
 using VSP.Infrastructure.Database;
+using VSP.Infrastructure.Repositories;
 using VSP.Tests.Logging;
 using Xunit;
 
@@ -36,6 +39,35 @@ public class DatabaseInitializerTests : IDisposable
 
         Assert.False(result.Success);
         Assert.NotNull(result.Exception);
+    }
+
+    [Fact]
+    public void Initialize_OnFreshDatabase_SeedsExactlyOneDefaultAdmin()
+    {
+        var databaseService = new DatabaseService(_tempDirectory);
+        var initializer = new DatabaseInitializer(databaseService);
+
+        initializer.Initialize();
+
+        var users = new SQLiteUserRepository(databaseService).GetAll();
+        var admin = Assert.Single(users);
+        Assert.Equal("admin", admin.Username);
+        Assert.Equal(Role.Admin, admin.Role);
+        Assert.True(admin.MustChangePassword);
+        Assert.True(PasswordHasher.Verify("admin", admin.PasswordHash, admin.PasswordSalt, admin.PasswordIterations));
+    }
+
+    [Fact]
+    public void Initialize_CalledTwice_DoesNotReSeedDefaultAdmin()
+    {
+        var databaseService = new DatabaseService(_tempDirectory);
+        var initializer = new DatabaseInitializer(databaseService);
+
+        initializer.Initialize();
+        initializer.Initialize();
+
+        var users = new SQLiteUserRepository(databaseService).GetAll();
+        Assert.Single(users);
     }
 
     [Fact]

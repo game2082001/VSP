@@ -22,7 +22,29 @@
         <!-- Title -->
         <Border Grid.Row="0"
                 Grid.ColumnSpan="2"
-                Background="#252526"/>
+                Background="#252526">
+            <DockPanel LastChildFill="False" Margin="16,0">
+                <TextBlock DockPanel.Dock="Left"
+                           Text="VSP"
+                           Foreground="White"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
+
+                <Button DockPanel.Dock="Right"
+                        Content="Logout"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding LogoutCommand}"
+                        VerticalAlignment="Center"/>
+
+                <TextBlock DockPanel.Dock="Right"
+                           Text="{Binding CurrentUser.Username}"
+                           Foreground="#B0B0B0"
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           Margin="0,0,12,0"/>
+            </DockPanel>
+        </Border>
 
         <!-- Navigation -->
 

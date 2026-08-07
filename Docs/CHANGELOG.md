@@ -1,5 +1,133 @@
 ﻿# CHANGELOG
 
+## 2026-08-06 (Epic-017)
+
+### Version 0.17.0 - Epic-017 Database Backup / Restore Foundation
+
+Status:
+Implementation Complete — Product Owner Accepted — **Frozen** (uncommitted — pending user commit)
+
+Summary:
+- Objective: a minimal, manual Backup/Restore capability for VSP's one SQLite database (`%LocalAppData%\VSP\vsp.db`) — a user can manually create a backup at a destination of their choosing and manually restore from a backup file of their choosing, with a destructive-action confirmation, pre-replacement validation, and a guarantee that a failed Restore never leaves the app without a usable database.
+- `VSP.Infrastructure/Database/DatabaseBackupService.cs`: Backup via `SqliteConnection.BackupDatabase` (the SQLite Online Backup API), safe against a live, in-use database — never blocked by an active recording. `DatabaseRestoreService.cs`: `ValidateBackupFile` applies the six-point checklist (exists, non-empty, not the live file, opens read-only, `integrity_check = ok`, `Camera` table present); `Install` executes the nine-step validate/confirm/rename-aside/stage/install/re-validate/rollback flow — same-volume atomic `File.Move`, `SqliteConnection.ClearAllPools()` before touching the live file, and a rollback that renames the pre-restore copy back into place on any failure from the install step onward.
+- `SettingsViewModel` gains `BackupCommand`/`RestoreCommand` and four new injected delegates (two file pickers in `SettingsView.xaml.cs` via `SaveFileDialog`/`OpenFileDialog`, `confirmRestore`, `showRestartRequiredAndExit`); `MainWindowViewModel` wires them, matching the existing `confirmCreateFolder` delegate-injection convention. Restore is blocked while a recording is active with a clear message; a successful Restore shows a restart-required message and terminates cleanly (`Environment.Exit(0)`) once acknowledged — no automatic relaunch.
+- Manual Validation (2026-08-06) against the actual built `VSP.UI.exe` and the real `%LocalAppData%\VSP\vsp.db` (safety backup taken first) — **6/6 Pass** on the 6 items executed. Item 7 (a forced-filesystem-failure rollback proof under real conditions) was deliberately deferred by explicit Product Owner decision as outside required V1.0 GA acceptance scope — not a failure, not attempted; two automated tests already prove rollback at two other forced-failure points. Full transcript in `Docs/SPECS/EPIC-017_DATABASE_BACKUP_RESTORE_FOUNDATION.md` §11-14.
+- A pre-existing, unrelated bug was found and fixed during acceptance prep: `Directory.Build.props` contained `--` inside an XML comment (invalid XML), breaking every project's build. Corrected the punctuation only — no other change to that file's content.
+
+Technical Debt / Known Limitations:
+- No manual, real-filesystem proof of the Restore rollback guarantee specifically at the post-install re-validation step (step 7) — deferred by Product Owner decision; tracked as a future regression/robustness test. Two automated tests cover rollback at two other forced-failure points instead.
+- Settings, and therefore Backup/Restore, is Admin-only (Epic-018) — Operators cannot reach this screen at all.
+- Backup files are unencrypted and carry the live database's plaintext camera credentials forward — a carried-forward, not new, exposure; encryption explicitly out of scope for v1.0.
+- No scheduled/cloud backup, no recording-file/settings-file backup, no backup-history management or pruning, no import/merge Restore, no self-relaunch after Restore — all explicitly out of scope for v1.0 by Product Owner direction.
+
+Verification:
+- New tests: `DatabaseBackupServiceTests`, `DatabaseRestoreServiceTests` (26 tests total, including two forced-I/O-failure rollback tests).
+- Full suite: 758/758 effectively passing on a clean (`dotnet clean` + from-scratch `dotnet build -c Release`) rebuild — the one full-suite failure is the same pre-existing, unrelated FFmpeg/RTSP timing flake documented in Epic-018, confirmed passing in isolation.
+- Manual validation (2026-08-06) against the actual built `VSP.UI.exe`: 6/6 Pass on executed items, 1 item deliberately deferred by Product Owner decision. See `Docs/SPECS/EPIC-017_DATABASE_BACKUP_RESTORE_FOUNDATION.md` §11 for the full script and results, and §12-14 for the Product Acceptance Report, Final Validation Summary, and Known Limitations.
+
+Files:
+- VSP.Infrastructure/Database/DatabaseBackupService.cs, DatabaseBackupResult.cs, DatabaseRestoreService.cs, DatabaseRestoreResult.cs (new)
+- VSP.Infrastructure/Database/DatabaseService.cs (`GetDatabaseFilePath()`/`GetDatabaseDirectory()`, additive)
+- VSP.UI/ViewModels/SettingsViewModel.cs, VSP.UI/Views/SettingsView.xaml/.xaml.cs, VSP.UI/ViewModels/MainWindowViewModel.cs
+- VSP.Tests/Infrastructure/DatabaseBackupServiceTests.cs, DatabaseRestoreServiceTests.cs (new)
+- Directory.Build.props (pre-existing XML-comment fix; `<Version>` deliberately left at 0.18.0 — see file comment, versioning-scheme decision flagged to Product Owner rather than made unilaterally)
+- Docs/CHANGELOG.md, Docs/03_PRODUCT_ROADMAP.md, Docs/PRODUCT_CAPABILITY_MATRIX.md, Docs/SPECS/EPIC-017_DATABASE_BACKUP_RESTORE_FOUNDATION.md
+
+---
+
+## 2026-08-06 (Epic-018)
+
+### Version 0.18.0 - Epic-018 User / Role Management Foundation
+
+Status:
+Implementation Complete — Product Owner Accepted — **Frozen** (uncommitted — pending user commit)
+
+Summary:
+- Objective: a minimal Admin/Operator authentication and permission gate — a Login screen in front of the existing `MainWindow`, a `User` table (hashed password, role, forced-change flag), and role-based visibility/enablement of the navigation and commands already shipped by Epic-014 through Epic-017. Exactly two roles (Admin, Operator), local username/password only — no LDAP/AD/OAuth/JWT/MFA/SSO, no generic permission engine, no User Management UI.
+- `VSP.Core/Security/PasswordHasher.cs`: PBKDF2-HMACSHA256 via the .NET BCL (`Rfc2898DeriveBytes.Pbkdf2`), 210,000 iterations, 16-byte per-user random salt, zero new external package. `VSP.Infrastructure/SQLite/UserTable.cs` + `DefaultAdminSeeder`: one additive table, one seeded row (`admin`, `MustChangePassword = 1`) — no default Operator row (Decision 3).
+- `LoginViewModel`/`LoginWindow` gate `MainWindow` construction entirely — `App.xaml.cs`'s `OnStartup` never constructs `MainWindow` until a successful login (and, for the seeded Admin's first login, a completed mandatory `ForcedPasswordChangeWindow`, Decision 5) — both are non-dismissable blocking gates, not merely hidden windows. Identical generic rejection message for wrong username/wrong password (no username-enumeration signal); both success and failure are logged (Decision 6), with no password/hash/salt ever logged.
+- Permission enforcement is two plain, inline boolean checks — no `IPermissionService`, no attribute-based authorization: (a) nav-item-level, `MainWindowViewModel`'s Settings item added only for Admin; (b) command-level `CanExecute` gating on `CameraListViewModel` (Add/Import/Batch Edit/Batch Connection Test/Export/Discovery), `CameraDetailViewModel` (Edit/Save/Delete — Operator gets read-only Camera Detail, Decision 4), and `LiveViewViewModel` (Start/Stop Recording, Decision 1). `SessionService` (Milestone 18D) is the single owner of `CurrentUser` for the lifetime of `MainWindow`; Logout requires confirmation and reconstructs a brand-new `MainWindowViewModel`/`SessionService`/`LiveViewViewModel` object graph, discarding all previous session state.
+- Manual Validation (2026-08-05/06) against the actual built `VSP.UI.exe` and the real `%LocalAppData%\VSP\vsp.db` (migrated in place, pre-Epic-018 backup taken first) — **12/12 Pass**. One item (Operator Recording restriction) was initially reported failing; investigated end-to-end before touching any production file, found to be a stale-executable false positive (the tester's first pass ran against a non-current build), confirmed passing on re-test against the documented `VSP.UI\bin\Release\net10.0-windows\VSP.UI.exe` path after a clean (`dotnet clean` + from-scratch build) rebuild. No production code was changed by this investigation. Full transcript in `Docs/SPECS/EPIC-018_USER_ROLE_MANAGEMENT_FOUNDATION.md` §11-14.
+
+Technical Debt / Known Limitations:
+- No way to reach the Operator role through normal application use in v1.0 — no default Operator account is seeded and no account-creation UI exists (Decisions 2 & 3); requires direct database manipulation. Natural scope for a future User Management Epic.
+- No self-service/discretionary Change Password — only the mandatory, login-triggered Forced Password Change screen exists (Decision 2 + 5 combined).
+- No end-to-end `MainWindowViewModel`/View automated test — this codebase has no STA test infrastructure; covered by manual validation plus STA-free unit tests of every underlying gated command instead.
+- No account lockout, no idle session timeout, no "remember me" — all explicitly out of scope for v1.0 by Product Owner direction.
+
+Verification:
+- New tests: `PasswordHasherTests`, `SQLiteUserRepositoryTests`, `LoginViewModelTests`, `ForcedPasswordChangeViewModelTests`, `SessionServiceTests`; extended `DatabaseInitializerTests`, `CameraListViewModelTests`, `CameraDetailViewModelTests`, `LiveViewViewModelTests` (Operator-role regression guards on every gated command).
+- Full suite: 758/758, verified on a clean (`dotnet clean` + from-scratch `dotnet build -c Release`) rebuild — not an incremental build.
+- Manual validation (2026-08-05/06) against the actual built `VSP.UI.exe`: 12/12 Pass. See `Docs/SPECS/EPIC-018_USER_ROLE_MANAGEMENT_FOUNDATION.md` §11 for the full script and results, §11.3 for the Step-9 stale-executable investigation, and §12-14 for the Product Acceptance Report, Final Validation Summary, and Known Limitations.
+
+Files:
+- VSP.Domain/Entities/User.cs, VSP.Domain/Enums/Role.cs (new)
+- VSP.Core/Security/PasswordHasher.cs (new)
+- VSP.Infrastructure/SQLite/UserTable.cs, VSP.Infrastructure/Database/DefaultAdminSeeder.cs (new)
+- VSP.Infrastructure/Repositories/SQLiteUserRepository.cs (new)
+- VSP.Device/Interfaces/IUserRepository.cs, VSP.Device/Repositories/UserRepository.cs (new)
+- VSP.UI/ViewModels/LoginViewModel.cs, VSP.UI/Views/LoginWindow.xaml/.xaml.cs (new)
+- VSP.UI/ViewModels/ForcedPasswordChangeViewModel.cs, VSP.UI/Views/ForcedPasswordChangeWindow.xaml/.xaml.cs (new)
+- VSP.UI/Services/SessionService.cs (new)
+- VSP.Infrastructure/Database/DatabaseInitializer.cs
+- VSP.UI/App.xaml, VSP.UI/App.xaml.cs
+- VSP.UI/Views/MainWindow.xaml, MainWindow.xaml.cs, VSP.UI/ViewModels/MainWindowViewModel.cs
+- VSP.UI/ViewModels/CameraListViewModel.cs, VSP.UI/Views/CameraListView.xaml.cs
+- VSP.UI/ViewModels/CameraDetailViewModel.cs, VSP.UI/Views/CameraDetailView.xaml/.xaml.cs
+- VSP.UI/ViewModels/LiveViewViewModel.cs
+- VSP.Tests/Infrastructure/Security/PasswordHasherTests.cs, VSP.Tests/Infrastructure/SQLiteUserRepositoryTests.cs, VSP.Tests/UI/LoginViewModelTests.cs, VSP.Tests/UI/ForcedPasswordChangeViewModelTests.cs, VSP.Tests/UI/SessionServiceTests.cs (new)
+- VSP.Tests/UI/CameraListViewModelTests.cs, VSP.Tests/Camera/CameraDetailViewModelTests.cs, VSP.Tests/Player/LiveViewViewModelTests.cs, VSP.Tests/Infrastructure/DatabaseInitializerTests.cs
+- Directory.Build.props
+- Docs/CHANGELOG.md, Docs/03_PRODUCT_ROADMAP.md, Docs/PRODUCT_CAPABILITY_MATRIX.md, Docs/SPECS/EPIC-018_USER_ROLE_MANAGEMENT_FOUNDATION.md
+
+---
+
+## 2026-08-02 (Epic-016)
+
+### Version 0.16.0 - Epic-016 Settings Foundation
+
+Status:
+Implementation Complete — Product Owner Accepted (uncommitted — pending user commit)
+
+Summary:
+- Objective: give VSP a working Settings screen persisting the four v1.0 fields — Recording Path, Retention Days, Language, Theme — reusing the config-file-backed seam Epic-011's `RecordingPathProvider` established, zero database schema change, zero new external package.
+- Single source of truth: new `VSP.Core/Configuration/` (`SettingsFileContents`, `SettingsFileStore`, `RecordingRootDefaults`) is the one reader/writer for `recording-settings.json`, shared by both `VSP.Player.RecordingPathProvider` (internal implementation swapped only; public API and every observable behavior unchanged, verified by `RecordingPathProviderTests` passing unmodified) and the new `VSP.Infrastructure.Settings.AppSettingsProvider` (`Load()`/`Save(AppSettings)` only — a single immutable snapshot, no field-level getters, so `AppSettings` cannot drift into a per-field-access API).
+- `VSP.UI.Validation.SettingsValidator` (static, `CameraValidator`-shaped): non-blank/syntactically-valid path, Retention Days bounds (1-3650, sharing `AppSettingsLimits` with `AppSettingsProvider` so the bound is defined once), write-access probe with unconditional cleanup that never blocks Save on a cleanup failure.
+- `VSP.UI.Services.ThemeService`: the only place theme-selection logic lives — `System` resolves via one `HKCU` registry read at startup only (no live OS-theme-change reaction, TD-035), falls back to Dark and logs a Warning on any registry-read or resource-dictionary-swap failure, never throws.
+- `SettingsViewModel`'s Save flow (exact sequence): validate Retention Days → if Recording Path changed, block while a recording is active (`LiveViewViewModel.IsRecording`, threaded through `MainWindowViewModel`) → validate path syntax → confirm-create if the folder doesn't exist → create the folder → write-access check → `AppSettingsProvider.Save()` → `ThemeService.Apply()` only if Theme changed → update the last-saved snapshot. Cancel discards in-progress edits with no confirmation (nothing has been applied yet). `isRecordingActive`/`confirmCreateFolder` are constructor-injected delegates from the composition root (`MainWindowViewModel`), keeping the multi-branch Save flow unit-testable without a live `Application` or a real `MessageBox`.
+- Changing Recording Path takes effect immediately after Save, no restart required: `RecordingPathProvider` re-reads `recording-settings.json` from disk on every call rather than caching it, so the very next recording session picks up the new path.
+- `App.xaml.cs` loads settings and calls `ThemeService.Apply()` once at startup, after `InitializeLogging()` and before database init.
+- `VSP.UI.csproj` gained `<UseWindowsForms>true</UseWindowsForms>` for `FolderBrowserDialog`; the implicit `System.Windows.Forms`/`System.Drawing` global usings it introduces were removed via `<Using Remove>` (they collided with WPF's `UserControl`/`Application`/`TextBox`/`Control`/`Brush` across every existing View) rather than qualifying every pre-existing file.
+- Manual Validation (2026-08-02) against the actual built `VSP.UI.exe` caught and corrected one real defect before acceptance: `SettingsView.xaml` originally used the same hardcoded hex colors as the placeholder it replaced, so `ThemeService.Apply` had no visible effect anywhere, including on Settings itself. Fixed to bind its own background/text to the new theme brushes via `DynamicResource`. All four Theme scenarios (System+Windows Light, System+Windows Dark, explicit Light overriding OS Dark, explicit Dark overriding OS Light) then verified by screenshot after a full process restart; Recording Path (Browse/Save/Restart/Persistence), Retention Days, and Language persistence each independently verified the same way, driven via Windows UI Automation. Full transcript in `Docs/SPECS/EPIC-016_SETTINGS_FOUNDATION.md` §13-14.
+
+Technical Debt:
+- TD-033: Theme Migration — the ~23 existing Views/Styles with hardcoded colors are not retrofitted to `DynamicResource` theming; only `SettingsView.xaml`'s own background/text respond to Theme today. Recorded, not implemented — Product Owner direction.
+- TD-034: Language persists a real, stable selection (`en-US`/`zh-TW`) with zero translated resources behind it — a placeholder until a future Localization Epic.
+- TD-035: `System` theme is resolved once at startup only; VSP does not react to the OS theme changing while running.
+- TD-037: Settings UX improvements — unsaved-changes detection, a Restore Defaults action, and similar refinements are not present in this foundation pass. Recorded, not implemented — Product Owner direction.
+
+Verification:
+- New tests: `SettingsFileStoreTests`, `AppSettingsProviderTests`, `SettingsValidatorTests`, `ThemeServiceTests`, `SettingsViewModelTests`.
+- Full suite: 674/674.
+- Manual validation (2026-08-02) against the actual built `VSP.UI.exe`, driven via Windows UI Automation with real screenshots inspected, killing and relaunching the process for every restart check. See `Docs/SPECS/EPIC-016_SETTINGS_FOUNDATION.md` §14 for the full transcript, including the one real defect the validation pass caught and corrected before acceptance (§13).
+
+Files:
+- VSP.Core/Configuration/SettingsFileContents.cs, SettingsFileStore.cs, RecordingRootDefaults.cs (new)
+- VSP.Infrastructure/Settings/AppTheme.cs, AppLanguage.cs, AppSettingsLimits.cs, AppSettings.cs, AppSettingsProvider.cs (new)
+- VSP.Player/Recording/RecordingPathProvider.cs (internal implementation only; public API/behavior unchanged)
+- VSP.UI/Themes/Dark.xaml, Light.xaml (new)
+- VSP.UI/Services/ThemeService.cs (new)
+- VSP.UI/Validation/SettingsValidator.cs (new)
+- VSP.UI/ViewModels/SettingsViewModel.cs, VSP.UI/Views/SettingsView.xaml, SettingsView.xaml.cs
+- VSP.UI/ViewModels/MainWindowViewModel.cs
+- VSP.UI/App.xaml.cs
+- VSP.UI/VSP.UI.csproj
+- VSP.Tests/Core/SettingsFileStoreTests.cs, VSP.Tests/Infrastructure/AppSettingsProviderTests.cs, VSP.Tests/UI/SettingsValidatorTests.cs, VSP.Tests/UI/ThemeServiceTests.cs, VSP.Tests/UI/SettingsViewModelTests.cs (new)
+- Directory.Build.props
+- Docs/CHANGELOG.md, Docs/03_PRODUCT_ROADMAP.md, Docs/SPECS/EPIC-016_SETTINGS_FOUNDATION.md
+
+---
+
 ## 2026-08-01 (Epic-015)
 
 ### Version 0.15.0 - Epic-015 Error Handling Foundation

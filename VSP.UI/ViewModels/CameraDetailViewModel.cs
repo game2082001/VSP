@@ -76,17 +76,20 @@ public class CameraDetailViewModel : ObservableObject
     public event Action? RequestUnsavedChangesConfirmation;
     public event Action? RequestDeleteConfirmation;
 
-    public CameraDetailViewModel(Camera camera, ICameraRepository cameraRepository)
-        : this(camera, cameraRepository, false)
+    // Role defaults to Admin -- preserves every pre-Epic-018 call site/test's existing
+    // full-featured behavior unchanged; the two real production call sites (CameraListView.xaml.cs)
+    // always pass the authenticated user's actual role explicitly.
+    public CameraDetailViewModel(Camera camera, ICameraRepository cameraRepository, Role role = Role.Admin)
+        : this(camera, cameraRepository, false, role)
     {
     }
 
-    public CameraDetailViewModel(ICameraRepository cameraRepository)
-        : this(CreateNewCamera(), cameraRepository, true)
+    public CameraDetailViewModel(ICameraRepository cameraRepository, Role role = Role.Admin)
+        : this(CreateNewCamera(), cameraRepository, true, role)
     {
     }
 
-    private CameraDetailViewModel(Camera camera, ICameraRepository cameraRepository, bool isNewMode)
+    private CameraDetailViewModel(Camera camera, ICameraRepository cameraRepository, bool isNewMode, Role role)
     {
         ArgumentNullException.ThrowIfNull(camera);
         ArgumentNullException.ThrowIfNull(cameraRepository);
@@ -107,10 +110,13 @@ public class CameraDetailViewModel : ObservableObject
         _lastModifyTime = camera.LastModifyTime.ToString("yyyy-MM-dd HH:mm:ss");
         _statusMessage = isNewMode ? "Ready to add camera." : "Read-only mode.";
 
+        // Epic-018 §4.5/§8.4: Operator gets a read-only Camera Detail -- Edit/Save/Delete are
+        // Admin-only. TestConnectionCommand is deliberately left ungated: it inspects
+        // connectivity without modifying any stored camera data, so it isn't "editing."
         CloseCommand = new RelayCommand(Close);
-        EditCommand = new RelayCommand(EnterEditMode, () => !IsNewMode);
-        _saveCommand = new RelayCommand(Save, () => IsEditMode);
-        DeleteCommand = new RelayCommand(Delete, () => !IsNewMode);
+        EditCommand = new RelayCommand(EnterEditMode, () => !IsNewMode && role == Role.Admin);
+        _saveCommand = new RelayCommand(Save, () => IsEditMode && role == Role.Admin);
+        DeleteCommand = new RelayCommand(Delete, () => !IsNewMode && role == Role.Admin);
         TestConnectionCommand = new RelayCommand(TestConnection, () => !IsNewMode);
 
         IsEditMode = isNewMode;

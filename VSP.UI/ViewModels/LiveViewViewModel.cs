@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using VSP.Core.Commands;
 using VSP.Core.MVVM;
 using VSP.Domain.Entities;
+using VSP.Domain.Enums;
 using VSP.Player.Control;
 using VSP.Player.Entities;
 using VSP.Player.Interfaces;
@@ -56,12 +57,15 @@ public class LiveViewViewModel : ObservableObject, IDisposable
     public ICommand StartRecordingCommand { get; }
     public ICommand StopRecordingCommand { get; }
 
-    public LiveViewViewModel(Dispatcher uiDispatcher)
-        : this(uiDispatcher, static (rtspUrl, dispatcher) => new MediaController(rtspUrl, dispatcher))
+    // Role defaults to Admin -- preserves every pre-Epic-018 call site/test's existing
+    // full-featured behavior unchanged; MainWindowViewModel (the one real production call site)
+    // always passes the authenticated user's actual role explicitly.
+    public LiveViewViewModel(Dispatcher uiDispatcher, Role role = Role.Admin)
+        : this(uiDispatcher, static (rtspUrl, dispatcher) => new MediaController(rtspUrl, dispatcher), role)
     {
     }
 
-    internal LiveViewViewModel(Dispatcher uiDispatcher, Func<string, Dispatcher, IMediaController> controllerFactory)
+    internal LiveViewViewModel(Dispatcher uiDispatcher, Func<string, Dispatcher, IMediaController> controllerFactory, Role role = Role.Admin)
     {
         _uiDispatcher = uiDispatcher;
         _controllerFactory = controllerFactory;
@@ -69,8 +73,10 @@ public class LiveViewViewModel : ObservableObject, IDisposable
         PauseCommand = new RelayCommand(() => _ = PauseAsync(), () => State == MediaControllerState.Connected);
         ResumeCommand = new RelayCommand(() => _ = ResumeAsync(), () => State == MediaControllerState.Paused);
         StopCommand = new RelayCommand(() => _ = StopAsync(), () => HasCamera);
-        StartRecordingCommand = new RelayCommand(() => _ = StartRecordingAsync(), () => State == MediaControllerState.Connected && !IsRecording);
-        StopRecordingCommand = new RelayCommand(() => _ = StopRecordingAsync(), () => IsRecording);
+        // Epic-018 Decision 1 (§8.1): Recording is Admin-only. Operator keeps the rest of Live
+        // View (§2.5/§4.5) -- only these two commands are role-gated.
+        StartRecordingCommand = new RelayCommand(() => _ = StartRecordingAsync(), () => State == MediaControllerState.Connected && !IsRecording && role == Role.Admin);
+        StopRecordingCommand = new RelayCommand(() => _ = StopRecordingAsync(), () => IsRecording && role == Role.Admin);
     }
 
     public void LoadCamera(Camera camera)

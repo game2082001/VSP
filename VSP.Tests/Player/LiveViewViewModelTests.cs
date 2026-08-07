@@ -125,6 +125,41 @@ public class LiveViewViewModelTests
         Assert.False(viewModel.IsRecording);
     }
 
+    // Epic-018 Decision 1 (§8.1): Recording is Admin-only. Previously ungated -- a gap discovered
+    // during Milestone 18D's manual-validation preparation, fixed under the same approved
+    // decision, not a new feature.
+    [Fact]
+    public void OperatorRole_StartAndStopRecordingCommands_ReportCannotExecuteEvenWhenConnected()
+    {
+        var controller = new FakeMediaController();
+        var dispatcher = Dispatcher.CurrentDispatcher;
+        var viewModel = new LiveViewViewModel(dispatcher, (_, _) => controller, Role.Operator);
+
+        viewModel.LoadCamera(new EntityCamera { Name = "Front Door", RtspUrl = "rtsp://host/stream", ConnectionType = DeviceConnectionType.RTSP });
+        controller.RaiseStateChanged(MediaControllerState.Connected);
+        PumpDispatcher(dispatcher);
+
+        Assert.False(viewModel.StartRecordingCommand.CanExecute(null));
+
+        // Defense in depth: even if Start were forced (RelayCommand.Execute does not itself
+        // consult CanExecute), IsRecording would still be false, so Stop stays blocked too.
+        Assert.False(viewModel.StopRecordingCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void AdminRole_StartRecordingCommand_UnaffectedRegressionGuard()
+    {
+        var controller = new FakeMediaController();
+        var dispatcher = Dispatcher.CurrentDispatcher;
+        var viewModel = new LiveViewViewModel(dispatcher, (_, _) => controller, Role.Admin);
+
+        viewModel.LoadCamera(new EntityCamera { Name = "Front Door", RtspUrl = "rtsp://host/stream", ConnectionType = DeviceConnectionType.RTSP });
+        controller.RaiseStateChanged(MediaControllerState.Connected);
+        PumpDispatcher(dispatcher);
+
+        Assert.True(viewModel.StartRecordingCommand.CanExecute(null));
+    }
+
     private static void PumpDispatcher(Dispatcher dispatcher)
     {
         var frame = new DispatcherFrame();

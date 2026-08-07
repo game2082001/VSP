@@ -101,8 +101,8 @@ Per the 2026-07-29 Product Owner scope freeze for VSP v1.0 (no AI, no Cloud, no 
 
 # Version 4.0 — Enterprise (Planned, unscheduled)
 
-- User, Role, Permission, Audit Log, Backup, Restore, License, Plugin, Notification, Health Monitor
-- User/Role/Permission remain in scope for v1.0 GA per the 2026-07-29 scope freeze ("remaining v1.0 core capabilities"); Audit Log/Backup/Restore/Plugin/Notification/Health Monitor are not required for GA and may land after it.
+- Audit Log, License, Plugin, Notification, Health Monitor
+- User/Role/Permission shipped in v1.0 as a deliberately minimal foundation (Epic-018, Admin/Operator only, local auth only) — **not** the full Enterprise identity/session model (LDAP/OAuth/JWT/MFA/SSO, User Management UI, multi-user/remote sessions), which remains Version 4.0/Future per Vision §21. Database Backup/Restore shipped in v1.0 as SQLite-file-only (Epic-017, Accepted/Frozen 2026-08-06) — the full Enterprise Backup/Restore model (Vision §14) remains Future. Audit Log/License/Plugin/Notification/Health Monitor are not required for v1.0 GA and remain fully unscheduled.
 
 ---
 
@@ -140,15 +140,49 @@ Completed, Product Owner Accepted (2026-08-01)
 
 ---
 
+# Version 0.16.0 — Settings Foundation
+
+Completed, Product Owner Accepted (2026-08-02)
+
+- Epic-016: a working Settings screen persisting the four v1.0 fields — Recording Path, Retention Days, Language, Theme — reusing Epic-011's config-file-backed seam. New `VSP.Core/Configuration/` (`SettingsFileStore`/`SettingsFileContents`/`RecordingRootDefaults`) is the single reader/writer for `recording-settings.json`, shared by `RecordingPathProvider` (internal implementation only, public behavior unchanged, verified by its existing tests passing unmodified) and the new `VSP.Infrastructure.Settings.AppSettingsProvider` (`Load()`/`Save()` only, a single immutable snapshot). `VSP.UI.Services.ThemeService` owns all theme-selection logic — `System` resolves via one registry read at startup, falls back to Dark on any failure, never throws. Changing Recording Path takes effect immediately after Save (no restart) since `RecordingPathProvider` re-reads from disk on every call rather than caching.
+- Manual Validation against the actual built exe (Windows UI Automation, real screenshots, full process restarts) caught and corrected one real defect before acceptance: `SettingsView.xaml` shipped with hardcoded colors instead of binding to the theme brushes, so switching themes had no visible effect anywhere, including on Settings itself — fixed. All four Theme scenarios (System/Light/Dark crossed with the OS's own Light/Dark mode) then verified correct after restart; Recording Path, Retention Days, and Language persistence each independently verified the same way. See `Docs/SPECS/EPIC-016_SETTINGS_FOUNDATION.md` §13-14.
+- Deliberately out of scope (Product Owner direction): actual retention cleanup (value is persisted only, no deletion/rotation), full localization (`.resx`/`CurrentUICulture`), full theme migration beyond the switching mechanism and Settings' own background/text, live reaction to an OS theme change while running, moving/rewriting existing recordings on a path change.
+- Technical debt recorded: **TD-033** Theme Migration (~23 existing Views/Styles remain hardcoded, not retrofitted to `DynamicResource`); TD-034 (Language has no translated resources yet); TD-035 (`System` theme resolved at startup only); **TD-037** Settings UX improvements (unsaved-changes detection, Restore Defaults). None implemented now, per Product Owner direction.
+- **Frozen** — any future enhancement to Settings/Theme is a new Epic; Epic-016 is not reopened except for a confirmed defect.
+
+---
+
+# Version 0.17.0 — Database Backup / Restore Foundation
+
+Completed, Product Owner Accepted (2026-08-06) — **Frozen**
+
+- Epic-017: a minimal, manual Backup/Restore capability for VSP's one SQLite database (`%LocalAppData%\VSP\vsp.db`) — Backup via the SQLite Online Backup API to a user-chosen destination (never blocked by an active recording); Restore via a nine-step validate/confirm/rename-aside/stage/install/re-validate/rollback flow (destructive-action confirmation, blocked while a recording is active, a kept timestamped pre-restore safety copy, restart-required-then-clean-termination on success). Two new services (`DatabaseBackupService`, `DatabaseRestoreService`) plus two result types in `VSP.Infrastructure/Database/`, an additive Backup/Restore section on the existing Settings screen — no new screen, no generic backup framework, no schema change, no new external package.
+- Manual Validation (2026-08-06) against the actual built `VSP.UI.exe` and the real `vsp.db` — 6/6 Pass on the 6 items executed. Item 7 (a forced-filesystem-failure rollback proof under real conditions) was deliberately deferred by Product Owner decision as outside required V1.0 GA acceptance scope, not a failure — two automated tests already prove rollback at two other forced-failure points; tracked as a future regression/robustness test. See `Docs/SPECS/EPIC-017_DATABASE_BACKUP_RESTORE_FOUNDATION.md` §11-14 for the full script, results, and Product Acceptance Report.
+- Deliberately out of scope (Product Owner direction): scheduled/cloud backup, recording-file or settings-file backup, encryption, compression, backup-history management/pruning, import/merge Restore, self-relaunch after Restore, any User/Role work.
+- **Frozen** — any future enhancement (including the deferred item-7 regression test) is a new Epic or a tracked follow-up; Epic-017 is not reopened except for a confirmed defect.
+
+---
+
+# Version 0.18.0 — User / Role Management Foundation
+
+Completed, Product Owner Accepted (2026-08-06) — **Frozen**
+
+- Epic-018: a minimal Admin/Operator authentication and permission gate — Login screen gates `MainWindow` construction entirely (never merely hidden), `User` table (PBKDF2-HMACSHA256 hash, 210,000 iterations, per-user random salt, zero new external package), mandatory forced password-change for the seeded default Admin on first login, and role-based nav/command gating across `MainWindowViewModel`, `CameraListViewModel`, `CameraDetailViewModel` (read-only Camera Detail for Operator), and `LiveViewViewModel` (Recording is Admin-only). No User Management UI, no default Operator account, no LDAP/OAuth/JWT/MFA/SSO, no generic permission engine — all per explicit Product Owner decisions (§8 of the spec).
+- Manual Validation (2026-08-05/06) against the actual built `VSP.UI.exe` and the real `vsp.db` — 12/12 Pass. One item (Operator Recording restriction) was initially reported failing, investigated end-to-end without touching production code, and root-caused to a stale executable rather than a code defect — confirmed passing on re-test against the documented, freshly clean-rebuilt exe. See `Docs/SPECS/EPIC-018_USER_ROLE_MANAGEMENT_FOUNDATION.md` §11-14 for the full script, results, investigation, and Product Acceptance Report.
+- Known, disclosed limitations (not defects): no way to reach the Operator role through normal use in v1.0 (no seeded default Operator account and no account-creation UI — direct database manipulation required); no self-service/discretionary Change Password; no end-to-end `MainWindowViewModel`/View automated test (this codebase has no STA test infrastructure, covered instead by manual validation plus STA-free unit tests of every gated command); no account lockout/idle timeout/"remember me" (explicitly out of scope for v1.0).
+- **Frozen** — any future enhancement (User Management UI, self-service password change, account lockout, idle timeout) is a new Epic; Epic-018 is not reopened except for a confirmed defect.
+
+---
+
 # Current Status
 
-Current Version: 0.15.0 (Epic-015 Error Handling Foundation) — Implementation Complete, Product Owner Accepted, pending commit. Epic-013 (0.13.0, Deployment Foundation) remains separately pending its own commit in the same working tree — neither Epic-014's nor Epic-015's acceptance constitutes Epic-013 acceptance.
+Current Version: 0.18.0 (Epic-018 User / Role Management Foundation) is the last version actually assigned via `Directory.Build.props`'s `<Version>`; 0.17.0 (Epic-017) is now also Accepted/Frozen (§ above) though it completed acceptance after 0.18.0 chronologically. Both — Implementation Complete, Product Owner Accepted, Frozen, pending commit.
 
-Current Epic: Epic-015 (Accepted, Frozen)
+Current Epic: none — both remaining V1.0 GA blockers (Epic-018, Epic-017) are now Accepted and Frozen.
 
-Product direction (2026-07-29 scope freeze, refined 2026-08-01 by `Docs/V1.0_CUSTOMER_RELEASE_DEFINITION.md`): planning is frozen for VSP v1.0 around User/Role (Admin + Operator only), Logging (Required — done, Epic-014), Settings (Recording Path/Retention Days/Language/Theme), Deployment (xcopy, done Epic-013), and Database Backup/Restore (SQLite file only, new). AI, Cluster, Cloud, Timeline, Analytics, Plugin, Mobile, and broader Enterprise capabilities remain Future. Remaining v1.0 priorities: (1) Playback Foundation — done Epic-012; (2) Logging Foundation — done Epic-014; (3) Error Handling Foundation — done Epic-015 (not itself one of the five named v1.0 capabilities, but a cross-cutting prerequisite the Product Owner prioritized ahead of them); (4) User/Role, Settings, and Database Backup/Restore, per `V1.0_CUSTOMER_RELEASE_DEFINITION.md` §2 (sequencing not yet decided); (5) v1.0 GA.
+Product direction (2026-07-29 scope freeze, refined 2026-08-01 by `Docs/V1.0_CUSTOMER_RELEASE_DEFINITION.md`): planning is frozen for VSP v1.0 around User/Role (Admin + Operator only — done, Epic-018), Logging (Required — done, Epic-014), Settings (Recording Path/Retention Days/Language/Theme — done, Epic-016), Deployment (xcopy, done Epic-013), and Database Backup/Restore (SQLite file only — done, Epic-017). AI, Cluster, Cloud, Timeline, Analytics, Plugin, Mobile, and broader Enterprise capabilities remain Future. v1.0 priorities: (1) Playback Foundation — done Epic-012; (2) Logging Foundation — done Epic-014; (3) Error Handling Foundation — done Epic-015; (4) Settings Foundation — done Epic-016; (5) User/Role — done Epic-018; (6) Database Backup/Restore — done Epic-017 (2026-08-06, see Version 0.17.0 above). Per this document's own stated criterion ("(7) v1.0 GA once Epic-017 is accepted"), all Epics named as v1.0 GA blockers are now accepted — **formally declaring v1.0 GA is a distinct Product Owner decision this document does not make on its own** and has not yet been made explicitly; flagged here as the natural next step, not acted on.
 
-Candidate next Epics: User/Role, Settings, or Database Backup/Restore, per `Docs/V1.0_CUSTOMER_RELEASE_DEFINITION.md` §2 — sequencing is a Product Owner decision. The 2026-07-28 Product Status Report's candidate list is otherwise superseded by that document where the two disagree.
+Candidate next Epic: none proposed. Per explicit Product Owner instruction (2026-08-06), Epic-019 does not begin before v1.0 GA is explicitly declared.
 
 ---
 

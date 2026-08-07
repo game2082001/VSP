@@ -26,6 +26,8 @@ public class DatabaseInitializer
             connection.Open();
 
             CameraTable.Create(connection);
+            UserTable.Create(connection);
+            DefaultAdminSeeder.SeedIfEmpty(connection);
 
             return DatabaseInitializationResult.Ok();
         }

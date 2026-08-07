@@ -1,0 +1,264 @@
+using VSP.Core.Security;
+using VSP.Device.Interfaces;
+using VSP.Domain.Enums;
+using VSP.UI.ViewModels;
+using Xunit;
+using UserEntity = VSP.Domain.Entities.User;
+
+namespace VSP.Tests.UI;
+
+public class ForcedPasswordChangeViewModelTests
+{
+    private static UserEntity AdminUser(string currentPassword = "admin")
+    {
+        var (hash, salt, iterations) = PasswordHasher.Hash(currentPassword);
+        return new UserEntity
+        {
+            Username = "admin",
+            PasswordHash = hash,
+            PasswordSalt = salt,
+            PasswordIterations = iterations,
+            Role = Role.Admin,
+            MustChangePassword = true
+        };
+    }
+
+    [Fact]
+    public void ChangePassword_WithCorrectCurrentAndMatchingNewPassword_SucceedsAndClearsMustChangePassword()
+    {
+        var user = AdminUser();
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "admin",
+            NewPassword = "new-secure-password",
+            ConfirmNewPassword = "new-secure-password"
+        };
+        var raised = false;
+        viewModel.PasswordChangeSucceeded += () => raised = true;
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.True(raised);
+        Assert.Null(viewModel.ErrorMessage);
+        Assert.False(user.MustChangePassword);
+        Assert.Same(user, repository.LastUpdatedUser);
+    }
+
+    [Fact]
+    public void ChangePassword_OldPasswordNoLongerVerifiesAfterChange()
+    {
+        var user = AdminUser();
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "admin",
+            NewPassword = "new-secure-password",
+            ConfirmNewPassword = "new-secure-password"
+        };
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.False(PasswordHasher.Verify("admin", user.PasswordHash, user.PasswordSalt, user.PasswordIterations));
+    }
+
+    [Fact]
+    public void ChangePassword_NewPasswordVerifiesAfterChange()
+    {
+        var user = AdminUser();
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "admin",
+            NewPassword = "new-secure-password",
+            ConfirmNewPassword = "new-secure-password"
+        };
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.True(PasswordHasher.Verify("new-secure-password", user.PasswordHash, user.PasswordSalt, user.PasswordIterations));
+    }
+
+    [Fact]
+    public void ChangePassword_WithWrongCurrentPassword_IsRejectedAndDoesNotUpdate()
+    {
+        var user = AdminUser();
+        var originalHash = user.PasswordHash;
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "not-the-current-password",
+            NewPassword = "new-secure-password",
+            ConfirmNewPassword = "new-secure-password"
+        };
+        var raised = false;
+        viewModel.PasswordChangeSucceeded += () => raised = true;
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.False(raised);
+        Assert.Equal("Current password is incorrect.", viewModel.ErrorMessage);
+        Assert.Equal(originalHash, user.PasswordHash);
+        Assert.True(user.MustChangePassword);
+        Assert.Null(repository.LastUpdatedUser);
+    }
+
+    [Fact]
+    public void ChangePassword_WithMismatchedConfirmation_IsRejectedAndDoesNotUpdate()
+    {
+        var user = AdminUser();
+        var originalHash = user.PasswordHash;
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "admin",
+            NewPassword = "new-secure-password",
+            ConfirmNewPassword = "a-different-password"
+        };
+        var raised = false;
+        viewModel.PasswordChangeSucceeded += () => raised = true;
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.False(raised);
+        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.Equal(originalHash, user.PasswordHash);
+        Assert.True(user.MustChangePassword);
+        Assert.Null(repository.LastUpdatedUser);
+    }
+
+    [Fact]
+    public void ChangePassword_WithEmptyNewPassword_IsRejectedAndDoesNotUpdate()
+    {
+        var user = AdminUser();
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "admin",
+            NewPassword = "",
+            ConfirmNewPassword = ""
+        };
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.True(user.MustChangePassword);
+        Assert.Null(repository.LastUpdatedUser);
+    }
+
+    // Milestone 18C password policy (§8, Additional Requirements): minimum 8 characters; reject
+    // empty, whitespace-only, the username, and the current password.
+    [Fact]
+    public void ChangePassword_WithWhitespaceOnlyNewPassword_IsRejectedAndDoesNotUpdate()
+    {
+        var user = AdminUser();
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "admin",
+            NewPassword = "        ",
+            ConfirmNewPassword = "        "
+        };
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.True(user.MustChangePassword);
+        Assert.Null(repository.LastUpdatedUser);
+    }
+
+    [Theory]
+    [InlineData("short1")]
+    [InlineData("1234567")]
+    public void ChangePassword_WithNewPasswordShorterThanMinimumLength_IsRejectedAndDoesNotUpdate(string tooShort)
+    {
+        var user = AdminUser();
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "admin",
+            NewPassword = tooShort,
+            ConfirmNewPassword = tooShort
+        };
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.True(user.MustChangePassword);
+        Assert.Null(repository.LastUpdatedUser);
+    }
+
+    [Theory]
+    [InlineData("admin")]
+    [InlineData("ADMIN")]
+    [InlineData("Admin")]
+    public void ChangePassword_WithNewPasswordEqualToUsername_IsRejectedAndDoesNotUpdate(string usernameAsPassword)
+    {
+        // "admin" is both the seeded username and >= 8 chars, so this exercises the
+        // username-rejection rule specifically, not the length rule.
+        var user = AdminUser();
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "admin",
+            NewPassword = usernameAsPassword,
+            ConfirmNewPassword = usernameAsPassword
+        };
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.True(user.MustChangePassword);
+        Assert.Null(repository.LastUpdatedUser);
+    }
+
+    [Fact]
+    public void ChangePassword_WithNewPasswordEqualToCurrentPassword_IsRejectedAndDoesNotUpdate()
+    {
+        var user = AdminUser("current-password-123");
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "current-password-123",
+            NewPassword = "current-password-123",
+            ConfirmNewPassword = "current-password-123"
+        };
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.True(user.MustChangePassword);
+        Assert.Null(repository.LastUpdatedUser);
+    }
+
+    [Fact]
+    public void ChangePassword_WithCompliantNewPassword_Succeeds()
+    {
+        var user = AdminUser();
+        var repository = new FakeUserRepository();
+        var viewModel = new ForcedPasswordChangeViewModel(user, repository)
+        {
+            CurrentPassword = "admin",
+            NewPassword = "a-compliant-password",
+            ConfirmNewPassword = "a-compliant-password"
+        };
+
+        viewModel.ChangePasswordCommand.Execute(null);
+
+        Assert.Null(viewModel.ErrorMessage);
+        Assert.False(user.MustChangePassword);
+        Assert.Same(user, repository.LastUpdatedUser);
+    }
+
+    private sealed class FakeUserRepository : IUserRepository
+    {
+        public UserEntity? LastUpdatedUser { get; private set; }
+
+        public UserEntity? GetByUsername(string username) => null;
+
+        public void Update(UserEntity user)
+        {
+            LastUpdatedUser = user;
+        }
+    }
+}

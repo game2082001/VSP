@@ -460,9 +460,58 @@ public class CameraListViewModelTests
         Assert.Equal("Failed to refresh camera list.", viewModel.StatusMessage);
     }
 
+    // Epic-018 Milestone 18C: with an Operator role, every modification/Discovery command
+    // reports CanExecute() == false regardless of selection state, while ViewLiveCommand (camera
+    // selection) is unaffected by role -- Operator needs it to reach Live View (§2.5).
+    [Fact]
+    public void OperatorRole_ModificationAndDiscoveryCommands_AllReportCannotExecute()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(), Role.Operator);
+
+        Assert.False(viewModel.AddCameraCommand.CanExecute(null));
+        Assert.False(viewModel.ImportCommand.CanExecute(null));
+        Assert.False(viewModel.BatchEditCommand.CanExecute(null));
+        Assert.False(viewModel.BatchConnectionTestCommand.CanExecute(null));
+        Assert.False(viewModel.ExportCommand.CanExecute(null));
+        Assert.False(viewModel.ShowDiscoveryCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task OperatorRole_ViewLiveCommand_UnaffectedByRole()
+    {
+        var repository = new FakeCameraRepository(
+            CreateCamera("Front Door", "192.168.1.10", CameraBrand.RTSP, CameraStatus.Online, "Gate"));
+        var viewModel = CreateViewModel(repository, Role.Operator);
+        await viewModel.LoadAsync();
+
+        Assert.False(viewModel.ViewLiveCommand.CanExecute(null));
+
+        viewModel.SelectedCamera = viewModel.Cameras[0];
+
+        Assert.True(viewModel.ViewLiveCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void AdminRole_ModificationAndDiscoveryCommands_UnaffectedRegressionGuard()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(), Role.Admin);
+
+        Assert.True(viewModel.AddCameraCommand.CanExecute(null));
+        Assert.True(viewModel.ImportCommand.CanExecute(null));
+        Assert.True(viewModel.ShowDiscoveryCommand.CanExecute(null));
+        // BatchEdit/BatchConnectionTest/Export additionally require a selection/non-empty list --
+        // already covered by CameraListViewModelBatchSelectionTests -- this only confirms Admin
+        // is not blocked by role the way Operator is above.
+    }
+
     private static CameraListViewModel CreateViewModel(ICameraRepository repository)
     {
         return new CameraListViewModel(new CameraQueryService(repository));
+    }
+
+    private static CameraListViewModel CreateViewModel(ICameraRepository repository, Role role)
+    {
+        return new CameraListViewModel(new CameraQueryService(repository), role: role);
     }
 
     private static EntityCamera CreateCamera(

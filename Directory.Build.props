@@ -4,9 +4,17 @@
     Single source of truth for the product version across every project in the solution
     (Epic-013 Deployment Foundation). VSP becomes 1.0.0 only when all V1.0 GA requirements
     are complete and the Product Owner formally approves GA; see Docs/03_PRODUCT_ROADMAP.md.
+    Epic-017 (Database Backup/Restore) is now Accepted/Frozen (2026-08-06), after Epic-018
+    (User/Role), which had already claimed 0.18.0 first. The originally intended one-version-
+    per-Epic sequence (0.17.0 reserved for Epic-017) does not fit a single Version field once
+    a later-numbered Epic is accepted first — left at 0.18.0 rather than regressing it, since
+    picking the next value (0.19.0? straight to 1.0.0/GA?) is a versioning-scheme decision for
+    the Product Owner, not one this file should make unilaterally. Both v1.0 GA blocker Epics
+    are now Accepted/Frozen; see Docs/03_PRODUCT_ROADMAP.md "Current Status" for the open
+    question of when/how to formally declare v1.0 GA.
   -->
   <PropertyGroup>
-    <Version>0.15.0</Version>
+    <Version>0.18.0</Version>
   </PropertyGroup>
 
 </Project>
