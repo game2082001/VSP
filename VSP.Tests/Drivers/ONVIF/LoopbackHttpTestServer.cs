@@ -8,9 +8,13 @@ namespace VSP.Tests.Drivers.ONVIF;
 /// Minimal test-only loopback HTTP server built on <see cref="HttpListener"/> (which
 /// correctly speaks HttpClient-compatible HTTP/1.1 framing, unlike a hand-rolled raw-socket
 /// responder). Bound to a specific loopback port, which does not require the URL-ACL
-/// reservation that wildcard (`+`/`*`) prefixes need on Windows. Accepts one request,
-/// captures its raw body, and writes back a scripted status/body — or holds the request
-/// open (no response) to simulate a timeout. Not a reusable mock-server framework.
+/// reservation that wildcard (`+`/`*`) prefixes need on Windows. Accepts one request by
+/// default, captures its raw body, and writes back a scripted status/body — or holds the
+/// request open (no response) to simulate a timeout. An optional second scripted response
+/// (mirroring <c>LoopbackRtspTestServer</c>'s firstResponse/secondResponse shape) lets a
+/// single instance stand in for one ONVIF endpoint answering two sequential SOAP calls (e.g.
+/// GetProfiles then GetStreamUri, both against the same Media service address). Not a
+/// reusable mock-server framework.
 /// </summary>
 internal sealed class LoopbackHttpTestServer : IDisposable
 {
@@ -18,53 +22,92 @@ internal sealed class LoopbackHttpTestServer : IDisposable
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _stopSignal = new(initialState: false);
     private readonly ManualResetEventSlim _requestReceivedSignal = new(initialState: false);
+    private readonly List<string> _receivedRequests = [];
+    private readonly object _receivedRequestsGate = new();
 
-    public LoopbackHttpTestServer(string? responseBody, int statusCode = 200, string contentType = "application/soap+xml")
+    public LoopbackHttpTestServer(
+        string? responseBody,
+        int statusCode = 200,
+        string contentType = "application/soap+xml",
+        string? secondResponseBody = null,
+        int secondStatusCode = 200)
     {
         Port = GetFreeTcpPort();
         _listener = new HttpListener();
         _listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
         _listener.Start();
 
-        _thread = new Thread(() => Serve(responseBody, statusCode, contentType)) { IsBackground = true };
+        var scriptedResponses = secondResponseBody is null
+            ? [(responseBody, statusCode)]
+            : new (string? Body, int StatusCode)[] { (responseBody, statusCode), (secondResponseBody, secondStatusCode) };
+
+        _thread = new Thread(() => Serve(scriptedResponses, contentType)) { IsBackground = true };
         _thread.Start();
     }
 
     public int Port { get; }
 
-    public string ReceivedRequest { get; private set; } = string.Empty;
+    /// <summary>The most recently received request body (the only one, for single-response use).</summary>
+    public string ReceivedRequest
+    {
+        get
+        {
+            lock (_receivedRequestsGate)
+            {
+                return _receivedRequests.Count > 0 ? _receivedRequests[^1] : string.Empty;
+            }
+        }
+    }
+
+    public IReadOnlyList<string> ReceivedRequests
+    {
+        get
+        {
+            lock (_receivedRequestsGate)
+            {
+                return _receivedRequests.ToList();
+            }
+        }
+    }
 
     public bool WaitForRequest(TimeSpan timeout)
     {
         return _requestReceivedSignal.Wait(timeout);
     }
 
-    private void Serve(string? responseBody, int statusCode, string contentType)
+    private void Serve((string? Body, int StatusCode)[] scriptedResponses, string contentType)
     {
         try
         {
-            var context = _listener.GetContext();
-
-            using (var reader = new StreamReader(context.Request.InputStream, Encoding.UTF8))
+            foreach (var (body, statusCode) in scriptedResponses)
             {
-                ReceivedRequest = reader.ReadToEnd();
+                var context = _listener.GetContext();
+
+                using (var reader = new StreamReader(context.Request.InputStream, Encoding.UTF8))
+                {
+                    var requestBody = reader.ReadToEnd();
+                    lock (_receivedRequestsGate)
+                    {
+                        _receivedRequests.Add(requestBody);
+                    }
+                }
+
+                _requestReceivedSignal.Set();
+
+                if (body is null)
+                {
+                    _stopSignal.Wait();
+                    context.Response.Abort();
+                    return;
+                }
+
+                var bodyBytes = Encoding.UTF8.GetBytes(body);
+                context.Response.StatusCode = statusCode;
+                context.Response.ContentType = contentType;
+                context.Response.ContentLength64 = bodyBytes.Length;
+                context.Response.OutputStream.Write(bodyBytes, 0, bodyBytes.Length);
+                context.Response.OutputStream.Close();
             }
-
-            _requestReceivedSignal.Set();
-
-            if (responseBody is null)
-            {
-                _stopSignal.Wait();
-                context.Response.Abort();
-                return;
-            }
-
-            var bodyBytes = Encoding.UTF8.GetBytes(responseBody);
-            context.Response.StatusCode = statusCode;
-            context.Response.ContentType = contentType;
-            context.Response.ContentLength64 = bodyBytes.Length;
-            context.Response.OutputStream.Write(bodyBytes, 0, bodyBytes.Length);
-            context.Response.OutputStream.Close();
         }
         catch (Exception)
         {
