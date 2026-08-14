@@ -1,4 +1,5 @@
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using VSP.Device.Interfaces;
 using VSP.Device.Services;
@@ -139,6 +140,116 @@ public class PlaybackViewModelTests
         viewModel.Seek(TimeSpan.FromSeconds(3));
 
         Assert.True(await WaitUntilAsync(() => controller.SeekCalledWith == TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2)));
+    }
+
+    // RC1-R05 (Playback Frame Presentation Lifecycle): direct Playback equivalents of the
+    // proven RC1-R03 Live View FrameRendered tests -- CurrentFrameSource is updated in place by
+    // the renderer on every frame (no new object identity), so WPF's binding never re-pulls it
+    // unless something explicitly raises PropertyChanged, which was previously never wired here.
+    [Fact]
+    public void FrameRendered_RaisesPropertyChangedForCurrentFrameSource()
+    {
+        var viewModel = CreateViewModel(new FakeCameraRepository(), out var controller);
+        var dispatcher = Dispatcher.CurrentDispatcher;
+        viewModel.SelectedRecording = new RecordingItem(new RecordingFileInfo(@"C:\fake\recording.mp4", DateTime.Now));
+
+        viewModel.PlayCommand.Execute(null);
+        controller.RaiseStateChanged(MediaControllerState.Connected);
+        PumpDispatcher(dispatcher);
+
+        // Matches the real-device symptom (RC1-R05 RCA): Connected fires before any frame has
+        // decoded, so CurrentFrameSource is still null at this point.
+        Assert.Null(viewModel.CurrentFrameSource);
+
+        var raisedProperties = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => raisedProperties.Add(e.PropertyName);
+
+        var fakeRenderer = (LiveViewViewModelTests.FakeFrameRenderer)controller.Renderer;
+        fakeRenderer.CurrentFrameSource = new BitmapImage();
+        fakeRenderer.RaiseFrameRendered();
+        PumpDispatcher(dispatcher);
+
+        Assert.Contains(nameof(PlaybackViewModel.CurrentFrameSource), raisedProperties);
+        Assert.Same(fakeRenderer.CurrentFrameSource, viewModel.CurrentFrameSource);
+    }
+
+    [Fact]
+    public void FrameRendered_AfterStopThenReplacedController_SubscriptionIsRemoved()
+    {
+        var controller1 = new FakePlaybackController();
+        var controller2 = new FakePlaybackController();
+        var pendingControllers = new Queue<FakePlaybackController>(new[] { controller1, controller2 });
+        var dispatcher = Dispatcher.CurrentDispatcher;
+        var viewModel = new PlaybackViewModel(
+            new CameraQueryService(new FakeCameraRepository()),
+            dispatcher,
+            (_, _) => pendingControllers.Dequeue());
+
+        viewModel.SelectedRecording = new RecordingItem(new RecordingFileInfo(@"C:\fake\recording.mp4", DateTime.Now));
+        viewModel.PlayCommand.Execute(null);
+        controller1.RaiseStateChanged(MediaControllerState.Connected);
+        PumpDispatcher(dispatcher);
+
+        // Stop -> Play on the same recording: reproduces the exact real-device sequence from the
+        // RC1-R05 RCA. Loading a second controller detaches controller1 -- must unsubscribe from
+        // controller1.Renderer.FrameRendered as part of that detach.
+        viewModel.StopCommand.Execute(null);
+        PumpDispatcher(dispatcher);
+        viewModel.PlayCommand.Execute(null);
+
+        var raisedProperties = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => raisedProperties.Add(e.PropertyName);
+
+        // Simulates a frame callback from controller1 still in flight (e.g. already queued on
+        // the dispatcher) at the moment it was detached.
+        var staleRenderer = (LiveViewViewModelTests.FakeFrameRenderer)controller1.Renderer;
+        staleRenderer.CurrentFrameSource = new BitmapImage();
+        staleRenderer.RaiseFrameRendered();
+        PumpDispatcher(dispatcher);
+
+        Assert.DoesNotContain(nameof(PlaybackViewModel.CurrentFrameSource), raisedProperties);
+    }
+
+    [Fact]
+    public void FrameRendered_FromOldControllerAfterStopPlay_CannotUpdateCurrentPlaybackPresentation()
+    {
+        var controller1 = new FakePlaybackController();
+        var controller2 = new FakePlaybackController();
+        var pendingControllers = new Queue<FakePlaybackController>(new[] { controller1, controller2 });
+        var dispatcher = Dispatcher.CurrentDispatcher;
+        var viewModel = new PlaybackViewModel(
+            new CameraQueryService(new FakeCameraRepository()),
+            dispatcher,
+            (_, _) => pendingControllers.Dequeue());
+
+        viewModel.SelectedRecording = new RecordingItem(new RecordingFileInfo(@"C:\fake\recording.mp4", DateTime.Now));
+        viewModel.PlayCommand.Execute(null);
+        controller1.RaiseStateChanged(MediaControllerState.Connected);
+        PumpDispatcher(dispatcher);
+
+        viewModel.StopCommand.Execute(null);
+        PumpDispatcher(dispatcher);
+        viewModel.PlayCommand.Execute(null);
+        controller2.RaiseStateChanged(MediaControllerState.Connected);
+        PumpDispatcher(dispatcher);
+
+        var currentRenderer = (LiveViewViewModelTests.FakeFrameRenderer)controller2.Renderer;
+        currentRenderer.CurrentFrameSource = new BitmapImage();
+        currentRenderer.RaiseFrameRendered();
+        PumpDispatcher(dispatcher);
+
+        Assert.Same(currentRenderer.CurrentFrameSource, viewModel.CurrentFrameSource);
+
+        // A late frame from the now-detached controller1 must never leak into the ViewModel
+        // that's now hosting controller2 -- neither by updating CurrentFrameSource nor by
+        // spuriously notifying it.
+        var staleRenderer = (LiveViewViewModelTests.FakeFrameRenderer)controller1.Renderer;
+        staleRenderer.CurrentFrameSource = new BitmapImage();
+        staleRenderer.RaiseFrameRendered();
+        PumpDispatcher(dispatcher);
+
+        Assert.Same(currentRenderer.CurrentFrameSource, viewModel.CurrentFrameSource);
+        Assert.NotSame(staleRenderer.CurrentFrameSource, viewModel.CurrentFrameSource);
     }
 
     private static PlaybackViewModel CreateViewModel(ICameraRepository repository, out FakePlaybackController controller)

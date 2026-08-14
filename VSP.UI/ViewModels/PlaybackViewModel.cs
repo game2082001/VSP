@@ -192,6 +192,10 @@ public class PlaybackViewModel : ObservableObject, IDisposable
 
         var controller = _controllerFactory(SelectedRecording.FilePath, _uiDispatcher);
         controller.StateChanged += HandleControllerStateChanged;
+        // RC1-R05: mirrors RC1-R03's Live View fix -- CurrentFrameSource is updated in place by
+        // the renderer on every frame (no new object identity), so WPF's binding never re-pulls
+        // it unless something explicitly raises PropertyChanged.
+        controller.Renderer.FrameRendered += HandleFrameRendered;
         _controller = controller;
 
         RaiseAllChanged();
@@ -262,8 +266,18 @@ public class PlaybackViewModel : ObservableObject, IDisposable
         }
 
         _controller.StateChanged -= HandleControllerStateChanged;
+        _controller.Renderer.FrameRendered -= HandleFrameRendered;
         _controller.Dispose();
         _controller = null;
+    }
+
+    /// <summary>
+    /// RC1-R05: subscribed/unsubscribed alongside StateChanged in PlayAsync/DetachController, so
+    /// a late event from an already-detached controller's renderer can never reach here.
+    /// </summary>
+    private void HandleFrameRendered(object? sender, EventArgs e)
+    {
+        _uiDispatcher.BeginInvoke(new Action(() => OnPropertyChanged(nameof(CurrentFrameSource))));
     }
 
     private void HandleControllerStateChanged(object? sender, MediaControllerStateChangedEventArgs e)
