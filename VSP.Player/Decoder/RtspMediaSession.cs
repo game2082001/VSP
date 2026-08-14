@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLinked;
+using VSP.Core.Logging;
 using VSP.Player.Entities;
 using VSP.Player.Interfaces;
 
@@ -227,11 +228,30 @@ public sealed class RtspMediaSession : IMediaSession, IFfmpegDemuxSource
             });
         }
 
+        LogSelectedStreamDiagnostics(formatContext, videoStreamIndex);
+
         lock (_nativeGate)
         {
             _formatContext = formatContext;
             _videoStreamIndex = videoStreamIndex;
         }
+    }
+
+    /// <summary>
+    /// One-time, startup-only diagnostic (Item F evidence collection): records exactly what the
+    /// real source reported for the selected video stream -- codec, dimensions, pixel format --
+    /// so a real-device retest can show what codec/geometry is actually in play without needing
+    /// per-packet logging.
+    /// </summary>
+    private static unsafe void LogSelectedStreamDiagnostics(AVFormatContext* formatContext, int videoStreamIndex)
+    {
+        var codecpar = formatContext->streams[videoStreamIndex]->codecpar;
+        var codecName = DynamicallyLinkedBindings.avcodec_get_name(codecpar->codec_id);
+        var pixelFormatName = DynamicallyLinkedBindings.av_get_pix_fmt_name((AVPixelFormat)codecpar->format) ?? "unknown";
+
+        AppLog.Info(
+            $"Live View RTSP stream opened: video stream index={videoStreamIndex}, codec={codecName} " +
+            $"({codecpar->codec_id}), declared {codecpar->width}x{codecpar->height}, pixfmt={pixelFormatName}.");
     }
 
     private unsafe void ReadLoop(CancellationToken cancellationToken)
@@ -312,6 +332,11 @@ public sealed class RtspMediaSession : IMediaSession, IFfmpegDemuxSource
             IsKeyFrame = (packet->flags & ffmpeg.AV_PKT_FLAG_KEY) != 0
         };
 
+        // Task-AI00B Phase 12A: the per-50-packet "packets received" counter/log previously here
+        // was removed -- it had no reader beyond its own log line (confirmed: no Statistics
+        // surface, no reconnect/health logic depended on it) and added no diagnostic value not
+        // already covered by the one-time stream-opened log above and FfmpegVideoDecoder's decode
+        // summary, while logging unboundedly (~every 2s) for the life of a long-running session.
         PacketReceived?.Invoke(this, new EncodedPacketReceivedEventArgs { Packet = encodedFrame });
     }
 

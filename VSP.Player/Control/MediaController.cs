@@ -496,6 +496,12 @@ public sealed class MediaController : IMediaController
         }
         catch (Exception ex)
         {
+            // Item F evidence collection: this exception was previously only ever visible via
+            // Statistics.LastError, which nothing in VSP.UI currently reads while the controller
+            // stays Connected -- making a persistently-throwing decode/conversion path silently
+            // invisible end-to-end. Logging it here does not change the swallow-and-continue
+            // behavior (still required to keep a live session alive past one bad frame).
+            AppLog.Warning($"Live View decode/conversion exception for camera {_cameraId}: {ex.Message}", ex);
             RecordError(new MediaError { Category = MediaErrorCategory.Decode, Message = ex.Message, Exception = ex });
         }
     }
