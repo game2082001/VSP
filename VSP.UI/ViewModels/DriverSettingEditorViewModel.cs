@@ -30,6 +30,11 @@ public class DriverSettingEditorViewModel : ObservableObject
         get => _value;
         set
         {
+            // Marked unconditionally, before the equality check inside SetProperty, so that
+            // explicitly re-entering the value the field already holds (e.g. confirming "554"
+            // when it already reads "554") still counts as an explicit edit.
+            WasExplicitlyEdited = true;
+
             if (SetProperty(ref _value, value))
             {
                 Validate();
@@ -39,6 +44,14 @@ public class DriverSettingEditorViewModel : ObservableObject
     }
 
     public string DisplayValue => IsSensitive ? MaskValue(Value) : Value;
+
+    /// <summary>
+    /// True once this instance's <see cref="Value"/> setter has been invoked via user-driven
+    /// binding. Construction and <c>RebuildDriverSettings</c> reseeding assign the backing field
+    /// directly and never set this. Generic on this shared view-model; individual consumers
+    /// decide whether/which key's flag matters to them.
+    /// </summary>
+    public bool WasExplicitlyEdited { get; private set; }
 
     private bool _isValid = true;
     public bool IsValid

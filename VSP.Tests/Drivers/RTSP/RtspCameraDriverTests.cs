@@ -163,6 +163,124 @@ public class RtspCameraDriverTests
         Assert.False(result);
     }
 
+    [Fact]
+    public void TestConnection_UsesConfiguredRtspPort_WhenUrlHasNoPort()
+    {
+        using var server = new LoopbackRtspTestServer("RTSP/1.0 200 OK\r\nCSeq: 1\r\n\r\n");
+        var camera = new CameraEntity
+        {
+            RtspUrl = "rtsp://127.0.0.1/stream1",
+            RtspPort = server.Port
+        };
+
+        var result = new RtspCameraDriver().TestConnection(camera);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void TestConnection_PrefersExplicitUrlPort_OverConfiguredRtspPort()
+    {
+        using var server = new LoopbackRtspTestServer("RTSP/1.0 200 OK\r\nCSeq: 1\r\n\r\n");
+        var camera = new CameraEntity
+        {
+            RtspUrl = $"rtsp://127.0.0.1:{server.Port}/stream1",
+            RtspPort = 1
+        };
+
+        var result = new RtspCameraDriver().TestConnection(camera);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void TestConnection_LogsSanitizedAuthChallengeDiagnostics_WithMultipleHeadersAlgorithmAndStale()
+    {
+        var recorder = new RecordingLogger();
+        AppLog.Initialize(recorder);
+
+        const string secretRealm = "SuperSecretRealm-9f8e";
+        const string secretNonce = "SuperSecretNonce-1a2b3c4d";
+        const string secretOpaque = "SuperSecretOpaque-z9y8x7";
+        const string secretUsername = "admin";
+        const string secretPassword = "wrongpassword";
+
+        using var server = new LoopbackRtspTestServer(
+            firstResponse: "RTSP/1.0 401 Unauthorized\r\nCSeq: 1\r\n" +
+                           $"WWW-Authenticate: Digest realm=\"{secretRealm}\", nonce=\"{secretNonce}\", " +
+                           $"opaque=\"{secretOpaque}\", algorithm=MD5-sess, qop=\"auth,auth-int\", stale=false\r\n" +
+                           "WWW-Authenticate: Basic realm=\"other\"\r\n\r\n",
+            secondResponse: "RTSP/1.0 401 Unauthorized\r\nCSeq: 2\r\n\r\n");
+        var camera = CreateCamera(server.Port, username: secretUsername, password: secretPassword);
+
+        var result = new RtspCameraDriver().TestConnection(camera);
+
+        Assert.False(result);
+        var diagnosticCall = Assert.Single(recorder.Calls, call => call.Message.StartsWith("RTSP TestConnection auth challenge:"));
+        Assert.Equal(LogLevel.Info, diagnosticCall.Level);
+
+        var message = diagnosticCall.Message;
+        Assert.Contains("authChallengeCount=2", message);
+        Assert.Contains("challengeSchemes=Digest,Basic", message);
+        Assert.Contains("selectedScheme=Digest", message);
+        Assert.Contains("algorithmPresent=True", message);
+        Assert.Contains("algorithmValue=MD5-sess", message);
+        Assert.Contains("qopHasAuth=True", message);
+        Assert.Contains("qopHasAuthInt=True", message);
+        Assert.Contains("realmPresent=True", message);
+        Assert.Contains("noncePresent=True", message);
+        Assert.Contains("opaquePresent=True", message);
+        Assert.Contains("stalePresent=True", message);
+        Assert.Contains("staleValue=false", message);
+        Assert.Contains("secondResponseStatus=401", message);
+
+        // Secret-leak assertions: none of the raw challenge/credential values, the Authorization
+        // header, or the full RTSP URI may appear in any logged message from this run.
+        foreach (var call in recorder.Calls)
+        {
+            Assert.DoesNotContain(secretRealm, call.Message);
+            Assert.DoesNotContain(secretNonce, call.Message);
+            Assert.DoesNotContain(secretOpaque, call.Message);
+            Assert.DoesNotContain(secretUsername, call.Message);
+            Assert.DoesNotContain(secretPassword, call.Message);
+            Assert.DoesNotContain("Authorization", call.Message);
+            Assert.DoesNotContain("rtsp://", call.Message, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public void TestConnection_LogsAuthChallengeDiagnostics_WhenNoCredentialsConfigured()
+    {
+        var recorder = new RecordingLogger();
+        AppLog.Initialize(recorder);
+
+        using var server = new LoopbackRtspTestServer(
+            "RTSP/1.0 401 Unauthorized\r\nCSeq: 1\r\nWWW-Authenticate: Digest realm=\"test\", nonce=\"n\"\r\n\r\n");
+        var camera = CreateCamera(server.Port);
+
+        var result = new RtspCameraDriver().TestConnection(camera);
+
+        Assert.False(result);
+        var diagnosticCall = Assert.Single(recorder.Calls, call => call.Message.StartsWith("RTSP TestConnection auth challenge:"));
+        Assert.Contains("authChallengeCount=1", diagnosticCall.Message);
+        Assert.Contains("secondResponseStatus=,", diagnosticCall.Message + ",");
+    }
+
+    [Fact]
+    public void TestConnection_DoesNotLogAuthChallengeDiagnostics_WhenFirstResponseIsNot401()
+    {
+        var recorder = new RecordingLogger();
+        AppLog.Initialize(recorder);
+
+        using var server = new LoopbackRtspTestServer("RTSP/1.0 404 Not Found\r\nCSeq: 1\r\n\r\n");
+        var camera = CreateCamera(server.Port);
+
+        var result = new RtspCameraDriver().TestConnection(camera);
+
+        Assert.False(result);
+        Assert.DoesNotContain(recorder.Calls, call => call.Message.StartsWith("RTSP TestConnection auth challenge:"));
+    }
+
     private static CameraEntity CreateCamera(int port, string username = "", string password = "")
     {
         return new CameraEntity

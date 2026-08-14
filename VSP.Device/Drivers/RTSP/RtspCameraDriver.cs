@@ -1,5 +1,6 @@
 ﻿using VSP.Core.Logging;
 using VSP.Device.Drivers.Abstractions;
+using VSP.Domain;
 using VSP.Domain.Entities;
 
 namespace VSP.Device.Drivers.RTSP;
@@ -28,28 +29,43 @@ public class RtspCameraDriver : ICameraDriver
     {
         try
         {
-            if (!Uri.TryCreate(camera.RtspUrl, UriKind.Absolute, out var endpointUri)
+            if (!RtspEndpointResolver.TryResolve(camera.RtspUrl, camera.RtspPort, out var endpointUri)
                 || !endpointUri.Scheme.Equals("rtsp", StringComparison.OrdinalIgnoreCase)
                 || string.IsNullOrWhiteSpace(endpointUri.Host))
             {
                 return false;
             }
 
-            var response = SendDescribe(camera.RtspUrl, endpointUri, cSeq: 1, authorizationHeaderValue: null);
+            var effectiveRtspUrl = endpointUri.AbsoluteUri;
+            var response = SendDescribe(effectiveRtspUrl, endpointUri, cSeq: 1, authorizationHeaderValue: null);
 
             if (IsSuccess(response.StatusCode))
             {
                 return true;
             }
 
-            if (response.StatusCode != 401 || string.IsNullOrEmpty(camera.Username))
+            if (response.StatusCode != 401)
             {
+                return false;
+            }
+
+            // Task-AI00B Phase 10: sanitized, read-only observation of the real challenge(s) the
+            // camera sent on this 401 -- does not affect which challenge is selected below (still
+            // response.WwwAuthenticate, the first header, exactly as before this phase) or how
+            // Authorization is built. See RtspAuthChallengeDiagnostics for what is/isn't logged.
+            var observedChallenges = RtspWwwAuthenticateParser.ParseAll(response.WwwAuthenticateValues);
+            const int selectedChallengeIndex = 0;
+
+            if (string.IsNullOrEmpty(camera.Username))
+            {
+                AppLog.Info(RtspAuthChallengeDiagnostics.BuildSummary(observedChallenges, selectedChallengeIndex, secondResponseStatus: null));
                 return false;
             }
 
             var challenge = RtspWwwAuthenticateParser.Parse(response.WwwAuthenticate);
             if (challenge is null)
             {
+                AppLog.Info(RtspAuthChallengeDiagnostics.BuildSummary(observedChallenges, selectedChallengeIndex, secondResponseStatus: null));
                 return false;
             }
 
@@ -58,14 +74,17 @@ public class RtspCameraDriver : ICameraDriver
                 camera.Username,
                 camera.Password,
                 "DESCRIBE",
-                camera.RtspUrl);
+                effectiveRtspUrl);
 
             if (string.IsNullOrEmpty(authorizationHeaderValue))
             {
+                AppLog.Info(RtspAuthChallengeDiagnostics.BuildSummary(observedChallenges, selectedChallengeIndex, secondResponseStatus: null));
                 return false;
             }
 
-            var retryResponse = SendDescribe(camera.RtspUrl, endpointUri, cSeq: 2, authorizationHeaderValue);
+            var retryResponse = SendDescribe(effectiveRtspUrl, endpointUri, cSeq: 2, authorizationHeaderValue);
+
+            AppLog.Info(RtspAuthChallengeDiagnostics.BuildSummary(observedChallenges, selectedChallengeIndex, retryResponse.StatusCode));
 
             return IsSuccess(retryResponse.StatusCode);
         }
@@ -83,12 +102,11 @@ public class RtspCameraDriver : ICameraDriver
         string? authorizationHeaderValue)
     {
         var requestPayload = RtspDescribeRequestFactory.Create(rtspUrl, cSeq, authorizationHeaderValue);
-        var port = endpointUri.Port > 0 ? endpointUri.Port : 554;
 
         var responsePayload = TcpRtspTransport.SendAndReceive(
             requestPayload,
             endpointUri.Host,
-            port,
+            endpointUri.Port,
             ConnectTimeout,
             ReadTimeout);
 

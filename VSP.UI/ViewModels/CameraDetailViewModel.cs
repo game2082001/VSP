@@ -6,6 +6,7 @@ using VSP.Core.MVVM;
 using VSP.Device.Drivers;
 using VSP.Device.Drivers.Settings;
 using VSP.Device.Interfaces;
+using VSP.Domain;
 using VSP.Domain.Entities;
 using VSP.Domain.Enums;
 
@@ -491,6 +492,41 @@ public class CameraDetailViewModel : ObservableObject
         foreach (var setting in DriverSettings)
         {
             ApplyCameraSettingValue(camera, setting.Key, setting.Value);
+        }
+
+        NormalizeRtspEndpoint(camera);
+    }
+
+    /// <summary>
+    /// Keeps <see cref="Camera.RtspUrl"/> and <see cref="Camera.RtspPort"/> from silently
+    /// disagreeing. If the user explicitly edited the RTSP Port field this session, that value
+    /// is authoritative and the URL is rewritten to match -- including when the edited value
+    /// equals the URL's existing port, so an explicit no-op edit still normalizes correctly.
+    /// Otherwise, an explicit port already embedded in RtspUrl is preserved (legacy records),
+    /// and RtspPort is synced up to match it so the two fields agree from this Save onward.
+    /// </summary>
+    private void NormalizeRtspEndpoint(Camera camera)
+    {
+        if (camera.ConnectionType != DeviceConnectionType.RTSP)
+        {
+            return;
+        }
+
+        var rtspPortSetting = DriverSettings.FirstOrDefault(setting => setting.Key == DriverSettingKey.RtspPort);
+
+        if (rtspPortSetting is not null && rtspPortSetting.WasExplicitlyEdited)
+        {
+            if (Uri.TryCreate(camera.RtspUrl, UriKind.Absolute, out var uri))
+            {
+                camera.RtspUrl = new UriBuilder(uri) { Port = camera.RtspPort }.Uri.AbsoluteUri;
+            }
+
+            return;
+        }
+
+        if (RtspEndpointResolver.TryResolve(camera.RtspUrl, camera.RtspPort, out var effectiveUri))
+        {
+            camera.RtspPort = effectiveUri.Port;
         }
     }
 

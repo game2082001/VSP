@@ -10,12 +10,21 @@
         ResizeMode="NoResize">
 
     <Window.Resources>
+        <!--
+            RelativeSource retargets the binding's Source to the ancestor Window element itself,
+            not its DataContext, so the Path must say DataContext.IsEditMode explicitly, not
+            just IsEditMode (which would look for a same-named property on the Window object,
+            which doesn't exist, and silently never fire). This is required because these styles
+            are reused, via BasedOn, inside DriverSettingTemplate below, where each element's own
+            DataContext is a DriverSettingEditorViewModel item (no IsEditMode property), not this
+            Window's CameraDetailViewModel.
+        -->
         <Style x:Key="DetailValueStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Visibility" Value="Visible"/>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
+                <DataTrigger Binding="{Binding DataContext.IsEditMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                     <Setter Property="Visibility" Value="Collapsed"/>
                 </DataTrigger>
             </Style.Triggers>
@@ -24,7 +33,7 @@
         <Style x:Key="EditableTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource VspTextBox}">
             <Setter Property="Visibility" Value="Collapsed"/>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsEditMode}" Value="True">
+                <DataTrigger Binding="{Binding DataContext.IsEditMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                     <Setter Property="Visibility" Value="Visible"/>
                 </DataTrigger>
             </Style.Triggers>

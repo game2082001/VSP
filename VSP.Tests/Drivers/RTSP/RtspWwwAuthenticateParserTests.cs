@@ -49,4 +49,75 @@ public class RtspWwwAuthenticateParserTests
         Assert.Null(RtspWwwAuthenticateParser.Parse(string.Empty));
         Assert.Null(RtspWwwAuthenticateParser.Parse("   "));
     }
+
+    [Fact]
+    public void Parse_ParsesAlgorithmMd5()
+    {
+        var challenge = RtspWwwAuthenticateParser.Parse(
+            "Digest realm=\"CamRealm\", nonce=\"abc123nonce\", algorithm=MD5");
+
+        Assert.NotNull(challenge);
+        Assert.Equal("MD5", challenge!.Algorithm);
+    }
+
+    [Fact]
+    public void Parse_ParsesAlgorithmMd5Sess()
+    {
+        var challenge = RtspWwwAuthenticateParser.Parse(
+            "Digest realm=\"CamRealm\", nonce=\"abc123nonce\", algorithm=MD5-sess");
+
+        Assert.NotNull(challenge);
+        Assert.Equal("MD5-sess", challenge!.Algorithm);
+    }
+
+    [Fact]
+    public void Parse_ParsesStaleTrue()
+    {
+        var challenge = RtspWwwAuthenticateParser.Parse(
+            "Digest realm=\"CamRealm\", nonce=\"newnonce\", stale=true");
+
+        Assert.NotNull(challenge);
+        Assert.Equal("true", challenge!.Stale);
+    }
+
+    [Fact]
+    public void Parse_WithoutAlgorithmOrStale_LeavesBothNull()
+    {
+        var challenge = RtspWwwAuthenticateParser.Parse("Digest realm=\"CamRealm\", nonce=\"abc123nonce\"");
+
+        Assert.NotNull(challenge);
+        Assert.Null(challenge!.Algorithm);
+        Assert.Null(challenge.Stale);
+    }
+
+    [Fact]
+    public void ParseAll_ParsesEachHeaderValueIntoItsOwnChallenge()
+    {
+        var challenges = RtspWwwAuthenticateParser.ParseAll(
+        [
+            "Digest realm=\"CamRealm\", nonce=\"abc123nonce\", qop=\"auth\"",
+            "Basic realm=\"CamRealm\""
+        ]);
+
+        Assert.Equal(2, challenges.Count);
+        Assert.Equal("Digest", challenges[0].Scheme);
+        Assert.Equal("Basic", challenges[1].Scheme);
+    }
+
+    [Fact]
+    public void ParseAll_ReturnsEmptyList_WhenNoHeaderValuesGiven()
+    {
+        var challenges = RtspWwwAuthenticateParser.ParseAll([]);
+
+        Assert.Empty(challenges);
+    }
+
+    [Fact]
+    public void ParseAll_SkipsValuesThatFailToParse()
+    {
+        var challenges = RtspWwwAuthenticateParser.ParseAll(["", "   ", "Digest realm=\"CamRealm\", nonce=\"n\""]);
+
+        var only = Assert.Single(challenges);
+        Assert.Equal("Digest", only.Scheme);
+    }
 }

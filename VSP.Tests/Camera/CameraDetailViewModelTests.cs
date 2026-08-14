@@ -680,6 +680,131 @@ public class CameraDetailViewModelTests
         Assert.Equal("Connection successful.", viewModel.StatusMessage);
     }
 
+    // A: legacy record, RtspPort never touched this session -> the explicit port already
+    // embedded in RtspUrl is preserved, and RtspPort is synced up to match it on Save.
+    [Fact]
+    public void SaveCommand_RtspPortNotEdited_PreservesLegacyUrlPortAndSyncsRtspPort()
+    {
+        var repository = new FakeCameraRepository();
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        camera.RtspUrl = "rtsp://host:8554/stream";
+        camera.RtspPort = 554;
+        var viewModel = new CameraDetailViewModel(camera, repository);
+        viewModel.EditCommand.Execute(null);
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal(8554, repository.LastUpdatedCamera!.RtspPort);
+        Assert.Equal("rtsp://host:8554/stream", repository.LastUpdatedCamera.RtspUrl);
+    }
+
+    // B: user explicitly re-enters the RTSP Port field with the value it already displays
+    // (554 -> 554). The setter must mark explicit intent purely from being invoked, independent
+    // of SetProperty's equality check -- so this must NOT collapse to "not edited" and defer to
+    // the legacy URL's :8554.
+    [Fact]
+    public void SaveCommand_RtspPortExplicitlyEditedToSameValue_BecomesAuthoritativeAndNormalizesUrl()
+    {
+        var repository = new FakeCameraRepository();
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        camera.RtspUrl = "rtsp://host:8554/stream";
+        camera.RtspPort = 554;
+        var viewModel = new CameraDetailViewModel(camera, repository);
+        viewModel.EditCommand.Execute(null);
+
+        var rtspPortSetting = GetSetting(viewModel, DriverSettingKey.RtspPort);
+        rtspPortSetting.Value = "554";
+
+        Assert.True(rtspPortSetting.WasExplicitlyEdited);
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal(554, repository.LastUpdatedCamera!.RtspPort);
+        Assert.Equal("rtsp://host:554/stream", repository.LastUpdatedCamera.RtspUrl);
+    }
+
+    // C: user explicitly edits RTSP Port to a non-default value -> authoritative, URL normalized.
+    [Fact]
+    public void SaveCommand_RtspPortExplicitlyEditedToNonDefault_BecomesAuthoritativeAndNormalizesUrl()
+    {
+        var repository = new FakeCameraRepository();
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        camera.RtspUrl = "rtsp://host:554/stream";
+        camera.RtspPort = 554;
+        var viewModel = new CameraDetailViewModel(camera, repository);
+        viewModel.EditCommand.Execute(null);
+
+        GetSetting(viewModel, DriverSettingKey.RtspPort).Value = "8554";
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal(8554, repository.LastUpdatedCamera!.RtspPort);
+        Assert.Equal("rtsp://host:8554/stream", repository.LastUpdatedCamera.RtspUrl);
+    }
+
+    // D: new camera, RtspPort set once -> authoritative without requiring the same port to also
+    // be typed into the RTSP URL.
+    [Fact]
+    public void SaveCommand_NewCamera_ExplicitRtspPort_DoesNotRequireEnteringPortTwice()
+    {
+        var repository = new FakeCameraRepository();
+        var viewModel = new CameraDetailViewModel(repository);
+        viewModel.Name = "Lobby";
+        viewModel.IpAddress = "10.0.0.50";
+        viewModel.ConnectionType = nameof(DeviceConnectionType.RTSP);
+
+        GetSetting(viewModel, DriverSettingKey.RtspUrl).Value = "rtsp://192.168.1.50/stream";
+        GetSetting(viewModel, DriverSettingKey.RtspPort).Value = "8554";
+
+        viewModel.SaveCommand.Execute(null);
+
+        Assert.Equal(8554, repository.LastAddedCamera!.RtspPort);
+        Assert.Equal("rtsp://192.168.1.50:8554/stream", repository.LastAddedCamera.RtspUrl);
+    }
+
+    // E: programmatic initialization/reseeding must never mark explicit edit intent.
+    [Fact]
+    public void DriverSettingEditorViewModel_Construction_DoesNotMarkExplicitlyEdited()
+    {
+        var definition = new DriverSettingDefinition(DriverSettingKey.RtspPort, "RTSP Port", valueKind: DriverSettingValueKind.Port);
+
+        var setting = new DriverSettingEditorViewModel(definition, "554");
+
+        Assert.False(setting.WasExplicitlyEdited);
+    }
+
+    [Fact]
+    public void SelectingConnectionType_SeededRtspPort_IsNotMarkedExplicitlyEdited()
+    {
+        var viewModel = new CameraDetailViewModel(new FakeCameraRepository());
+
+        viewModel.ConnectionType = nameof(DeviceConnectionType.RTSP);
+
+        Assert.False(GetSetting(viewModel, DriverSettingKey.RtspPort).WasExplicitlyEdited);
+    }
+
+    [Fact]
+    public void ChangingConnectionType_RebuiltSetting_ValueSurvivesButExplicitEditFlagResets()
+    {
+        // Documented, accepted limitation: rebuilding DriverSettings (e.g. a ConnectionType
+        // switch) always goes through the constructor, so edit-intent tracking resets even
+        // for a key (Username) whose typed value does carry over via the "preserve values
+        // across rebuild" mechanism (RTSP and ONVIF both define Username).
+        var camera = CreateCamera();
+        camera.ConnectionType = DeviceConnectionType.RTSP;
+        var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
+        viewModel.EditCommand.Execute(null);
+        GetSetting(viewModel, DriverSettingKey.Username).Value = "edited-user";
+
+        viewModel.ConnectionType = nameof(DeviceConnectionType.ONVIF);
+        viewModel.ConnectionType = nameof(DeviceConnectionType.RTSP);
+
+        Assert.Equal("edited-user", GetSetting(viewModel, DriverSettingKey.Username).Value);
+        Assert.False(GetSetting(viewModel, DriverSettingKey.Username).WasExplicitlyEdited);
+    }
+
     private static DriverSettingEditorViewModel GetSetting(CameraDetailViewModel viewModel, DriverSettingKey key)
     {
         return viewModel.DriverSettings.Single(setting => setting.Key == key);
