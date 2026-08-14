@@ -1,5 +1,86 @@
 ﻿# CHANGELOG
 
+## 2026-08-14 (RC1 Manual E2E Closure — Items K/L/M/N, Task-AI00B)
+
+### RC1 Manual E2E Validation Complete — 14/14 PASS
+
+Status:
+**RC1 Manual E2E = 14/14 PASS.** Items A through N of `Docs/RELEASES/V1.0_RC1_MANUAL_E2E_VALIDATION_CHECKLIST.md` are all real-device validated by the Product Owner against the `VSP_v1.0.0-RC1_RC1-R05_win-x64` artifact. No defect found in Items K, L, M, or N; no production code change made for any of them.
+
+Summary:
+- **Item K — Database Restore**: Pass. Test camera `RESTORE-TEST-DELETE-ME` created and reverted correctly by restore; `89-R` and its settings survived; pre-restore safety backup `vsp.pre-restore.20260814-190428.db` (24 KB) created and retained.
+- **Item L — Operator login / role restrictions**: Pass. Verified with a real Operator account against the source-confirmed permission matrix (navigation, Devices, Camera Detail, Live View recording, Playback) traced ahead of the test from `CameraListViewModel.cs`, `CameraDetailViewModel.cs`, `LiveViewViewModel.cs`, and `MainWindowViewModel.cs`.
+- **Item M — Logout / login again**: Pass. Confirms `App.xaml.cs`'s `StartSession()` recursion correctly tears down an Operator session and rebuilds a fresh Admin session with the full 5-item navigation.
+- **Item N — Application restart and persistence check**: Pass. Confirms no login-session persistence (by design) while the SQLite-backed camera/user data, the separate Settings JSON file, on-disk recordings, and both backup files all survive a full process restart untouched.
+- No production code was changed by any of these four items — all are real-device confirmation of already-implemented, already-tested behavior.
+
+Verification:
+- `dotnet build VSP.slnx -c Debug`: 0 errors (same pre-existing `NU1903` advisory warnings only).
+- `dotnet test VSP.Tests -c Debug --no-build`: 907 passed / 1 failed / 0 skipped / 908 total. The one failure, `RtspMediaSessionIntegrationTests.OpenAsync_AgainstRealFfmpegEncodedStream_ReceivesAndDecodesRealFrames`, is the same pre-existing, documented full-suite-load timing flake (confirmed passing in isolation, 2026-08-14 re-run); reported as-is, not normalized.
+- `git diff --check`: exit code 0 (no whitespace/conflict-marker errors; only pre-existing LF→CRLF autocrlf notices).
+
+Files:
+- `Docs/RELEASES/V1.0_RC1_MANUAL_E2E_VALIDATION_CHECKLIST.md` (Items K/L/M/N marked Pass with evidence, final status)
+- `Docs/03_PRODUCT_ROADMAP.md`, `Docs/RELEASES/V1.0_RC1_ACCEPTANCE_REPORT.md` (updated to reflect 14/14)
+- `Docs/CHANGELOG.md` (this entry)
+
+Not covered by this entry (deliberately not decided here): Pilot Ready, GA Ready, or Production Ready — these remain distinct Product Owner release-gate decisions, and the working tree remains uncommitted.
+
+---
+
+## 2026-08-14 (RC1 Remediation — RC1-R04 / RC1-R05, Task-AI00B)
+
+### RC1-R04 — Recording/Playback Storage Contract & RC1-R05 — Playback Frame Presentation Lifecycle
+
+Status:
+Implementation Complete — Test Complete — Real-Device Validated — PASS — CLOSED. Both found and fixed while preparing/executing RC1 Manual E2E Item H (Playback). Closes Item G and Item H. Uncommitted, pending user commit.
+
+Summary:
+- **RC1-R04** (`Docs/SPECS/RC1-R04_RECORDING_PLAYBACK_STORAGE_CONTRACT.md`): `LiveViewViewModel`'s production `MediaController` factory never supplied a `cameraId`, so every recording landed flat in `%LocalAppData%\VSP\Recordings\` regardless of camera, even though `MediaController`/`RecordingPathProvider`/`RecordingCatalog`/Playback already implemented and expected a per-camera subfolder. New recordings from Live View were therefore never discoverable from Playback. Fixed by widening `LiveViewViewModel`'s controller-factory delegate to carry `camera.Id` (the `Camera` instance already in scope at the real call site) straight into `MediaController`, so recordings now land under `<Recording Root>\<cameraId:N>\`, matching Playback's existing scan contract exactly. Pre-fix flat-root recordings are left untouched — no deterministic camera-ownership signal exists in their filenames to safely auto-migrate them.
+- **RC1-R05** (`Docs/SPECS/RC1-R05_PLAYBACK_FRAME_PRESENTATION_LIFECYCLE.md`): once RC1-R04 made a recording discoverable, real-device retest of Playback found `PlaybackViewModel` had never received the RC1-R03 fix applied to `LiveViewViewModel` — it never subscribed to `Renderer.FrameRendered`, so clicking Play showed the position timeline advancing while the video area stayed black; Pause incidentally revealed a frame (via an unrelated `StateChanged`-triggered property refresh); Resume then played normally; Stop → Play repeated the same race deterministically on the freshly-constructed controller/renderer. Fixed by mirroring RC1-R03 exactly: `PlaybackViewModel` now subscribes/unsubscribes `Renderer.FrameRendered` alongside `StateChanged`, raising `PropertyChanged(nameof(CurrentFrameSource))` on every frame.
+- Both real-device validated by the Product Owner (2026-08-14) against dedicated artifacts (`VSP_v1.0.0-RC1_RC1-R04_win-x64`, then `VSP_v1.0.0-RC1_RC1-R05_win-x64`). RC1-R04: Live View → Start/Stop Recording → per-camera storage → Playback auto-discovery, zero manual steps. RC1-R05: Play immediately shows video (no black screen), Pause/Resume/Stop, and a repeated Stop→Play cycle all confirmed working.
+- `Docs/RELEASES/V1.0_RC1_MANUAL_E2E_VALIDATION_CHECKLIST.md`: Item G and Item H marked Pass; Recording Path documentation corrected to the fixed per-camera contract, with the pre-fix flat-root behavior preserved as an explicit historical note (not silently rewritten away).
+
+Verification:
+- `dotnet build VSP.slnx -c Debug`: 0 errors (pre-existing `NU1903`/xUnit-style warnings only).
+- `dotnet test VSP.Tests -c Debug --no-build`: 907 passed / 1 failed / 0 skipped / 908 total. The one failure, `RtspMediaSessionIntegrationTests.OpenAsync_AgainstRealFfmpegEncodedStream_ReceivesAndDecodesRealFrames`, is the same pre-existing, documented full-suite-load timing flake carried since Epic-010/011 (confirmed passing 2/2 in isolation); this run is reported exactly as-is, not normalized to "clean," per explicit instruction to keep the automated baseline and real-device Pass status distinct.
+- `git diff --check`: exit code 0 (no whitespace/conflict-marker errors; only pre-existing LF→CRLF autocrlf notices).
+
+Files:
+- `VSP.UI/ViewModels/LiveViewViewModel.cs` (RC1-R04), `VSP.UI/ViewModels/PlaybackViewModel.cs` (RC1-R05)
+- `VSP.Tests/Player/LiveViewViewModelTests.cs`, `MediaControllerRecordingTests.cs`, `RecordingCatalogTests.cs`, `RecordingPathProviderTests.cs` (RC1-R04); `PlaybackViewModelTests.cs` (RC1-R05)
+- `Docs/SPECS/RC1-R04_RECORDING_PLAYBACK_STORAGE_CONTRACT.md`, `RC1-R05_PLAYBACK_FRAME_PRESENTATION_LIFECYCLE.md` (new)
+- `Docs/CHANGELOG.md` (this entry), `Docs/03_PRODUCT_ROADMAP.md`, `Docs/RELEASES/V1.0_RC1_MANUAL_E2E_VALIDATION_CHECKLIST.md`
+
+---
+
+## 2026-08-10 (RC1 Remediation — Traceability Recovery, Task-AI00B Phase 1)
+
+### RC1-R01 / RC1-R02 / RC1-R03 — Retroactive Specification for RC1 Post-Commit Remediation
+
+Status:
+Documentation only — **no production code or test changed by this entry.** This entry retroactively establishes Specification First traceability for implementation, tests, and (where applicable) real-device validation that already existed, uncommitted, in the working tree as of Task-AI00A (2026-08-10 assessment). It does not itself commit that code. See `Docs/RELEASES/V1.0_RC1_MANUAL_E2E_VALIDATION_CHECKLIST.md` for the original discovery/fix narrative this entry formalizes.
+
+Summary:
+- **RC1-R01 — RTSP Port Runtime Resolution** (`Docs/SPECS/RC1-R01_RTSP_PORT_RUNTIME_RESOLUTION.md`): `Camera.RtspPort` was persisted but never consulted at runtime (`RtspCameraDriver.TestConnection` hardcoded `554` as its fallback). Fixed via new `VSP.Domain/RtspEndpointResolver.cs` plus session-edit-intent-aware save normalization (`DriverSettingEditorViewModel.WasExplicitlyEdited`, `CameraDetailViewModel.NormalizeRtspEndpoint`). **Implementation Complete, Test Complete (13 tests: 4 in `RtspEndpointResolverTests.cs` + 2 in `RtspCameraDriverTests.cs` + 7 in `CameraDetailViewModelTests.cs`), real-device validated** by Product Owner manual retest against camera 192.168.0.89:1025 — confirmed Pass.
+- **RC1-R02 — Camera Detail Field Editability** (`Docs/SPECS/RC1-R02_CAMERA_DETAIL_FIELD_EDITABILITY.md`): driver-setting fields (Port, Username, RtspUrl, etc.) were permanently read-only in Camera Detail for every connection type, due to an unqualified `{Binding IsEditMode}` inside a reused `ItemsControl` template whose `DataContext` has no such property. Fixed via `{Binding DataContext.IsEditMode, RelativeSource={RelativeSource AncestorType=Window}}` in `CameraDetailWindow.xaml` — after one incorrect attempt (which additionally broke the working Name/Model/IP Address/Location fields) was caught and withdrawn by a Product Owner real-device retest. **Implementation Complete, real-device validated** (192.168.0.89:1025, confirmed Pass); **no automated test exists for this binding fix** (disclosed limitation — this codebase has no STA/UI-Automation test infrastructure, consistent with the gap already recorded in Epic-018).
+- **RC1-R03 — Live View `CurrentFrameSource` Binding** (`Docs/SPECS/RC1-R03_LIVEVIEW_CURRENTFRAMESOURCE_BINDING.md`): `LiveViewViewModel` never subscribed to the pre-existing `IFrameRenderer.FrameRendered` event, so `CurrentFrameSource`'s `PropertyChanged` was never raised and the Live View `Image` control's bound source stayed frozen even while frames decoded and rendered successfully underneath it. Fixed via `HandleFrameRendered` subscribe/unsubscribe wiring in `LiveViewViewModel`. **Implementation Complete, Test Complete (3 tests)** — tracked independently of Defect 3/4 per explicit Product Owner instruction, because this fix is not named anywhere in the existing Manual E2E Validation checklist narrative. **Validation Pending — no real-device evidence exists in the repository. Not Product Owner Accepted.**
+
+Explicitly NOT covered by this entry (remain Validation Pending / BLOCKED, unaffected by this documentation pass):
+- **Defect 3 — ONVIF Media Stream URI Resolution** and **Defect 4 — RTSP/ONVIF Playback Credential Propagation** (both "Item F" in the Manual E2E Validation checklist) — implementation and unit tests exist in the working tree, but real-device retest against 192.168.0.89:1025 has not been performed. Not documented as Specs in this pass; will be handled in a future Task-AI00B phase once Product Owner real-device validation is available.
+- Item F diagnostic instrumentation (`VSP.Player/Control/MediaController.cs`, `VSP.Player/Decoder/FfmpegVideoDecoder.cs`, `VSP.Player/Decoder/RtspMediaSession.cs`) — retained as-is, unrelated to this documentation pass.
+
+Verification:
+- `dotnet build VSP.slnx -c Debug`: 0 Error (pre-existing `NU1903` advisory warnings unchanged).
+- `dotnet test VSP.Tests -c Debug --no-build`: baseline unchanged by this documentation-only pass — see Task-AI00B Phase 1 Completion Report for the exact re-run result.
+
+Files:
+- `Docs/SPECS/RC1-R01_RTSP_PORT_RUNTIME_RESOLUTION.md`, `RC1-R02_CAMERA_DETAIL_FIELD_EDITABILITY.md`, `RC1-R03_LIVEVIEW_CURRENTFRAMESOURCE_BINDING.md` (new)
+- `Docs/CHANGELOG.md` (this entry)
+- `Docs/03_PRODUCT_ROADMAP.md`, `Docs/RELEASES/V1.0_RC1_MANUAL_E2E_VALIDATION_CHECKLIST.md` (updated for cross-reference — see those files)
+
+---
+
 ## 2026-08-06 (Epic-017)
 
 ### Version 0.17.0 - Epic-017 Database Backup / Restore Foundation
