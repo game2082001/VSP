@@ -78,6 +78,25 @@ public class RecordingPathProviderTests : IDisposable
         Assert.NotEqual(directoryA, directoryB);
     }
 
+    // RC1-R04 (Recording/Playback Storage Contract): a configured custom Recording Root (via
+    // Settings/recording-settings.json) must still get the per-camera subfolder appended --
+    // GetCameraRecordingDirectory must not silently ignore a configured root.
+    [Fact]
+    public void GetCameraRecordingDirectory_WithConfiguredRoot_AppendsCameraSubfolderUnderCustomRoot()
+    {
+        Directory.CreateDirectory(_configDirectory);
+        var configuredRoot = Path.Combine(_configDirectory, "CustomRecordings");
+        File.WriteAllText(
+            Path.Combine(_configDirectory, "recording-settings.json"),
+            $"{{ \"RecordingRoot\": {JsonSerializer.Serialize(configuredRoot)} }}");
+        var cameraId = Guid.NewGuid();
+
+        var directory = RecordingPathProvider.GetCameraRecordingDirectory(_configDirectory, cameraId);
+
+        Assert.Equal(Path.Combine(configuredRoot, cameraId.ToString("N")), directory);
+        Assert.True(Directory.Exists(directory));
+    }
+
     public void Dispose()
     {
         try

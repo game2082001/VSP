@@ -69,6 +69,36 @@ public class RecordingCatalogTests : IDisposable
         Assert.Equal(File.GetLastWriteTime(filePath), recordings[0].RecordedAt);
     }
 
+    // RC1-R04 (Recording/Playback Storage Contract): proves the write-side directory
+    // (RecordingPathProvider.GetCameraRecordingDirectory, what MediaController.BuildRecordingFilePath
+    // resolves to once a cameraId is supplied) and the read-side directory ListRecordings scans
+    // are literally the same path -- no manual file move, no separate translation step.
+    [Fact]
+    public void ListRecordings_ForCameraDirectory_DiscoversRecordingWrittenToThatSameDirectory()
+    {
+        var cameraId = Guid.NewGuid();
+        var cameraDirectory = RecordingPathProvider.GetCameraRecordingDirectory(_directory, cameraId);
+        File.WriteAllBytes(Path.Combine(cameraDirectory, "20260813_212051_8f86ca69f6fc4f0dac0cbc247102fd97.mp4"), []);
+
+        var recordings = RecordingCatalog.ListRecordings(cameraDirectory);
+
+        Assert.Single(recordings);
+    }
+
+    [Fact]
+    public void ListRecordings_ForCameraADirectory_DoesNotDiscoverCameraBRecording()
+    {
+        var cameraAId = Guid.NewGuid();
+        var cameraBId = Guid.NewGuid();
+        var cameraADirectory = RecordingPathProvider.GetCameraRecordingDirectory(_directory, cameraAId);
+        var cameraBDirectory = RecordingPathProvider.GetCameraRecordingDirectory(_directory, cameraBId);
+        File.WriteAllBytes(Path.Combine(cameraBDirectory, "20260813_212051_8f86ca69f6fc4f0dac0cbc247102fd97.mp4"), []);
+
+        var recordings = RecordingCatalog.ListRecordings(cameraADirectory);
+
+        Assert.Empty(recordings);
+    }
+
     public void Dispose()
     {
         try

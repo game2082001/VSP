@@ -118,9 +118,61 @@ public class MediaControllerRecordingTests
         Assert.False(recordingSession.StopAsyncCalled);
     }
 
+    // RC1-R04 (Recording/Playback Storage Contract): MediaController.BuildRecordingFilePath
+    // already branches correctly on cameraId (Epic-012) -- these prove that branch end-to-end
+    // via the real recording file path, since nothing previously exercised it with a cameraId
+    // supplied at all.
+    [Fact]
+    public async Task StartRecordingAsync_WithCameraId_WritesUnderCameraSpecificDirectory()
+    {
+        var cameraId = Guid.NewGuid();
+        var recordingSession = new FakeRecordingSession();
+        var sessions = new List<FakeMediaSession>();
+        using var controller = CreateController(sessions, _ => recordingSession, cameraId);
+
+        await controller.StartAsync(CancellationToken.None);
+        Assert.True(await WaitUntilAsync(() => controller.State == MediaControllerState.Connected, TimeSpan.FromSeconds(2)));
+
+        await controller.StartRecordingAsync();
+
+        Assert.NotNull(recordingSession.FilePath);
+        Assert.Equal(cameraId.ToString("N"), Path.GetFileName(Path.GetDirectoryName(recordingSession.FilePath)));
+    }
+
+    [Fact]
+    public async Task StartRecordingAsync_TwoDifferentCameraIds_ResolveToDistinctDirectories()
+    {
+        var cameraAId = Guid.NewGuid();
+        var cameraBId = Guid.NewGuid();
+
+        var recordingSessionA = new FakeRecordingSession();
+        var sessionsA = new List<FakeMediaSession>();
+        using var controllerA = CreateController(sessionsA, _ => recordingSessionA, cameraAId);
+
+        var recordingSessionB = new FakeRecordingSession();
+        var sessionsB = new List<FakeMediaSession>();
+        using var controllerB = CreateController(sessionsB, _ => recordingSessionB, cameraBId);
+
+        await controllerA.StartAsync(CancellationToken.None);
+        await controllerB.StartAsync(CancellationToken.None);
+        Assert.True(await WaitUntilAsync(() => controllerA.State == MediaControllerState.Connected, TimeSpan.FromSeconds(2)));
+        Assert.True(await WaitUntilAsync(() => controllerB.State == MediaControllerState.Connected, TimeSpan.FromSeconds(2)));
+
+        await controllerA.StartRecordingAsync();
+        await controllerB.StartRecordingAsync();
+
+        var directoryA = Path.GetDirectoryName(recordingSessionA.FilePath);
+        var directoryB = Path.GetDirectoryName(recordingSessionB.FilePath);
+
+        Assert.NotEqual(directoryA, directoryB);
+        Assert.Equal(cameraAId.ToString("N"), Path.GetFileName(directoryA));
+        Assert.Equal(cameraBId.ToString("N"), Path.GetFileName(directoryB));
+    }
+
     private static MediaController CreateController(
         List<FakeMediaSession> sessions,
-        Func<IMediaSession, IRecordingSession> recordingSessionFactory)
+        Func<IMediaSession, IRecordingSession> recordingSessionFactory,
+        Guid? cameraId = null)
     {
         IMediaSession SessionFactory(string url)
         {
@@ -136,7 +188,8 @@ public class MediaControllerRecordingTests
             _ => new FakeVideoDecoder(),
             maxReconnectAttempts: 5,
             reconnectDelay: TimeSpan.FromMilliseconds(30),
-            recordingSessionFactory: recordingSessionFactory);
+            recordingSessionFactory: recordingSessionFactory,
+            cameraId: cameraId);
     }
 
     private static EncodedFrame CreateEncodedFrame()

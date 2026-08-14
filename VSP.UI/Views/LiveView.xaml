@@ -59,6 +59,10 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Play"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding PlayCommand}"
+                            Margin="0,0,8,0"/>
                     <Button Content="Pause"
                             Style="{StaticResource SecondaryButton}"
                             Command="{Binding PauseCommand}"
