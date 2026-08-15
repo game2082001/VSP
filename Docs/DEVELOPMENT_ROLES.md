@@ -1,8 +1,8 @@
 # AI Development Contract
 
-版本：1.1
+版本：1.2
 
-最後更新：2026-07-26
+最後更新：2026-08-15
 
 ---
 
@@ -18,7 +18,7 @@
 
 # 二、AI 角色
 
-VSP 專案共有三個固定角色：
+VSP 專案共有四個功能角色（Functional Roles，非工具綁定，Task-AI01-006 新增 Independent Review Agent）：
 
 Product Owner
 
@@ -28,13 +28,19 @@ Architect
 
 ↓
 
-Developer
+Developer（Implementation Agent）
+
+↓
+
+Independent Review Agent
+
+（Independent Review Agent 對 Developer 的產出把關，兩者不得為同一次異動的同一角色；何時強制審查見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §27 Independent Review Policy。）
 
 ---
 
 ## Product Owner
 
-角色：
+目前預設工具：
 
 User
 
@@ -44,9 +50,9 @@ User
 - 確認需求
 - Approval
 - 功能驗收
-- 實機測試
-- Git Commit
-- Release
+- 實機測試 / Hardware Gate（見 `AI_OPERATING_SYSTEM.md` §25）
+- Git Commit / Push 最終權限（見 §23 Commit Gate）
+- Release（Pilot / GA / Production，見 §26 Release Gate）
 
 Product Owner 擁有最終決策權。
 
@@ -54,7 +60,7 @@ Product Owner 擁有最終決策權。
 
 ## Architect
 
-角色：
+目前預設工具：
 
 ChatGPT
 
@@ -63,9 +69,11 @@ ChatGPT
 - Product Planning
 - Architecture Design
 - Roadmap
-- Specification
-- Task Review
-- Code Review
+- Specification / SDD Orchestration
+- Task Decomposition
+- Acceptance Planning
+- Cross-Agent Coordination
+- Code Review（架構面）
 - Quality Control
 - Technical Decision
 
@@ -77,21 +85,26 @@ Architect 對整體架構負責。
 
 ---
 
-## Developer
+## Developer（Implementation Agent，對應 `AI_OPERATING_SYSTEM.md` §2）
 
-角色：
+目前預設工具：
 
-Codex
+Claude Code
 
 負責：
 
+- Repository Inspection
+- TDD（見 `AI_OPERATING_SYSTEM.md` §24 TDD Policy）
 - Coding
-- Build
+- Build / Test 執行
 - Bug Fix
 - Refactoring（經 Approval）
+- Technical Investigation
+- Remediation
 - Documentation Update
-- Suggested Git Commit
+- Artifact Preparation
 - Task Summary
+- Git staging/commit 僅限明確 Commit Gate 授權下執行（見 §23 Commit Gate）；預設不得 git add / commit / push
 
 Developer 不決定產品方向。
 
@@ -99,7 +112,33 @@ Developer 不修改 Architecture。
 
 Developer 不自行增加需求。
 
-（註：以上三個角色定義的是「職能」而非固定綁定特定工具或特定 AI。單一 AI Agent 在同一個 Session 中可能同時扮演多個角色，只要不跳過各角色應有的把關步驟即可，詳見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §2 Role Overlap。）
+---
+
+## Independent Review Agent（新增角色，Task-AI01-006，解決 GB-005 / GB-006）
+
+目前預設工具：
+
+Codex
+
+負責：
+
+- Requirement Coverage Review
+- Architecture Review
+- Test-Gap Analysis
+- Correctness / Reliability / Security Review
+- Concurrency / Resource-Lifecycle Review
+- Maintainability Review
+- 第二實作路徑，僅限明確指派時執行
+
+Independent Review Agent 不得僅摘要或直接採信 Developer 的 Completion Report，必須實際檢視 repository 現況（diff、測試、build/test 輸出）。
+
+何時為強制審查：見 `AI_OPERATING_SYSTEM.md` §27（MEDIUM/HIGH risk、架構變更、DB schema、Public API、Security，或 Developer 將成為唯一技術把關者的非瑣碎異動）；LOW risk / 純文件異動維持既有 Self-Review 即可。
+
+Independent Review Agent 與 Developer 不得在同一 working tree / task window 內同時修改相同檔案；若經核准平行實作，必須使用獨立 branch/worktree，整合僅於 Review 完成後進行。
+
+---
+
+（註：以上四個角色定義的是「職能」而非固定綁定特定工具或特定 AI。每個角色下方的「目前預設工具」僅記錄現行預設指派，未來可在不修改角色定義的前提下更新該行，指派新的工具。單一 AI Agent 在同一個 Session 中可能同時扮演多個角色，只要不跳過各角色應有的把關步驟即可，詳見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §2 Role Overlap 與 §27 Independent Review Policy。）
 
 ---
 
@@ -278,13 +317,15 @@ Suggested Git Commit
 git commit -m "feat(import): add excel import parser"
 ```
 
-Developer 不得：
+Developer 預設不得：
 
 - git add
 - git commit
 - git push
 
-Git 全部由 Product Owner 執行。
+Git 預設全部由 Product Owner 執行。
+
+例外：Product Owner 可針對單一 Task 明確授權 Developer 執行 staging/commit（Commit Gate），完整程序見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §23 Commit Gate。此例外不包含 push，push 永遠需要獨立、明確的另一次授權。Local branch/worktree 建立不受此例外限制，規則同見 §23。
 
 ---
 

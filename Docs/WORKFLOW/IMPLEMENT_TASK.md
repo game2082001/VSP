@@ -231,7 +231,9 @@ Rollback：
 - 修改與本次任務無關的檔案
 - 建立第二套相同功能
 - 刪除 Legacy 功能
-- 執行任何 Git 指令
+- 執行任何 Git 寫入指令（git add / git commit / git push）
+
+（唯讀 Git 指令如 `git status`／`git diff`／`git log`，為確認現況與提供 Diff 所需，不受此限制。Product Owner 可針對單一 Task 明確授權 staging/commit，即 Commit Gate，完整程序見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §23，本文件不重複該程序；push 永遠需要獨立、明確的另一次授權。）
 
 若修改超過 Task Plan，
 

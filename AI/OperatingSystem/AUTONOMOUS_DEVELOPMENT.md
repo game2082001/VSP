@@ -2,9 +2,9 @@
 
 **Status:** Stable
 **Owner:** AI Development Kit
-**Last Updated:** 2026-07-26
+**Last Updated:** 2026-08-15
 **Established By:** Task-AI01-003 — AI Development Kit v1.0 Finalization
-**Refined By:** Task-AI01-004 — Governance Refinement; Task-AI01-005 — AI Development Kit v1.1.0 (Stable)
+**Refined By:** Task-AI01-004 — Governance Refinement; Task-AI01-005 — AI Development Kit v1.1.0 (Stable); Task-AI01-006 — Governance Reconciliation & Multi-Agent Development Lifecycle (v1.2.0), minor Commit Gate delegation clarification only, pending Independent Review and Product Owner acceptance
 **Next Review:** Not scheduled. Governed by the AI Kit Stability Policy (see `AI/VERSION.md`) — further changes require a Governance Backlog entry, opened only when a real Epic exposes a governance defect, and approved by the Product Owner.
 
 ---
@@ -109,10 +109,13 @@ Autonomous Execution    (AI Agent; internal Tasks remain private — see §3, §
     v
 Epic Review             (Epic Completion Report, §10)
     v
-Commit                  (Product Owner executes; AI never commits on its own)
+Commit                  (Product Owner normally executes; may delegate task-scoped
+                          staging/commit execution via the Commit Gate, see below)
     v
 Next Epic  ->  back to Product Roadmap
 ```
+
+Added by Task-AI01-006 (resolving `GB-001`, no redesign of this model): "Commit" here defaults to Product Owner execution, unchanged from this Kit's baseline Git authority model. The Product Owner may explicitly delegate task-scoped staging/commit execution to an AI Agent through the Commit Gate (`AI_OPERATING_SYSTEM.md` §23) — this delegation is scoped to one specific Task's approved change set only, and does not imply push, merge, tag/release, or authorization for any future Task or Epic.
 
 "Next Epic" means execution returns to the Product Roadmap and awaits a **fresh** Epic Approval — it is a roadmap-continuity marker, not a grant of cross-Epic autonomy. Only Task-chaining *inside* an already-approved Epic is autonomous, per `AI_OPERATING_SYSTEM.md` §11; an AI Agent must not start a new Epic on its own initiative, per `AI_OPERATING_SYSTEM.md` §11 and §16.
 

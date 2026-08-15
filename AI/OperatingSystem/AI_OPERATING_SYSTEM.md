@@ -2,9 +2,9 @@
 
 **Status:** Stable
 **Owner:** AI Development Kit
-**Last Updated:** 2026-07-26
+**Last Updated:** 2026-08-15
 **Established By:** Task-AI01-002
-**Refined By:** Task-AI01-004 — Governance Refinement; Task-AI01-005 — AI Development Kit v1.1.0 (Stable)
+**Refined By:** Task-AI01-004 — Governance Refinement; Task-AI01-005 — AI Development Kit v1.1.0 (Stable); Task-AI01-006 — Governance Reconciliation & Multi-Agent Development Lifecycle (v1.2.0), applied via approved Governance Backlog exception (`GB-001`, `GB-005`, `GB-006`), pending Independent Review and Product Owner acceptance
 **Next Review:** Not scheduled. Governed by the AI Kit Stability Policy (see `AI/VERSION.md`) — further changes require a Governance Backlog entry, opened only when a real Epic exposes a governance defect, and approved by the Product Owner.
 
 ---
@@ -88,33 +88,58 @@ Rules for conflicts between sources:
 
 ## 2. Agent Roles
 
-These roles describe **function**, not identity. They do not replace or override [`AGENTS.md`](../../AGENTS.md) or [`Docs/DEVELOPMENT_ROLES.md`](../../Docs/DEVELOPMENT_ROLES.md), which remain authoritative for role definitions at the project level. This section maps those roles onto the operating rules in this document.
+These roles describe **function**, not identity, and are not bound to any single vendor or model. They do not replace or override [`AGENTS.md`](../../AGENTS.md) or [`Docs/DEVELOPMENT_ROLES.md`](../../Docs/DEVELOPMENT_ROLES.md), which remain authoritative for role definitions at the project level. This section maps those roles onto the operating rules in this document and names the current default tool for each — a future AI tool may take over any role without requiring a change to this section, provided `Docs/DEVELOPMENT_ROLES.md`'s default-tool assignment is updated accordingly.
 
 ### User
 
 - Product Owner
 - Final Approver
 - Priority Authority
-- Commit / Merge Authority
+- Hardware Access / Observation Authority (§25, Hardware Gate)
+- Commit / Merge / Push Authority (§23, Commit Gate)
+- Release Declaration Authority — Pilot / GA / Production (§26, Release Gate)
 
-### ChatGPT (or equivalent Planning/Review Agent)
+### ChatGPT (or equivalent Planning/Coordination Agent) — current default: ChatGPT
 
 - Solution Architect
-- Task Planner
+- Requirements Clarification
+- SDD / Specification Orchestration
+- Task Decomposition
+- Acceptance Planning
+- Cross-Agent Coordination
 - Architecture Reviewer
 - Technical Reviewer
 
-### Claude Code / Implementation Agent
+### Claude Code (or equivalent Implementation Agent) — current default: Claude Code
 
 - Repository Inspector
-- Implementation Engineer
-- Test Executor
+- Primary Implementation Engineer
+- TDD Practitioner (§24, TDD Policy)
+- Build / Test Executor
+- Technical Investigator
+- Remediation Engineer
 - Documentation Updater
+- Artifact Preparer
 - Completion Reporter
+- Controlled Git execution only under an explicit Commit Gate (§23) — never by default
+
+### Codex (or equivalent Independent Review Agent) — current default: Codex
+
+Independent Review Agent by default; see §27 (Independent Review Policy) for the full policy this section only summarizes.
+
+- Requirement Coverage Review
+- Architecture Review
+- Test-Gap Analysis
+- Correctness / Reliability / Security Review
+- Concurrency / Resource-Lifecycle Review
+- Maintainability Review
+- Implementation only when explicitly assigned (a second implementation path, or an assigned takeover) — not a standing responsibility
+
+Codex must not merely restate or summarize another Agent's Completion Report; independent review requires independently inspecting actual repository state, per §21 Agent Responsibilities.
 
 ### Role Overlap
 
-A single AI Agent may temporarily hold more than one role in the same session (for example, an Implementation Agent producing its own Task Plan, or a Planning Agent also acting as Technical Reviewer). Holding multiple roles does not permit skipping the Approval Boundary (§8): planning, implementation, and final acceptance remain distinct gates regardless of which agent instance performs them.
+A single AI Agent may temporarily hold more than one role in the same session (for example, an Implementation Agent producing its own Task Plan, or a Planning Agent also acting as Technical Reviewer). Holding multiple roles does not permit skipping the Approval Boundary (§8): planning, implementation, and final acceptance remain distinct gates regardless of which agent instance performs them. An Agent acting as Implementation Agent for a given change must not also act as that change's sole Independent Reviewer (§27).
 
 ---
 
@@ -368,7 +393,7 @@ Rules:
 - An AI Agent must not automatically repeat this loop for a next task, unless it is operating inside an approved Epic per [`AUTONOMOUS_DEVELOPMENT.md`](AUTONOMOUS_DEVELOPMENT.md), in which case the loop may chain to the next constituent Task only after this Task's own Completion Report is delivered and the next Task remains within the Epic's approved scope and Risk Ceiling.
 - Only one approved task is handled per execution of this loop.
 - The AI Agent must stop and report on completion.
-- The AI Agent must not commit, push, or merge on its own, unless explicitly authorized by the user for that specific action.
+- The AI Agent must not commit, push, or merge on its own by default. An explicit, task-scoped Commit Gate (§23) may authorize staging/commit for that task's approved change set only; push and merge always require their own separate explicit authorization even while a Commit Gate is active (§23). Local branch/worktree creation is not gated the same way — see §23.
 
 ---
 
@@ -425,7 +450,7 @@ Do not mechanically touch every document on every task. Update a document only w
 
 ## 16. Prohibited Actions
 
-- Committing, pushing, or merging on its own initiative
+- Committing, pushing, or merging on its own initiative — the only exception is an explicit, task-scoped Commit Gate (§23), which never by itself authorizes push or merge
 - Creating unapproved product requirements
 - Replacing the architecture pattern on its own
 - Upgrading a major framework on its own
@@ -508,7 +533,7 @@ This document is the AI-Kit-level operating rulebook. It references, and does no
 | [`Docs/AI_DEVELOPMENT_WORKFLOW.md`](../../Docs/AI_DEVELOPMENT_WORKFLOW.md) | The canonical project-wide workflow stages; this document's Autonomous Execution Loop (§11) operationalizes those stages for an individual AI Agent, it does not replace them |
 | [`Docs/02_CODING_RULES.md`](../../Docs/02_CODING_RULES.md) | Authoritative coding, naming, and style rules; not restated here |
 | [`Docs/WORKFLOW/IMPLEMENT_TASK.md`](../../Docs/WORKFLOW/IMPLEMENT_TASK.md) | Authoritative Task Plan *content and format* (§9); whether execution pauses for approval is governed by §8 and the Epic's Risk Ceiling, not by that document's own per-Task stop language, when operating inside an approved Epic |
-| [`Docs/DEVELOPMENT_ROLES.md`](../../Docs/DEVELOPMENT_ROLES.md) | Project-level roles and responsibilities; its Product Owner / Architect / Developer roles map onto Agent Roles (§2) and its Authority Principle aligns with the Authority Order (§1) — see that document's own alignment note |
+| [`Docs/DEVELOPMENT_ROLES.md`](../../Docs/DEVELOPMENT_ROLES.md) | Project-level roles and responsibilities; its Product Owner / Architect / Developer / Independent Review Agent roles map onto Agent Roles (§2) by function, with current default tool assignments documented there, not here; its Authority Principle aligns with the Authority Order (§1) — see that document's own alignment note |
 | [`Docs/03_PRODUCT_ROADMAP.md`](../../Docs/03_PRODUCT_ROADMAP.md) | Authoritative product roadmap; referenced in Task Selection Rules (§6), not restated |
 | Task Specifications (`Docs/SPECS/`) | Authoritative scope for a given task; outrank this document per the Authority Order in §1 |
 | ADRs (`Docs/ADR/`) | Authoritative architecture decisions; outrank this document per the Authority Order in §1 |
@@ -529,6 +554,7 @@ Each AI Agent instance operating under a role defined in §2 is responsible only
 - Concurrent AI Agents must not edit the same files within the same task window.
 - Whichever AI Agent is actively implementing a task owns the resulting worktree changes until its Completion Report is delivered.
 - An AI Agent picking up a task in Continuation Mode (§4) must treat a prior agent's uncommitted work as protected under Worktree Safety (§15), unless the user explicitly authorizes discarding it.
+- A Product-Owner-approved second implementation path (Codex, per §2) that runs concurrently with the primary Implementation Agent must use an isolated branch or worktree, with explicit file ownership per branch — never the same working tree edited by both agents at once. Integration into the main line occurs only after Independent Review (§27), never automatically.
 
 ### Review Chain
 
@@ -638,3 +664,106 @@ Ownership of implementation decisions does not extend to any Approval Required i
 The Product Owner approves product outcomes, not implementation details.
 
 This principle governs the boundary between Conditional and Approval Required: if a decision changes what the product does, or what it promises to a user or another system, it is a Product Decision and requires Product Owner approval. If a decision only changes how an already-approved outcome is built, it is an Implementation Decision — Autonomous or Conditional — and does not require Product Owner approval.
+
+---
+
+## 23. Commit Gate
+
+Added by Task-AI01-006, resolving `GB-001`. Formalizes the Git-execution override already referenced in §11 and §16, using the procedure proven safe in Task-AI00B (RC1 Clean Baseline Commit Execution).
+
+**Default**: an AI Agent does not run `git add`, `git commit`, or `git push`. Read-only Git operations (`git status`, `git diff`, `git log`) remain allowed at all times and are not gated.
+
+**Local branch/worktree creation is not subject to this gate.** Within an already-approved Task, an AI Agent may create a local branch or worktree when needed for isolated implementation, a Codex second implementation, an alternative prototype, or independent experimental work, subject to:
+
+- it remains local — pushing it requires the separate push authorization below;
+- it must not overwrite or delete an existing branch;
+- it must not rewrite existing history;
+- its ownership and purpose must be stated explicitly;
+- parallel agents must not modify the same working tree (§21 Ownership Rules);
+- integrating it back still requires Independent Review (§27) and whatever gate the resulting change would otherwise require.
+
+**Still controlled / approval-required**: `git add`, `git commit`, `git push`, merge, tag/release marking, rebase/history rewriting, `reset --hard`, `git clean`, force operations, and destructive branch operations. The last group remains governed by §15 Worktree Safety and §16 Prohibited Actions, unaffected by this section.
+
+**Explicit Product Owner Commit Gate** — the Product Owner may authorize an AI Agent to stage and commit an already-approved change set for one specific task, following this exact procedure:
+
+1. The AI Agent proposes an exact file classification and commit plan. No staging occurs at this step.
+2. The Product Owner explicitly approves the plan.
+3. The AI Agent stages only the approved files, by explicit path. `git add .`, `git add -A`, and `git commit -a` are never used.
+4. Before each commit, the AI Agent runs `git diff --cached --name-status` and verifies the staged set exactly matches the approved plan for that commit.
+5. Any mismatch stops work immediately; the AI Agent does not commit until the mismatch is resolved and re-verified.
+6. Commit authorization is limited to the approved task/change set only.
+7. Authorization expires once that commit plan completes — it does not carry forward to the next task, even in the same session.
+8. Commit authorization never implies push authorization. `git push` always requires its own separate, explicit authorization.
+
+Tagging and release-marking operations are never covered by a Commit Gate — they belong to the Release Gate (§26), remain Product-Owner-only, and have no override mechanism.
+
+---
+
+## 24. TDD Policy
+
+Added by Task-AI01-006. **Mandatory** for MEDIUM- or HIGH-risk (§7) behavior-changing production code where a meaningful automated test is feasible: failing test → minimal implementation → test passes → regression suite run.
+
+This orders an already-existing requirement (`Docs/PRODUCT_PRINCIPLES.md` Principle 4; `Docs/AI_PLAYBOOK.md`, "every new feature must include Unit Tests") — it does not weaken or replace it, and does not newly apply to LOW-risk changes where that existing requirement already governs proportionally.
+
+**Justified exceptions** (must be stated explicitly in the Completion Report, not silently skipped):
+
+- Pure documentation changes.
+- Analysis/investigation-only tasks.
+- Hardware-only validation, observed on real devices rather than asserted in code.
+- UI/XAML-only behavior in an area where this repository has no meaningful automated test infrastructure (a standing, disclosed limitation — no STA/UI-automation harness exists) — TDD is structurally unavailable here, not skipped by choice.
+- Generated artifacts where another verification mechanism is the meaningful check.
+- Observability-only changes (for example, a sanitized diagnostic log line) with no independently testable behavior beyond an existing test file's coverage.
+
+TDD must not become ceremonial: a change with no independently testable behavior does not need a red-green cycle manufactured for its own sake.
+
+---
+
+## 25. Hardware Gate
+
+Added by Task-AI01-006.
+
+**AI Agent may prepare**: a diagnostic plan; exact commands/instructions for the human operator; a configuration proposal; a validation checklist.
+
+**Product Owner / authorized human performs or observes**: physical device operation; real camera/device interaction; field wiring; device reboot/reset; firmware operation; credential entry on physical or vendor-hosted device interfaces; hardware acceptance itself.
+
+An AI Agent must never claim a hardware-dependent validation item as PASS without actual Product Owner or authorized-human-reported evidence for that specific item. It stays **Pending** — never inferred or extrapolated — until that evidence is explicitly provided.
+
+---
+
+## 26. Release Gate
+
+Added by Task-AI01-006.
+
+Passing build, automated tests, manual end-to-end validation, hardware validation, independent review, and a clean Git baseline are evidence toward a release decision — none of them, singly or together, constitute that decision.
+
+**Pilot Ready, GA Ready, and Production Ready may only be declared by the Product Owner.** An AI Agent reports evidence and may offer a recommendation, but must never declare or imply a release decision in any Completion Report. This names, as its own gate, a rule already enforced through §18/§22's "Implementation Complete — Pending Product Owner Acceptance" language — no prior rule changes.
+
+---
+
+## 27. Independent Review Policy
+
+Added by Task-AI01-006, resolving `GB-005`. Elaborates §21's existing principle ("No single AI Agent may act as both the sole implementer and the final approver of its own work").
+
+**Default significant-change workflow**: Claude Code implementation → Codex independent review → Claude Code remediation → Codex re-review when required.
+
+**The reviewer must** independently inspect actual repository state (diffs, tests, build/test output) — not summarize or accept the implementer's Completion Report at face value — and verify: requirement coverage, architecture compliance, correctness, regression risk, test quality, error handling, concurrency/resource lifecycle, security, maintainability, and unnecessary complexity.
+
+**Independent Review is mandatory** for: MEDIUM or HIGH risk (§7); architecture changes; DB schema/migration; public API changes; security/authorization model changes; or any other non-trivial production behavior change where the implementer would otherwise be the sole technical judge of its own correctness.
+
+**Proportional review** applies to LOW-risk and documentation-only tasks — the existing §17 Self-Review Checklist remains sufficient by default.
+
+Independent Review does not replace Product Owner Acceptance (§18, §22).
+
+---
+
+## 28. Standard Development Lifecycle
+
+Added by Task-AI01-006. Maps the elaborated lifecycle onto the two existing canonical diagrams without replacing either.
+
+Requirement → Current-State Analysis (§5) → SDD/Specification → Planning + Risk Classification (§7, §9) → Planning Gate when required (§8) → Test Plan/TDD (§24) → Implementation (§10) → Build + Automated Regression (§12) → Independent Review (§27) → Remediation when required → Manual/Hardware Validation when required (§25) → Product Owner Acceptance (§18, §22) → Commit Gate (§23) → Release Gate (§26).
+
+Maps to `Docs/AI_DEVELOPMENT_WORKFLOW.md`'s `Task → Analysis → Architecture Review → Spec → Planning → Approval → Implementation → Technical Review → Architecture Review → DoD → Commit`: Analysis/Spec/Planning/Approval/Implementation align 1:1; TDD and Automated Regression are new detail inside Implementation; Independent Review = Technical Review, now with a mandatory-trigger rule; Manual/Hardware Validation folds into DoD; Commit splits into Acceptance + Commit Gate; Release Gate is new and later — release was never part of the per-Task diagram and stays a separate, higher-altitude decision.
+
+Maps to §11's Autonomous Execution Loop (`Repository Inspection → ... → Self Review → Completion Report → Stop`): unchanged in substance; "Self Review" now triggers Independent Review (§27) when its mandatory conditions are met, and "Stop" now explicitly includes the Commit Gate (§23) and Release Gate (§26) boundaries alongside the existing git-execution prohibition.
+
+No step in either existing diagram is removed, renamed, or reordered by this section — this section only adds detail and names new gates within already-existing steps.

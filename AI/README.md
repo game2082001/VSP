@@ -2,12 +2,12 @@
 
 **Status:** Stable
 **Owner:** AI Development Kit
-**Last Updated:** 2026-07-26
-**Next Task:** None scheduled. See the Governance Backlog (`OperatingSystem/README.md`) and the AI Kit Stability Policy (`VERSION.md`).
+**Last Updated:** 2026-08-15
+**Next Task:** Task-AI01-006 Phase 2E — Codex Independent Re-Review of the Phase 2D remediation (Phase 2C review found 3 findings; Phase 2D remediation applied 2026-08-15; not yet committed or Product-Owner-accepted). See the Governance Backlog (`OperatingSystem/README.md`) and `VERSION.md` (current version 1.2.0).
 
 ---
 
-The AI Development Kit is complete as of v1.1.0 (Stable). Governance changes are exceptional — made only via a Product-Owner-approved Governance Backlog entry when a real Epic exposes a genuine defect. Future work is driven by the Product Roadmap and executed Epic by Epic; this Kit does not generate its own work.
+v1.2.0 (Stable — Governance Backlog Amendment Applied) is in progress in the working tree, not yet accepted. Governance changes are exceptional — made only via a Product-Owner-approved Governance Backlog entry when a real Epic exposes a genuine defect; v1.2.0 (Task-AI01-006) is the first such exception since v1.1.0 entered Stable. It was implemented (Phase 2B), independently reviewed with findings (Phase 2C), and remediated (Phase 2D); it is not yet committed, not yet independently re-reviewed, and not yet Product-Owner-accepted — see `VERSION.md`. Future work is driven by the Product Roadmap and executed Epic by Epic; this Kit does not generate its own work.
 
 This Kit's governance rules begin with a single foundational axiom — see the top of [`OperatingSystem/AI_OPERATING_SYSTEM.md`](OperatingSystem/AI_OPERATING_SYSTEM.md): *"An approved Epic is a complete authorization for implementation within its approved scope"* / *"The default behaviour is CONTINUE, not STOP."*
 

@@ -1,8 +1,8 @@
 # VSP Development Guide
 
-版本：1.0
+版本：1.1
 
-最後更新：2026-07-01
+最後更新：2026-08-15
 
 ---
 
@@ -190,7 +190,7 @@ Documentation 屬於 Implementation 的一部分。
 
 每完成一個 Task，
 
-Codex 必須自動更新：
+Developer（Implementation Agent）必須自動更新：
 
 - Docs/CHANGELOG.md
 - Docs/03_ROADMAP.md
@@ -210,7 +210,7 @@ Codex 必須自動更新：
 
 # 九、Documentation Ownership
 
-ChatGPT：
+Architect（目前預設工具：ChatGPT）：
 
 負責：
 
@@ -218,7 +218,7 @@ ChatGPT：
 - Architecture
 - Review
 
-Codex：
+Developer（Implementation Agent，目前預設工具：Claude Code）：
 
 負責：
 
@@ -227,13 +227,15 @@ Codex：
 - Documentation Update
 - Suggested Git Commit
 
-User：
+User（Product Owner）：
 
 負責：
 
 - Approval
 - Testing
-- Git Commit
+- Git Commit（預設；例外見 §十四 Git Policy）
+
+（註：以上角色為職能分工，非固定綁定特定工具，完整角色定義與目前預設工具指派以 `Docs/DEVELOPMENT_ROLES.md` 為準。Independent Review Agent（目前預設工具：Codex）負責獨立審查 Developer 的產出，僅於明確指派時執行實作，見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §27。）
 
 ---
 
@@ -382,15 +384,13 @@ Task Completed
 
 # 十四、Git Policy
 
-Codex：
-
-不得：
+Developer（Implementation Agent）預設不得：
 
 - git add
 - git commit
 - git push
 
-Codex 只能提供：
+Developer 預設只能提供：
 
 Suggested Commit：
 
@@ -400,7 +400,9 @@ Suggested Commit：
 git commit -m "feat(import): add csv import parser"
 ```
 
-Git 操作全部由 User 執行。
+Git 操作預設全部由 User（Product Owner）執行。
+
+例外：Product Owner 可針對單一 Task 明確授權 Developer 執行 staging/commit（Commit Gate），完整程序見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §23 Commit Gate，本文件不重複該程序。此例外不包含 push，push 永遠需要獨立、明確的另一次授權。唯讀 Git 指令（`git status` / `git diff` / `git log`）不受此限制，本文件 §十 Diff Policy 等既有流程所需的檢視操作維持可執行。
 
 ---
 # 十五、Next Suggested Task
@@ -420,7 +422,7 @@ Developer 不得等待 User 詢問「下一步」。
 
 # 十六、No Reminder Policy
 
-Codex 不得等待 User 提醒：
+Developer 不得等待 User 提醒：
 
 例如：
 
