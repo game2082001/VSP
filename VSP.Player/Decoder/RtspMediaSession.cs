@@ -39,9 +39,7 @@ public sealed class RtspMediaSession : IMediaSession, IFfmpegDemuxSource
     // SEC-3 (Task 3A): only ever touched from within ReadLoop's single thread (production) or by
     // a focused test driving a freshly-constructed, never-opened session directly -- never needs
     // its own lock. See EncodedPacketGuard for the bound/threshold rationale.
-    private int _consecutiveRejectedPackets;
-    private long _lastRejectedPacketLogTickCount = long.MinValue;
-    private const long RejectedPacketLogIntervalMilliseconds = 5 * 60 * 1000;
+    private readonly PacketRejectionTracker _packetRejectionTracker = new("Live View RTSP");
 
     public unsafe RtspMediaSession(string rtspUrl, TimeSpan? openTimeout = null)
     {
@@ -371,65 +369,15 @@ public sealed class RtspMediaSession : IMediaSession, IFfmpegDemuxSource
     }
 
     /// <summary>
-    /// SEC-3 (Task 3A): the pure EncodedPacketGuard decision, applied to and tracked against this
-    /// instance's consecutive-rejection streak. Internal (not private), and taking only a plain
-    /// int rather than an AVPacket*, specifically so a focused test can drive real instance state
-    /// directly -- no FFmpeg-adjacent type crosses this seam (per ADR-002/ADR-003's existing
-    /// discipline for this class), and no native session needs to be open, since this runs before
-    /// any native call. faultError is non-null if and only if the decision is Fault.
+    /// SEC-3 (Task 3A): delegates to this instance's <see cref="PacketRejectionTracker"/>. Internal
+    /// (not private), and taking only a plain int rather than an AVPacket*, specifically so a
+    /// focused test can drive real instance state directly -- no FFmpeg-adjacent type crosses this
+    /// seam (per ADR-002/ADR-003's existing discipline for this class), and no native session needs
+    /// to be open, since this runs before any native call. faultError is non-null if and only if
+    /// the decision is Fault.
     /// </summary>
-    internal PacketSizeDecision EvaluateAndTrackPacketSize(int packetSize, out MediaError? faultError)
-    {
-        faultError = null;
-
-        if (EncodedPacketGuard.IsPacketSizeAcceptable(packetSize))
-        {
-            _consecutiveRejectedPackets = 0;
-            return PacketSizeDecision.Accept;
-        }
-
-        _consecutiveRejectedPackets++;
-        LogRejectedPacketIfDue(packetSize, _consecutiveRejectedPackets);
-
-        if (!EncodedPacketGuard.ShouldEscalateToFault(_consecutiveRejectedPackets))
-        {
-            return PacketSizeDecision.Drop;
-        }
-
-        faultError = new MediaError
-        {
-            Category = MediaErrorCategory.Protocol,
-            Message = $"Rejected {_consecutiveRejectedPackets} consecutive encoded packets outside the accepted " +
-                      $"size bound (0..{EncodedPacketGuard.MaxEncodedPacketSizeBytes} bytes); treating the session as faulted."
-        };
-        return PacketSizeDecision.Fault;
-    }
-
-    /// <summary>
-    /// Rate-limited (never per-packet-flood) diagnostic for rejected encoded packets: always logs
-    /// the first rejection and the escalating one, otherwise at most once per
-    /// RejectedPacketLogIntervalMilliseconds -- closing the gap an attacker alternating one good
-    /// packet with several bad ones would otherwise exploit to log unboundedly while never
-    /// reaching the consecutive-rejection escalation threshold. Never logs a credential or URI --
-    /// only the packet size and rejection count.
-    /// </summary>
-    private void LogRejectedPacketIfDue(int size, int consecutiveCount)
-    {
-        var now = Environment.TickCount64;
-        var mustLog = _lastRejectedPacketLogTickCount == long.MinValue
-            || FfmpegVideoDecoder.IsDiagnosticsIntervalElapsed(_lastRejectedPacketLogTickCount, now, RejectedPacketLogIntervalMilliseconds)
-            || EncodedPacketGuard.ShouldEscalateToFault(consecutiveCount);
-
-        if (!mustLog)
-        {
-            return;
-        }
-
-        _lastRejectedPacketLogTickCount = now;
-        AppLog.Warning(
-            $"Live View RTSP: rejected an encoded packet with size={size} bytes (consecutive rejections={consecutiveCount}); " +
-            $"accepted range is 0..{EncodedPacketGuard.MaxEncodedPacketSizeBytes} bytes.");
-    }
+    internal PacketSizeDecision EvaluateAndTrackPacketSize(int packetSize, out MediaError? faultError) =>
+        _packetRejectionTracker.EvaluateAndTrack(packetSize, out faultError);
 
     private unsafe void RaisePacketReceived(AVPacket* packet)
     {
