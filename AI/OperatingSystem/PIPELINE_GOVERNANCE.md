@@ -3,7 +3,7 @@
 **Status:** Stable
 **Owner:** AI Development Kit
 **Established By:** Task-AI01-007 — GB-007 Pipeline Governance Implementation
-**Last Updated:** 2026-08-16
+**Last Updated:** 2026-08-17
 **Next Review:** Not scheduled. Governed by the AI Kit Stability Policy (see `AI/VERSION.md`) — further changes require a Governance Backlog entry, opened only when a real Epic exposes a governance defect, and approved by the Product Owner.
 
 ---
@@ -97,11 +97,20 @@ Governed in substance by `AI_OPERATING_SYSTEM.md` §27 (trigger conditions, revi
 
 ### Merge Gate
 
-**Default:** Merge authority belongs to the Product Owner (`AI_OPERATING_SYSTEM.md` §2, User role: "Commit / Merge / Push Authority"). An AI Agent does not merge a PR on its own initiative.
+**Preconditions (apply to any Merge — manual or autonomous — not only when Autonomous Merge is granted):**
 
-**Explicit authorization (Autonomous Merge):** a distinct, separately-grantable authorization from Commit/Push/PR. Granting Commit, Push, and PR Gate authorization for a Task never implies Merge Gate authorization — each Task's grant is evaluated on its own terms, per §5.
+1. CI Gate must be PASS.
+2. Automated Review Gate must independently be PASS.
+3. If `AI_OPERATING_SYSTEM.md` §27 triggered Independent Review Gate, it must be PASS before Merge — never merged while REMEDIATION REQUIRED is outstanding (§4 rule 7).
+4. Automated Review Gate never substitutes for a Required Independent Review Gate (§4 rule 8; see also the Automated Review Gate section above) — a clean Automated Review result does not waive a triggered Independent Review.
 
-**Preconditions, when Autonomous Merge is granted:** CI Gate must be PASS; if Independent Review was triggered (§27), it must be PASS before Merge — never merged while REMEDIATION REQUIRED is outstanding (§4 rule 7).
+Satisfying all four preconditions makes a PR merge-*eligible*. It does not make it merge-*authorized* — authorization is separate and is never implied by the preconditions above being met.
+
+**Default:** Merge authority belongs to the Product Owner (`AI_OPERATING_SYSTEM.md` §2, User role: "Commit / Merge / Push Authority"). An AI Agent does not merge a PR on its own initiative, even when every precondition above is satisfied.
+
+**Explicit authorization (Autonomous Merge):** a distinct, separately-grantable authorization from Commit/Push/PR. Granting Commit, Push, and PR Gate authorization for a Task never implies Merge Gate authorization — each Task's grant is evaluated on its own terms, per §5. Where granted to an AI Agent, the preconditions above still gate when that authorization may actually be exercised.
+
+**Task-AI01-007 itself:** Autonomous Merge is explicitly withheld for this Task (§5, §10) — Merge is performed manually by the Product Owner once the preconditions above are satisfied and Product Owner acceptance is given.
 
 ---
 
