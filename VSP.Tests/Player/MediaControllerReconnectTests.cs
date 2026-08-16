@@ -1,6 +1,7 @@
 using System.Windows.Threading;
 using VSP.Core.Logging;
 using VSP.Player.Control;
+using VSP.Player.Decoder;
 using VSP.Player.Entities;
 using VSP.Player.Interfaces;
 using VSP.Tests.Logging;
@@ -85,6 +86,39 @@ public class MediaControllerReconnectTests
         Assert.True(await WaitForStateAsync(controller, MediaControllerState.Connected));
         Assert.Equal("simulated network drop", controller.Statistics.LastError?.Message);
         Assert.True(sessions[0].WasDisposed);
+    }
+
+    [Fact]
+    public async Task SessionFault_FromRejectedPacketEscalation_ReconnectsAndReturnsToConnected()
+    {
+        // SEC-3 (Task 3A): proves the new escalation reason composes with the *existing*,
+        // already-tested Faulted->reconnect contract (see SessionFault_ReconnectsAndReturnsToConnected
+        // above) without any change to MediaController itself -- RtspMediaSession/
+        // RecordedFileMediaSession raise this exact StateChanged(Faulted) shape once
+        // EncodedPacketGuard.MaxConsecutiveRejectedPackets consecutive oversized/negative packets
+        // are rejected (see RtspMediaSessionPacketGuardTests/RecordedFileMediaSessionPacketGuardTests
+        // for the guard's own decision logic).
+        var sessions = new List<FakeMediaSession>();
+        var controller = CreateController(
+            sessions,
+            shouldSucceedOpen: () => true,
+            out _,
+            reconnectDelay: TimeSpan.FromMilliseconds(30));
+
+        await controller.StartAsync(CancellationToken.None);
+        Assert.True(await WaitForStateAsync(controller, MediaControllerState.Connected));
+
+        sessions[0].SimulateFault(new MediaError
+        {
+            Category = MediaErrorCategory.Protocol,
+            Message = $"Rejected {EncodedPacketGuard.MaxConsecutiveRejectedPackets} consecutive encoded packets " +
+                      $"outside the accepted size bound (0..{EncodedPacketGuard.MaxEncodedPacketSizeBytes} bytes); " +
+                      "treating the session as faulted."
+        });
+
+        Assert.True(await WaitUntilAsync(() => sessions.Count >= 2, TimeSpan.FromSeconds(2)));
+        Assert.True(await WaitForStateAsync(controller, MediaControllerState.Connected));
+        Assert.Contains("consecutive encoded packets outside the accepted size bound", controller.Statistics.LastError?.Message);
     }
 
     [Fact]

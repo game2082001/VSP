@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLinked;
+using VSP.Core.Logging;
 using VSP.Player.Entities;
 using VSP.Player.Interfaces;
 
@@ -40,6 +41,14 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
     private volatile bool _interruptRequested;
     private CancellationTokenSource? _readLoopCts;
     private Task? _readLoopTask;
+
+    // SEC-3 (Task 3A): mirrors RtspMediaSession's identical fields/logic -- see
+    // EncodedPacketGuard for the bound/threshold rationale shared by both sessions. Only ever
+    // touched from within ReadLoop's single thread (production) or by a focused test driving a
+    // freshly-constructed, never-opened session directly.
+    private int _consecutiveRejectedPackets;
+    private long _lastRejectedPacketLogTickCount = long.MinValue;
+    private const long RejectedPacketLogIntervalMilliseconds = 5 * 60 * 1000;
 
     // Pause gate: signaled (open) = reading; reset (closed) = the loop blocks before its next
     // packet read. Unlike Live's Pause (renderer-only), a paused file must stop advancing.
@@ -297,6 +306,7 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
 
                 int readResult;
                 bool isEof;
+                MediaError? packetError = null;
 
                 lock (_nativeGate)
                 {
@@ -315,7 +325,7 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
                         {
                             if (packet->stream_index == _videoStreamIndex)
                             {
-                                PaceAndRaisePacketReceived(packet, cancellationToken);
+                                packetError = ProcessReceivedPacket(packet, cancellationToken);
                             }
                         }
                         finally
@@ -323,6 +333,20 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
                             DynamicallyLinkedBindings.av_packet_unref(packet);
                         }
                     }
+                }
+
+                // SEC-3 (Task 3A): see RtspMediaSession.ReadLoop's identical comment -- a genuine
+                // packet-processing failure faults the session through the same path an
+                // av_read_frame failure already used below, so MediaController's existing
+                // reconnect logic activates without any change to MediaController itself.
+                if (packetError is not null)
+                {
+                    if (!_interruptRequested && !cancellationToken.IsCancellationRequested)
+                    {
+                        TransitionTo(MediaSessionState.Faulted, packetError);
+                    }
+
+                    return;
                 }
 
                 if (readResult < 0)
@@ -393,6 +417,92 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
         };
 
         PacketReceived?.Invoke(this, new EncodedPacketReceivedEventArgs { Packet = encodedFrame });
+    }
+
+    /// <summary>
+    /// SEC-3 (Task 3A): guards <see cref="PaceAndRaisePacketReceived"/>'s managed allocation
+    /// against an oversized/negative encoded packet size before it happens (and before pacing
+    /// sleeps for a packet that will be dropped anyway), and against any other exception dispatch
+    /// itself might throw. Mirrors RtspMediaSession.ProcessReceivedPacket exactly.
+    /// </summary>
+    private unsafe MediaError? ProcessReceivedPacket(AVPacket* packet, CancellationToken cancellationToken)
+    {
+        switch (EvaluateAndTrackPacketSize(packet->size, out var sizeFault))
+        {
+            case PacketSizeDecision.Fault:
+                return sizeFault;
+
+            case PacketSizeDecision.Drop:
+                return null;
+
+            default:
+                try
+                {
+                    PaceAndRaisePacketReceived(packet, cancellationToken);
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    return new MediaError
+                    {
+                        Category = MediaErrorCategory.Decode,
+                        Message = $"Encoded packet processing failed: {ex.Message}",
+                        Exception = ex
+                    };
+                }
+        }
+    }
+
+    /// <summary>
+    /// SEC-3 (Task 3A): mirrors RtspMediaSession.EvaluateAndTrackPacketSize exactly -- see that
+    /// method's doc comment for the full rationale. faultError is non-null if and only if the
+    /// decision is Fault.
+    /// </summary>
+    internal PacketSizeDecision EvaluateAndTrackPacketSize(int packetSize, out MediaError? faultError)
+    {
+        faultError = null;
+
+        if (EncodedPacketGuard.IsPacketSizeAcceptable(packetSize))
+        {
+            _consecutiveRejectedPackets = 0;
+            return PacketSizeDecision.Accept;
+        }
+
+        _consecutiveRejectedPackets++;
+        LogRejectedPacketIfDue(packetSize, _consecutiveRejectedPackets);
+
+        if (!EncodedPacketGuard.ShouldEscalateToFault(_consecutiveRejectedPackets))
+        {
+            return PacketSizeDecision.Drop;
+        }
+
+        faultError = new MediaError
+        {
+            Category = MediaErrorCategory.Protocol,
+            Message = $"Rejected {_consecutiveRejectedPackets} consecutive encoded packets outside the accepted " +
+                      $"size bound (0..{EncodedPacketGuard.MaxEncodedPacketSizeBytes} bytes); treating the session as faulted."
+        };
+        return PacketSizeDecision.Fault;
+    }
+
+    /// <summary>Mirrors RtspMediaSession.LogRejectedPacketIfDue exactly -- see that method's doc
+    /// comment for the rate-limiting rationale. Never logs a credential or URI.</summary>
+    private void LogRejectedPacketIfDue(int size, int consecutiveCount)
+    {
+        var now = Environment.TickCount64;
+        var mustLog = _lastRejectedPacketLogTickCount == long.MinValue
+            || FfmpegVideoDecoder.IsDiagnosticsIntervalElapsed(_lastRejectedPacketLogTickCount, now, RejectedPacketLogIntervalMilliseconds)
+            || EncodedPacketGuard.ShouldEscalateToFault(consecutiveCount);
+
+        if (!mustLog)
+        {
+            return;
+        }
+
+        _lastRejectedPacketLogTickCount = now;
+        AppLog.Warning(
+            $"Playback: rejected an encoded packet with size={size} bytes (consecutive rejections={consecutiveCount}); " +
+            $"accepted range is 0..{EncodedPacketGuard.MaxEncodedPacketSizeBytes} bytes.");
     }
 
     private static void SleepInChunks(TimeSpan delay, CancellationToken cancellationToken)
