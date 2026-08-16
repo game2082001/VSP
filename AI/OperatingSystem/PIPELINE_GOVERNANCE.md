@@ -115,7 +115,7 @@ Independent Review does not run before Commit/Push/PR/CI as a precondition for r
 2. Commit / Push / PR / CI may proceed per an already-approved Task Plan without waiting on Independent Review.
 3. If `AI_OPERATING_SYSTEM.md` §27 triggers Independent Review, it must complete before Merge Gate.
 4. Independent Review must inspect the actual, current final PR diff and the actual CI/Test/Build and Automated Review evidence — not an earlier snapshot.
-5. A REMEDIATION REQUIRED verdict permits the Implementation Agent to remediate within the originally approved Scope, then re-run: Local Validation → Commit → Push → CI → Automated Review → Independent Review.
+5. A REMEDIATION REQUIRED verdict permits the Implementation Agent to remediate within the originally approved Scope, then re-run: Local Validation → Commit → Push → [CI Gate || Automated Review Gate] → Independent Review.
 6. Every new remediation commit invalidates the prior Independent Review result; re-review is required.
 7. Independent Review must be PASS before Merge Gate.
 8. Automated Review Gate never substitutes for a Required Independent Review Gate.
@@ -144,7 +144,7 @@ This pipeline is adopted in a deliberately scoped, bootstrapped form rather than
 Extends `AUTONOMOUS_DEVELOPMENT.md` §8 (Autonomous Recovery) to failures at a specific pipeline Gate, within a single Task already inside approved scope:
 
 - **CI Gate failure:** triage per `AI_OPERATING_SYSTEM.md` §12 (new / pre-existing / environment failure). A new failure within approved scope is remediated, then the loop re-enters at Local Validation and proceeds forward through Commit → Push → CI again. A failure that exposes a problem outside approved scope is a Stop Condition (§8, Unrecoverable Build/Test failure) — it escalates, it is not silently absorbed into a wider fix.
-- **Independent Review REMEDIATION REQUIRED:** per §4 rules 5–6 above — remediate within the originally approved Scope, then re-run Local Validation → Commit → Push → CI → Automated Review → Independent Review. Each cycle is bounded by the same approved Scope; a remediation that would require expanding Scope stops and escalates (`AI_OPERATING_SYSTEM.md` §8 Scope Expansion) instead of being folded in silently.
+- **Independent Review REMEDIATION REQUIRED:** per §4 rules 5–6 above — remediate within the originally approved Scope, then re-run Local Validation → Commit → Push → [CI Gate || Automated Review Gate] → Independent Review. Each cycle is bounded by the same approved Scope; a remediation that would require expanding Scope stops and escalates (`AI_OPERATING_SYSTEM.md` §8 Scope Expansion) instead of being folded in silently.
 - The loop has no autonomous exit into Merge: reaching a passing state at every required Gate stops at Merge Gate and awaits its own authorization per §3/§5 — recovery never grants Merge authority as a side effect of resolving an earlier Gate's failure.
 - Session interruption mid-pipeline (crash, context loss) is recovered the same way `AUTONOMOUS_DEVELOPMENT.md` §8 already specifies: re-enter through Continuation Mode, re-run Current-State Analysis against actual repository/PR/CI state, never trust a prior session's memory of Gate status over what the repository and CI actually show.
 
