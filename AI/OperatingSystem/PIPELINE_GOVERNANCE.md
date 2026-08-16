@@ -48,16 +48,20 @@ Push Gate
     v
 PR Gate
     v
-CI Gate                      (.github/workflows/vsp-windows-ci.yml)
-    v
-Automated Review Gate        (.github/workflows/claude-code-review.yml)
-    v
-Independent Review Gate      (AI_OPERATING_SYSTEM.md §27 — only if triggered; see §4)
-    v
-Merge Gate
+    +----------------------------+----------------------------------------+
+    v                                                                     v
+CI Gate                                                       Automated Review Gate
+(.github/workflows/vsp-windows-ci.yml)                        (.github/workflows/claude-code-review.yml)
+    +----------------------------+----------------------------------------+
+                                  v
+                       Independent Review Gate   (AI_OPERATING_SYSTEM.md §27 — only if triggered; see §4)
+                                  v
+                             Merge Gate
 ```
 
-This is the canonical sequence. A Gate later in the sequence must not run ahead of an earlier one on the theory that it is "more efficient" — see §4 for why this specifically matters for Independent Review.
+CI Gate and Automated Review Gate both trigger automatically from the same `pull_request` event and run independently of each other — their relative completion order is not guaranteed and must not be assumed. On Task-AI01-007's own PR (#7), Automated Review Gate consistently finished before CI Gate. Both must independently reach PASS before Independent Review Gate proceeds; neither is sequenced ahead of or behind the other by this document or by the underlying GitHub Actions triggers.
+
+Every other Gate in this sequence — Commit, Push, PR, Independent Review, Merge — remains strictly ordered: a later Gate must not run ahead of an earlier one on the theory that it is "more efficient" — see §4 for why this specifically matters for Independent Review.
 
 ### Commit Gate
 
@@ -77,15 +81,15 @@ Governed in full by `AI_OPERATING_SYSTEM.md` §23. Not restated here. Default: a
 
 ### CI Gate
 
-**Mechanism:** `.github/workflows/vsp-windows-ci.yml` (build + `VSP.Tests` on the self-hosted Windows runner), triggered automatically on PR open/update.
+**Mechanism:** `.github/workflows/vsp-windows-ci.yml` (build + `VSP.Tests` on the self-hosted Windows runner), triggered automatically on the same `pull_request` event as Automated Review Gate — independently of it, not sequentially before or after it (see §3).
 
-**Rule:** a red CI run blocks every downstream Gate — Automated Review, Independent Review, and Merge. A CI failure is triaged per `AI_OPERATING_SYSTEM.md` §12 (new failure / pre-existing failure / environment failure) before any remediation is attempted. An AI Agent must not claim CI passed without observing the actual run result.
+**Rule:** a red CI run blocks Independent Review Gate and Merge Gate. It does not block Automated Review Gate — that workflow triggers and runs independently of CI Gate's outcome, and may complete before, during, or after it. A CI failure is triaged per `AI_OPERATING_SYSTEM.md` §12 (new failure / pre-existing failure / environment failure) before any remediation is attempted. An AI Agent must not claim CI passed without observing the actual run result.
 
 ### Automated Review Gate
 
-**Mechanism:** `.github/workflows/claude-code-review.yml` (Claude Code Review), triggered automatically on PR open/update/reopen.
+**Mechanism:** `.github/workflows/claude-code-review.yml` (Claude Code Review), triggered automatically on the same `pull_request` event as CI Gate — independently of it, not sequentially before or after it (see §3). It commonly completes before CI Gate finishes; this is expected and neither shortens nor bypasses CI Gate.
 
-**Rule:** Automated Review Gate output is evidence, not a substitute for Independent Review. **Automated Review must never be treated as satisfying a Required Independent Review** (§4 rule 8) — this holds even when Automated Review returns a clean result.
+**Rule:** Automated Review Gate output is evidence, not a substitute for Independent Review. **Automated Review must never be treated as satisfying a Required Independent Review** (§4 rule 8) — this holds even when Automated Review returns a clean result. Independent Review Gate requires both CI Gate and Automated Review Gate to have independently reached PASS.
 
 ### Independent Review Gate
 
