@@ -3,7 +3,7 @@
 **Status:** Stable
 **Owner:** AI Development Kit
 **Last Updated:** 2026-08-17
-**Next Task:** Task-AI01-007 GB-007 Pipeline Governance Implementation — PR #7 (`task/ai01-007-pipeline-governance`) open; Codex Independent Review returned REMEDIATION REQUIRED (3 findings, 2026-08-16), remediated within original scope (`63a26d1`, `3a52c28`); a further Merge Gate precondition clarification applied 2026-08-17, pending push and fresh CI Gate/Automated Review Gate PASS, then Codex Independent Re-Review. Commit/Push/PR authorized for this Task, Autonomous Merge withheld (manual Merge bootstrap). See the Governance Backlog below and `AI/VERSION.md` (current version 1.3.0).
+**Next Task:** Task-AI01-007 GB-007 Pipeline Governance Implementation — PR #7 (`task/ai01-007-pipeline-governance`) open; Codex Independent Review returned REMEDIATION REQUIRED (3 findings, 2026-08-16), remediated within original scope (`63a26d1`, `3a52c28`); a further Merge Gate precondition clarification committed and pushed as `5ff31e5` (2026-08-17), CI Gate and Automated Review Gate both PASS on that commit; Codex Independent Re-Review of `5ff31e5` returned REMEDIATION REQUIRED again (3 findings — IRR-F1/F2/F3, 2026-08-17), remediated within the same scope (this line and `AI/VERSION.md` only) — a further Codex Independent Re-Review remains pending, then Product Owner Acceptance, then manual Merge. Commit/Push/PR authorized for this Task, Autonomous Merge withheld (manual Merge bootstrap). Task-AI01-006 Phase 2E (Codex Independent Re-Review of the Phase 2D remediation, v1.2.0) remains separately outstanding, not closed, not deferred, and not implicitly superseded by Task-AI01-007. See the Governance Backlog below and `AI/VERSION.md` (current version 1.3.0).
 
 ---
 
