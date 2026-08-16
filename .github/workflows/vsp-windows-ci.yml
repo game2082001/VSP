@@ -1,0 +1,33 @@
+name: VSP Windows CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and Test (Windows self-hosted)
+    runs-on: [self-hosted, Windows, X64, vsp-server]
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: dotnet --info
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore VSP.slnx
+
+      - name: Build (Debug)
+        run: dotnet build VSP.slnx -c Debug --no-restore
+
+      - name: Test (VSP.Tests, Debug)
+        run: dotnet test VSP.Tests/VSP.Tests.csproj -c Debug --no-build
