@@ -10,13 +10,17 @@ jobs:
     name: Build and Test (Windows self-hosted)
     runs-on: [self-hosted, Windows, X64, vsp-server]
     timeout-minutes: 60
+    defaults:
+      run:
+        # PowerShell script execution is disabled by policy on this runner;
+        # cmd is not subject to that policy.
+        shell: cmd
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Verify .NET SDK
-        shell: cmd
         run: |
           dotnet --info
           dotnet --list-sdks
