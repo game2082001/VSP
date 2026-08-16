@@ -16,16 +16,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify .NET SDK
-        shell: powershell
+        shell: cmd
         run: |
           dotnet --info
-          $sdks = dotnet --list-sdks
-          if (-not ($sdks | Select-String '^10\.')) {
-            Write-Error "Required .NET 10 SDK not found on this runner. Installed SDKs:`n$sdks"
-            exit 1
-          }
-          Write-Host "Found required .NET 10 SDK on runner:"
-          $sdks | Select-String '^10\.'
+          dotnet --list-sdks
+          dotnet --list-sdks | findstr /B /C:"10." >nul
+          if errorlevel 1 (
+            echo Required .NET 10 SDK not found on this runner.
+            exit /b 1
+          )
+          echo Found required .NET 10 SDK on runner.
 
       - name: Restore
         run: dotnet restore VSP.slnx
