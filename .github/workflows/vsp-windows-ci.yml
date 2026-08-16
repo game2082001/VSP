@@ -15,13 +15,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: dotnet --info
-        run: dotnet --info
+      - name: Verify .NET SDK
+        shell: pwsh
+        run: |
+          dotnet --info
+          $sdks = dotnet --list-sdks
+          if (-not ($sdks | Select-String '^10\.')) {
+            Write-Error "Required .NET 10 SDK not found on this runner. Installed SDKs:`n$sdks"
+            exit 1
+          }
+          Write-Host "Found required .NET 10 SDK on runner:"
+          $sdks | Select-String '^10\.'
 
       - name: Restore
         run: dotnet restore VSP.slnx
