@@ -1,0 +1,41 @@
+name: VSP Windows CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and Test (Windows self-hosted)
+    runs-on: [self-hosted, Windows, X64, vsp-server]
+    timeout-minutes: 60
+    defaults:
+      run:
+        # PowerShell script execution is disabled by policy on this runner;
+        # cmd is not subject to that policy.
+        shell: cmd
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify .NET SDK
+        run: |
+          dotnet --info
+          dotnet --list-sdks
+          dotnet --list-sdks | findstr /B /C:"10." >nul
+          if errorlevel 1 (
+            echo Required .NET 10 SDK not found on this runner.
+            exit /b 1
+          )
+          echo Found required .NET 10 SDK on runner.
+
+      - name: Restore
+        run: dotnet restore VSP.slnx
+
+      - name: Build (Debug)
+        run: dotnet build VSP.slnx -c Debug --no-restore
+
+      - name: Test (VSP.Tests, Debug)
+        run: dotnet test VSP.Tests/VSP.Tests.csproj -c Debug --no-build
