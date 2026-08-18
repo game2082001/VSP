@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 60
     defaults:
       run:
+        # PowerShell script execution is disabled by policy on this runner;
+        # cmd is not subject to that policy.
         shell: cmd
 
     steps:

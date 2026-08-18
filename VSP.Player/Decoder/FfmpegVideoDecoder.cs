@@ -62,6 +62,14 @@ public sealed unsafe class FfmpegVideoDecoder : IVideoDecoder
     private long _swsContextFormatChanges;
     private long _sampledAllZeroFrames;
 
+    // SEC-3 (Task 3B): same aggregated, time-gated discipline as the fields above -- counted here
+    // (not logged per-occurrence from this class) specifically because MediaController.
+    // HandlePacketReceived's existing catch already logs every DecodedFrameDimensionException
+    // unconditionally; adding a second, separately-rate-limited per-occurrence log here would not
+    // reduce that pre-existing per-exception log volume and was judged not worth the duplication.
+    // This counter only feeds the periodic summary already emitted by LogDiagnosticsSummaryIfDue.
+    private long _rejectedDimensionFrames;
+
     /// <summary>
     /// Internal: the only public-facing surface for decode is <see cref="IVideoDecoder"/>, reached
     /// via <c>MediaController</c>/<c>PlaybackController</c>'s own factories -- both within this
@@ -214,7 +222,7 @@ public sealed unsafe class FfmpegVideoDecoder : IVideoDecoder
             $"(last: {_lastReceiveFrameError ?? "none"}), " +
             $"swsScaleFailures={_swsScaleFailures}, swsScaleShortOutputs={_swsScaleShortOutputs}, " +
             $"lastSwsScaleReturn={_lastSwsScaleReturn}, swsContextFormatChanges={_swsContextFormatChanges}, " +
-            $"sampledAllZeroFrames={_sampledAllZeroFrames}.");
+            $"sampledAllZeroFrames={_sampledAllZeroFrames}, rejectedDimensionFrames={_rejectedDimensionFrames}.");
     }
 
     public void Reset()
@@ -269,6 +277,22 @@ public sealed unsafe class FfmpegVideoDecoder : IVideoDecoder
         var height = _decodedFrame->height;
         var sourceFormat = (AVPixelFormat)_decodedFrame->format;
 
+        // SEC-3 (Task 3B): reject before touching width/height for anything else -- including
+        // sws_getContext below, which itself allocates native buffers sized by these same
+        // stream-controlled values. See DecodedFrameGuard's doc comment for the full bound
+        // rationale and the overflow mechanism this closes. Left uncounted against the cached
+        // _swsContext/_scaledWidth/_scaledHeight state: a rejected frame never reaches the
+        // rebuild block below, so a previously-valid cached context for earlier, legitimate
+        // frames is left untouched for the next call.
+        if (!DecodedFrameGuard.TryEvaluate(width, height, out var bgraByteCount))
+        {
+            _rejectedDimensionFrames++;
+            throw new DecodedFrameDimensionException(
+                $"Rejected a decoded frame with dimensions {width}x{height} (accepted range: " +
+                $"1..{DecodedFrameGuard.MaxDecodedWidth} x 1..{DecodedFrameGuard.MaxDecodedHeight}, " +
+                $"max {DecodedFrameGuard.MaxDecodedBgraBytes} BGRA bytes).");
+        }
+
         // Diagnostics only (Task-AI00B Phase 5): detect a source pixel format that differs from
         // the one the cached _swsContext was actually built for, while it is about to be reused
         // unchanged. This must NOT influence the rebuild decision below -- the cache key stays
@@ -302,8 +326,12 @@ public sealed unsafe class FfmpegVideoDecoder : IVideoDecoder
             _scaledSourceFormat = sourceFormat;
         }
 
+        // Safe: width already validated <= DecodedFrameGuard.MaxDecodedWidth (7680), so width*4
+        // fits comfortably in Int32 -- only used for sws_scale's destination row pitch below, not
+        // for sizing the allocation (bgraByteCount, already computed and validated by the guard
+        // above using checked long arithmetic, is the sole source of truth for that).
         var stride = width * 4;
-        var buffer = new byte[stride * height];
+        var buffer = new byte[checked((int)bgraByteCount)];
 
         int returnedLines;
         fixed (byte* bufferPtr = buffer)

@@ -36,6 +36,11 @@ public sealed class RtspMediaSession : IMediaSession, IFfmpegDemuxSource
     private CancellationTokenSource? _readLoopCts;
     private Task? _readLoopTask;
 
+    // SEC-3 (Task 3A): only ever touched from within ReadLoop's single thread (production) or by
+    // a focused test driving a freshly-constructed, never-opened session directly -- never needs
+    // its own lock. See EncodedPacketGuard for the bound/threshold rationale.
+    private readonly PacketRejectionTracker _packetRejectionTracker = new("Live View RTSP");
+
     public unsafe RtspMediaSession(string rtspUrl, TimeSpan? openTimeout = null)
     {
         if (string.IsNullOrWhiteSpace(rtspUrl))
@@ -263,6 +268,7 @@ public sealed class RtspMediaSession : IMediaSession, IFfmpegDemuxSource
             while (!cancellationToken.IsCancellationRequested)
             {
                 int readResult;
+                MediaError? packetError = null;
 
                 lock (_nativeGate)
                 {
@@ -280,7 +286,7 @@ public sealed class RtspMediaSession : IMediaSession, IFfmpegDemuxSource
                         {
                             if (packet->stream_index == _videoStreamIndex)
                             {
-                                RaisePacketReceived(packet);
+                                packetError = ProcessReceivedPacket(packet);
                             }
                         }
                         finally
@@ -288,6 +294,23 @@ public sealed class RtspMediaSession : IMediaSession, IFfmpegDemuxSource
                             DynamicallyLinkedBindings.av_packet_unref(packet);
                         }
                     }
+                }
+
+                // SEC-3 (Task 3A): a genuine packet-processing failure -- either the consecutive-
+                // rejection streak reached EncodedPacketGuard's escalation threshold, or dispatch
+                // itself threw -- faults the session through the exact same path an av_read_frame
+                // failure already used below, so MediaController's existing reconnect logic
+                // activates without any change to MediaController itself. This is what closes the
+                // "silent ReadLoop death" gap: no exception can propagate out of this method
+                // uncaught anymore.
+                if (packetError is not null)
+                {
+                    if (!_interruptRequested && !cancellationToken.IsCancellationRequested)
+                    {
+                        TransitionTo(MediaSessionState.Faulted, packetError);
+                    }
+
+                    return;
                 }
 
                 if (readResult < 0)
@@ -307,6 +330,54 @@ public sealed class RtspMediaSession : IMediaSession, IFfmpegDemuxSource
             DynamicallyLinkedBindings.av_packet_free(&packet);
         }
     }
+
+    /// <summary>
+    /// SEC-3 (Task 3A): guards <see cref="RaisePacketReceived"/>'s managed allocation against an
+    /// oversized/negative encoded packet size before it happens, and against any other exception
+    /// the dispatch itself might throw. Returns null for the common case (accepted and
+    /// successfully dispatched, or safely dropped without ending the session); non-null only once
+    /// a genuine processing failure -- an unbroken run of rejections reaching
+    /// EncodedPacketGuard.MaxConsecutiveRejectedPackets, or a thrown exception -- means the
+    /// session itself should fault.
+    /// </summary>
+    private unsafe MediaError? ProcessReceivedPacket(AVPacket* packet)
+    {
+        switch (EvaluateAndTrackPacketSize(packet->size, out var sizeFault))
+        {
+            case PacketSizeDecision.Fault:
+                return sizeFault;
+
+            case PacketSizeDecision.Drop:
+                return null;
+
+            default:
+                try
+                {
+                    RaisePacketReceived(packet);
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    return new MediaError
+                    {
+                        Category = MediaErrorCategory.Decode,
+                        Message = $"Encoded packet processing failed: {ex.Message}",
+                        Exception = ex
+                    };
+                }
+        }
+    }
+
+    /// <summary>
+    /// SEC-3 (Task 3A): delegates to this instance's <see cref="PacketRejectionTracker"/>. Internal
+    /// (not private), and taking only a plain int rather than an AVPacket*, specifically so a
+    /// focused test can drive real instance state directly -- no FFmpeg-adjacent type crosses this
+    /// seam (per ADR-002/ADR-003's existing discipline for this class), and no native session needs
+    /// to be open, since this runs before any native call. faultError is non-null if and only if
+    /// the decision is Fault.
+    /// </summary>
+    internal PacketSizeDecision EvaluateAndTrackPacketSize(int packetSize, out MediaError? faultError) =>
+        _packetRejectionTracker.EvaluateAndTrack(packetSize, out faultError);
 
     private unsafe void RaisePacketReceived(AVPacket* packet)
     {

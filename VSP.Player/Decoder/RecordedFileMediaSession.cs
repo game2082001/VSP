@@ -41,6 +41,12 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
     private CancellationTokenSource? _readLoopCts;
     private Task? _readLoopTask;
 
+    // SEC-3 (Task 3A): mirrors RtspMediaSession's identical fields/logic -- see
+    // EncodedPacketGuard for the bound/threshold rationale shared by both sessions. Only ever
+    // touched from within ReadLoop's single thread (production) or by a focused test driving a
+    // freshly-constructed, never-opened session directly.
+    private readonly PacketRejectionTracker _packetRejectionTracker = new("Playback");
+
     // Pause gate: signaled (open) = reading; reset (closed) = the loop blocks before its next
     // packet read. Unlike Live's Pause (renderer-only), a paused file must stop advancing.
     private readonly ManualResetEventSlim _playGate = new(initialState: true);
@@ -297,6 +303,7 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
 
                 int readResult;
                 bool isEof;
+                MediaError? packetError = null;
 
                 lock (_nativeGate)
                 {
@@ -315,7 +322,7 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
                         {
                             if (packet->stream_index == _videoStreamIndex)
                             {
-                                PaceAndRaisePacketReceived(packet, cancellationToken);
+                                packetError = ProcessReceivedPacket(packet, cancellationToken);
                             }
                         }
                         finally
@@ -323,6 +330,20 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
                             DynamicallyLinkedBindings.av_packet_unref(packet);
                         }
                     }
+                }
+
+                // SEC-3 (Task 3A): see RtspMediaSession.ReadLoop's identical comment -- a genuine
+                // packet-processing failure faults the session through the same path an
+                // av_read_frame failure already used below, so MediaController's existing
+                // reconnect logic activates without any change to MediaController itself.
+                if (packetError is not null)
+                {
+                    if (!_interruptRequested && !cancellationToken.IsCancellationRequested)
+                    {
+                        TransitionTo(MediaSessionState.Faulted, packetError);
+                    }
+
+                    return;
                 }
 
                 if (readResult < 0)
@@ -394,6 +415,48 @@ public sealed class RecordedFileMediaSession : IMediaSession, IFfmpegDemuxSource
 
         PacketReceived?.Invoke(this, new EncodedPacketReceivedEventArgs { Packet = encodedFrame });
     }
+
+    /// <summary>
+    /// SEC-3 (Task 3A): guards <see cref="PaceAndRaisePacketReceived"/>'s managed allocation
+    /// against an oversized/negative encoded packet size before it happens (and before pacing
+    /// sleeps for a packet that will be dropped anyway), and against any other exception dispatch
+    /// itself might throw. Mirrors RtspMediaSession.ProcessReceivedPacket exactly.
+    /// </summary>
+    private unsafe MediaError? ProcessReceivedPacket(AVPacket* packet, CancellationToken cancellationToken)
+    {
+        switch (EvaluateAndTrackPacketSize(packet->size, out var sizeFault))
+        {
+            case PacketSizeDecision.Fault:
+                return sizeFault;
+
+            case PacketSizeDecision.Drop:
+                return null;
+
+            default:
+                try
+                {
+                    PaceAndRaisePacketReceived(packet, cancellationToken);
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    return new MediaError
+                    {
+                        Category = MediaErrorCategory.Decode,
+                        Message = $"Encoded packet processing failed: {ex.Message}",
+                        Exception = ex
+                    };
+                }
+        }
+    }
+
+    /// <summary>
+    /// SEC-3 (Task 3A): delegates to this instance's <see cref="PacketRejectionTracker"/>. Mirrors
+    /// RtspMediaSession.EvaluateAndTrackPacketSize exactly -- see that method's doc comment for the
+    /// full rationale. faultError is non-null if and only if the decision is Fault.
+    /// </summary>
+    internal PacketSizeDecision EvaluateAndTrackPacketSize(int packetSize, out MediaError? faultError) =>
+        _packetRejectionTracker.EvaluateAndTrack(packetSize, out faultError);
 
     private static void SleepInChunks(TimeSpan delay, CancellationToken cancellationToken)
     {
