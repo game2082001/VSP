@@ -62,6 +62,20 @@ Implementation
 
 When this authorization is present, the Router must not ask again for commit, push, PR creation/update, CI, automated review, independent review, or in-scope remediation. Only Stop Conditions interrupt the lifecycle.
 
+## Gate Waiting
+
+Normal gate waiting is not a Product Owner decision.
+
+Inside the pre-authorized lifecycle, the Router must poll and wait when CI or Automated Review is:
+
+- queued
+- pending
+- in progress
+- not past the configured timeout or tolerance
+- not reporting authentication, infrastructure, security, or evidence failures
+
+The Router may ask the Product Owner only when a configured timeout or tolerance is exceeded, a job appears stuck beyond policy, evidence is unavailable, authentication fails, infrastructure fails outside autonomous recovery scope, retry/remediation budget is exhausted, or another Stop Condition is reached.
+
 ## Merge Gate
 
 AI01-008 V1.0 forbids autonomous merge.

@@ -28,4 +28,6 @@ The Router must stop and request Product Owner input when any condition below is
 
 Each stop must render the fixed `PRODUCT OWNER DECISION REQUIRED` format from `DECISION_UX.md`, including Reason, Recommended, Why, If approved, and Alternatives. The Router must provide a recommended option and must not ask an open-ended question.
 
+Normal queued, pending, or in-progress CI and Automated Review gates are not Stop Conditions before the configured timeout/tolerance. The Router must poll and wait without Product Owner input while gate execution is healthy.
+
 PR #7 and the paused RTSP flaky investigation are protected out-of-scope evidence for AI01-008.

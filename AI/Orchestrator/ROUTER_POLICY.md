@@ -32,6 +32,12 @@ Implementation
 
 The Router must not ask the Product Owner again for commit, push, PR creation/update, CI, automated review, independent review, or in-scope remediation while the work remains inside approved scope and within configured budgets.
 
+## Gate Polling
+
+Queued, pending, and in-progress CI or Automated Review gates are normal lifecycle states. The Router must continue polling until a gate reaches a terminal result or the configured timeout/tolerance is exceeded.
+
+The Router must not emit `PRODUCT OWNER DECISION REQUIRED` for normal waiting. It stops only when gate evidence becomes unavailable, an agent/authentication/infrastructure failure is detected, retry/remediation budget is exhausted, or another Stop Condition is reached.
+
 ## Role Selection
 
 Use Codex Worker for:

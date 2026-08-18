@@ -32,6 +32,7 @@ Phase 2 validates the AI01-008 Role Model V1.0 and Orchestrator MVP without touc
 - Architecture decision stop: `STOPPED_FOR_PRODUCT_OWNER` with fixed Product Owner Decision UX.
 - Pre-authorized PASS path: Task Plan authorization carries implementation, validation, commit, push, PR update, CI, automated review, and independent review through to `READY_FOR_MERGE` without intermediate Product Owner prompts.
 - Pre-authorized remediation path: in-scope remediation automatically routes to Claude Code, commits/pushes through the authorized path, re-runs gates, and reaches `READY_FOR_MERGE`.
+- Gate waiting path: queued, pending, and in-progress CI or Automated Review gates stay in lifecycle polling and do not become Product Owner decisions before timeout/tolerance.
 - Merge Gate: `READY_FOR_MERGE` includes a `PRODUCT OWNER DECISION REQUIRED` payload recommending merge, but no autonomous merge occurs.
 - Restart recovery: state is persisted as JSON and re-read from `StatePath`; Git/GitHub/current-head evidence remains authoritative when state disagrees.
 

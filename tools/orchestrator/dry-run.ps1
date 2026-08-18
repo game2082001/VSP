@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("pass", "remediation", "remediation-limit", "budget-exceeded", "repeat-finding", "stale-head", "recursive-trigger", "agent-failure", "scope-expansion", "security-decision", "architecture-decision", "restart")]
+    [ValidateSet("pass", "remediation", "gate-pending", "remediation-limit", "budget-exceeded", "repeat-finding", "stale-head", "recursive-trigger", "agent-failure", "scope-expansion", "security-decision", "architecture-decision", "restart")]
     [string] $Scenario = "pass",
 
     [string] $StatePath = "",
@@ -239,6 +239,13 @@ function Invoke-OrchestratorStep {
         "WAITING_PARALLEL_GATES" {
             if ($ScenarioName -eq "agent-failure") {
                 Stop-ForProductOwner -State $State -Reason "AGENT_FAILURE_OR_TIMEOUT" -Recommended "Stop automation and inspect agent authentication/environment" -Why "The Router cannot prove the agent completed its assigned work." -IfApproved "The Orchestrator retries only after the agent failure is resolved."
+                return
+            }
+
+            if ($ScenarioName -eq "gate-pending") {
+                $State.ciStatus = "PENDING"
+                $State.claudeReviewStatus = "IN_PROGRESS"
+                Add-Event -State $State -Event "GATES_PENDING:CONTINUE_POLLING"
                 return
             }
 
