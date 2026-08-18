@@ -20,7 +20,12 @@ jobs:
   route:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/ai01 '))
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/ai01 ') &&
+        contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Resolve PR number
@@ -45,9 +50,18 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Read current PR HEAD
+        id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $head = gh pr view ${{ steps.pr.outputs.number }} --repo ${{ github.repository }} --json headRefOid --jq .headRefOid
+          "sha=$head" >> $env:GITHUB_OUTPUT
+
       - name: Evaluate parallel gates
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          ./tools/orchestrator/router.ps1 -PrNumber ${{ steps.pr.outputs.number }} -Repository ${{ github.repository }}
+          ./tools/orchestrator/router.ps1 -PrNumber ${{ steps.pr.outputs.number }} -Repository ${{ github.repository }} -ExpectedHeadSha ${{ steps.head.outputs.sha }} -RequestIndependentReview -PollSeconds 30 -TimeoutMinutes 30
