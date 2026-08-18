@@ -58,6 +58,42 @@ function Write-StateIfRequested {
     $State | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $Path -Encoding utf8
 }
 
+function New-OrchestratorState {
+    param(
+        [int] $Number,
+        [string] $Repo,
+        [string] $HeadSha
+    )
+
+    [pscustomobject]@{
+        schemaVersion = "1.0"
+        taskId = "AI01-008"
+        prNumber = $Number
+        repository = $Repo
+        currentStage = "WAITING_PARALLEL_GATES"
+        implementationContextId = ""
+        codexWorkerTouchedPr = $false
+        independentReviewerContextId = ""
+        remediationCount = 0
+        remediationLimit = 2
+        tokenBudget = [pscustomobject]@{
+            total = 1000
+            implementation = 500
+            review = 300
+            remediation = 200
+            softStopPercent = 80
+            hardStopPercent = 100
+        }
+        tokenSpentEstimate = 0
+        lastKnownCommit = $HeadSha
+        updatedAtUtc = ""
+    }
+}
+
+if ($RequestIndependentReview -and -not $StatePath) {
+    Stop-ForProductOwner -Reason "STRUCTURED_STATE_UNAVAILABLE" -Recommended "Provide a structured state path and rerun the Orchestrator" -Why "Required Independent Review routing must enforce persisted state, token budget, and role separation." -IfApproved "The Orchestrator recreates state from GitHub/Git evidence and resumes gate evaluation."
+}
+
 if ($PrNumber -eq 7) {
     Stop-ForProductOwner -Reason "PR_7_OUT_OF_SCOPE" -Recommended "Keep PR #7 excluded from AI01-008" -Why "PR #7 is explicitly protected and unrelated to AI01-008 bootstrap." -IfApproved "The Orchestrator continues only on an authorized non-PR-7 task."
 }
@@ -75,6 +111,16 @@ if ($pr.isDraft) {
 }
 
 $state = $null
+if ($StatePath -and -not (Test-Path -LiteralPath $StatePath)) {
+    $directory = Split-Path -Parent $StatePath
+    if ($directory -and -not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Path $directory | Out-Null
+    }
+
+    $state = New-OrchestratorState -Number $PrNumber -Repo $Repository -HeadSha $pr.headRefOid
+    Write-StateIfRequested -State $state -Path $StatePath
+}
+
 if ($StatePath -and (Test-Path -LiteralPath $StatePath)) {
     $state = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
     if ($state.lastKnownCommit -and $state.lastKnownCommit -ne $pr.headRefOid) {
@@ -121,6 +167,10 @@ while ($true) {
             ciStatus = "PASS"
             claudeReviewStatus = "PASS"
             independentReviewStatus = "NOT_REQUESTED"
+            remediationCount = if ($state -and $null -ne $state.remediationCount) { $state.remediationCount } else { 0 }
+            remediationLimit = if ($state -and $null -ne $state.remediationLimit) { $state.remediationLimit } else { 2 }
+            tokenBudget = if ($state -and $state.tokenBudget) { $state.tokenBudget } else { $null }
+            tokenSpentEstimate = if ($state -and $null -ne $state.tokenSpentEstimate) { $state.tokenSpentEstimate } else { 0 }
             updatedAtUtc = ""
         }
         Write-StateIfRequested -State $nextState -Path $StatePath

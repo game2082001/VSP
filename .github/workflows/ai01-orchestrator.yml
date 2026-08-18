@@ -64,4 +64,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          ./tools/orchestrator/router.ps1 -PrNumber ${{ steps.pr.outputs.number }} -Repository ${{ github.repository }} -ExpectedHeadSha ${{ steps.head.outputs.sha }} -RequestIndependentReview -PollSeconds 30 -TimeoutMinutes 30
+          $statePath = Join-Path $env:RUNNER_TEMP "ai01-orchestrator-state/pr-${{ steps.pr.outputs.number }}.state.json"
+          ./tools/orchestrator/router.ps1 -PrNumber ${{ steps.pr.outputs.number }} -Repository ${{ github.repository }} -ExpectedHeadSha ${{ steps.head.outputs.sha }} -StatePath $statePath -RequestIndependentReview -PollSeconds 30 -TimeoutMinutes 30
+
+      - name: Upload orchestrator state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai01-orchestrator-state-pr-${{ steps.pr.outputs.number }}
+          path: ${{ runner.temp }}/ai01-orchestrator-state/*.state.json
+          if-no-files-found: ignore
