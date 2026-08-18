@@ -20,13 +20,17 @@ Required files:
 
 3. Docs/AI_DEVELOPMENT_WORKFLOW.md — VSP workflow and reading order for architecture, coding rules, and review
 
-4. Docs/DEVELOPMENT_ROLES.md — roles and responsibilities (Product Owner / Architect / Developer)
+4. Docs/DEVELOPMENT_ROLES.md — roles and responsibilities (Product Owner / Architect / Developer / Independent Review Agent)
+
+5. AI/Orchestrator/README.md — required only for PR-based autonomous multi-agent pipeline work, including Agent Router, Codex Worker, Claude Code remediation, Codex Independent Review, token budget gates, and crash recovery
 
 ---
 
 ## Task Instructions
 
 Task specs are provided per task (via prompt or `Docs/SPECS/`) and are not tracked in this file. Follow the process defined in Docs/AI_DEVELOPMENT_WORKFLOW.md for how a task spec is read, planned, implemented, and reviewed.
+
+For orchestrated PR work, handoff must be through GitHub PR state, Git history, workflow/check results, and structured artifacts under `AI/Orchestrator/`; it must not require manual copy/paste between Claude Code and Codex chats.
 
 ## Approval Boundary
 
