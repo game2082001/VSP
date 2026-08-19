@@ -1029,8 +1029,6 @@ Reviewed:
 2026-06-28
 
 -----
----
-
 ## 2026-06-28
 
 ### Sprint 1 - Task 3
@@ -1135,7 +1133,6 @@ Verified:
 - 銝憓?DeleteService
 
 ----
----
 ## [Unreleased]
 
 ### Added
