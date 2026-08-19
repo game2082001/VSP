@@ -86,6 +86,10 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $allowed = @(
+              ".github/workflows/claude-code-review.yml",
+              "AI/Orchestrator/PHASE2_VALIDATION.md",
+              "AI/Orchestrator/ROLE_SEPARATION.md",
+              "AI/Orchestrator/Templates/claude-code-review.yml",
               "CLAUDE.md",
               "Docs/CHANGELOG.md",
               "tools/orchestrator/dry-run.ps1",
@@ -109,6 +113,15 @@ jobs:
           if ($changelogRaw -match "(?m)^-{3,5}\s*\r?\n---\s*(\r?\n|$)") {
               throw "Docs/CHANGELOG.md still contains a doubled separator after cleanup."
           }
+          foreach ($path in @(".github/workflows/claude-code-review.yml", "AI/Orchestrator/Templates/claude-code-review.yml")) {
+              $reviewWorkflow = Get-Content -LiteralPath $path -Raw
+              if ($reviewWorkflow -match "(?m)^\s*allowed_bots:\s*['""]?\*['""]?\s*$") {
+                  throw "$path allows all bots for Claude Automated Review."
+              }
+              if ($reviewWorkflow -notmatch "(?m)^\s*allowed_bots:\s*vsp-ai-implementation\s*$") {
+                  throw "$path does not narrowly allow the trusted VSP implementation bot."
+              }
+          }
           if (Select-String -Path "tools/orchestrator/router.ps1" -Pattern '\$PSScriptRoot\\request-review\.ps1' -Quiet) {
               throw "router.ps1 still contains Windows-only request-review path."
           }
@@ -130,9 +143,9 @@ jobs:
           $userId = gh api "/users/${{ steps.implementation-token.outputs.app-slug }}[bot]" --jq .id
           git config user.name "${{ steps.implementation-token.outputs.app-slug }}[bot]"
           git config user.email "$userId+${{ steps.implementation-token.outputs.app-slug }}[bot]@users.noreply.github.com"
-          git add CLAUDE.md Docs/CHANGELOG.md tools/orchestrator/dry-run.ps1 tools/orchestrator/live-agent-smoke.ps1 tools/orchestrator/router.ps1
+          git add .github/workflows/claude-code-review.yml AI/Orchestrator/PHASE2_VALIDATION.md AI/Orchestrator/ROLE_SEPARATION.md AI/Orchestrator/Templates/claude-code-review.yml CLAUDE.md Docs/CHANGELOG.md tools/orchestrator/dry-run.ps1 tools/orchestrator/live-agent-smoke.ps1 tools/orchestrator/router.ps1
           $staged = @(git diff --cached --name-only)
-          $allowed = @("CLAUDE.md", "Docs/CHANGELOG.md", "tools/orchestrator/dry-run.ps1", "tools/orchestrator/live-agent-smoke.ps1", "tools/orchestrator/router.ps1")
+          $allowed = @(".github/workflows/claude-code-review.yml", "AI/Orchestrator/PHASE2_VALIDATION.md", "AI/Orchestrator/ROLE_SEPARATION.md", "AI/Orchestrator/Templates/claude-code-review.yml", "CLAUDE.md", "Docs/CHANGELOG.md", "tools/orchestrator/dry-run.ps1", "tools/orchestrator/live-agent-smoke.ps1", "tools/orchestrator/router.ps1")
           $unexpected = @($staged | Where-Object { $allowed -notcontains $_ })
           if ($unexpected.Count -gt 0) { throw "Refusing to commit unexpected files: $($unexpected -join ', ')" }
           git commit -m "Fix AI01-008 review remediation"
