@@ -144,7 +144,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer ${IMPLEMENTATION_TOKEN}" \
+          auth_header="$(printf 'x-access-token:%s' "${IMPLEMENTATION_TOKEN}" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth_header}" \
             push origin "HEAD:${{ steps.write-target.outputs.head_ref }}"
 
   route:
