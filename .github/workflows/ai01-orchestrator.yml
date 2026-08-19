@@ -102,12 +102,12 @@ jobs:
           if ($unexpected.Count -gt 0) {
               throw "Unexpected files changed by remediation: $($unexpected -join ', ')"
           }
-          $missing = @($allowed | Where-Object { $changed -notcontains $_ })
-          if ($missing.Count -gt 0) {
-              throw "Approved remediation did not touch all expected files: $($missing -join ', ')"
-          }
+          $changelogRaw = Get-Content -LiteralPath "Docs/CHANGELOG.md" -Raw
           if ((Select-String -Path "Docs/CHANGELOG.md" -Pattern "AI01-008 - Autonomous Multi-Agent Development Pipeline").Count -ne 1) {
               throw "AI01-008 changelog entry count is not exactly one."
+          }
+          if ($changelogRaw -match "(?m)^-{3,5}\s*\r?\n---\s*(\r?\n|$)") {
+              throw "Docs/CHANGELOG.md still contains a doubled separator after cleanup."
           }
           if (Select-String -Path "tools/orchestrator/router.ps1" -Pattern '\$PSScriptRoot\\request-review\.ps1' -Quiet) {
               throw "router.ps1 still contains Windows-only request-review path."

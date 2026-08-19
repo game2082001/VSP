@@ -102,6 +102,9 @@ if ($matches.Count -lt 1) {
 $first = $matches[0].Value
 $withoutAll = [regex]::Replace($changelog, $entryPattern, "")
 $changelog = $first + $withoutAll
+$changelog = [regex]::Replace($changelog, "(?m)^-----\r?\n---\r?\n\r?\n## 2026-06-28", "-----`n## 2026-06-28")
+$changelog = [regex]::Replace($changelog, "(?m)^----\r?\n---\r?\n\r?\n## \[Unreleased\]", "----`n## [Unreleased]")
+$changelog = [regex]::Replace($changelog, "(?m)^---\r?\n## \[Unreleased\]", "## [Unreleased]")
 $changelog = [regex]::Replace($changelog, "(?m)^-----\r?\n\r?\n## 2026-06-28", "-----`n## 2026-06-28")
 $changelog = [regex]::Replace($changelog, "(?m)^----\r?\n\r?\n## \[Unreleased\]", "----`n## [Unreleased]")
 $changelog = [regex]::Replace($changelog, "(?m)^\r?\n## \[Unreleased\]", "## [Unreleased]")
