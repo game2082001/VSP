@@ -1029,33 +1029,6 @@ Reviewed:
 2026-06-28
 
 -----
-# CHANGELOG
-## 2026-08-18 (AI01-008 - Autonomous Multi-Agent Development Pipeline)
-
-### Agent Router / Orchestrator Foundation
-
-Status:
-Implementation Complete - Pending Independent Review and Product Owner Acceptance. No commit, push, PR creation, autonomous merge, PR #7 remediation, or RTSP flaky investigation work performed.
-
-Summary:
-- Added `AI/Orchestrator/` as the PR-based orchestration layer for Agent Router policy, agent contracts, structured state, token budget gates, stop conditions, crash/session recovery, role separation, and bounded remediation.
-- Added PowerShell orchestrator scripts under `tools/orchestrator/` for PR metadata inspection, parallel gate evaluation, token budget checking, state reading, review request, remediation request, and router entry.
-- Added local GitHub workflow files for Windows CI, Claude Code Review, Claude Code comment handling, and AI01 Orchestrator routing.
-- Preserved the first-version terminal state as `READY_FOR_MERGE`; Product Owner manual merge remains required.
-- Added explicit PR #7 protection and kept the paused RTSP flaky investigation out of AI01-008 scope.
-
-Verification:
-- `AI/Orchestrator/Templates/task-state.template.json` parsed successfully with PowerShell `ConvertFrom-Json`.
-- `tools/orchestrator/*.ps1` parsed successfully with PowerShell parser.
-- Product runtime build/test not run because this task changes governance, workflows, and orchestration scripts only; existing RTSP/decoder worktree changes remain untouched.
-
-Files:
-- `AI/Orchestrator/**`
-- `tools/orchestrator/**`
-- `.github/workflows/**`
-- `AGENTS.md`, `CLAUDE.md`, `AI/README.md`, `Docs/AI_DEVELOPMENT_WORKFLOW.md`, `Docs/WORKFLOW/IMPLEMENT_TASK.md`, `Docs/WORKFLOW/REVIEW_TASK.md`, `Docs/CHANGELOG.md`
-
----
 ---
 
 ## 2026-06-28
@@ -1162,35 +1135,7 @@ Verified:
 - 銝憓?DeleteService
 
 ----
-# CHANGELOG
-## 2026-08-18 (AI01-008 - Autonomous Multi-Agent Development Pipeline)
-
-### Agent Router / Orchestrator Foundation
-
-Status:
-Implementation Complete - Pending Independent Review and Product Owner Acceptance. No commit, push, PR creation, autonomous merge, PR #7 remediation, or RTSP flaky investigation work performed.
-
-Summary:
-- Added `AI/Orchestrator/` as the PR-based orchestration layer for Agent Router policy, agent contracts, structured state, token budget gates, stop conditions, crash/session recovery, role separation, and bounded remediation.
-- Added PowerShell orchestrator scripts under `tools/orchestrator/` for PR metadata inspection, parallel gate evaluation, token budget checking, state reading, review request, remediation request, and router entry.
-- Added local GitHub workflow files for Windows CI, Claude Code Review, Claude Code comment handling, and AI01 Orchestrator routing.
-- Preserved the first-version terminal state as `READY_FOR_MERGE`; Product Owner manual merge remains required.
-- Added explicit PR #7 protection and kept the paused RTSP flaky investigation out of AI01-008 scope.
-
-Verification:
-- `AI/Orchestrator/Templates/task-state.template.json` parsed successfully with PowerShell `ConvertFrom-Json`.
-- `tools/orchestrator/*.ps1` parsed successfully with PowerShell parser.
-- Product runtime build/test not run because this task changes governance, workflows, and orchestration scripts only; existing RTSP/decoder worktree changes remain untouched.
-
-Files:
-- `AI/Orchestrator/**`
-- `tools/orchestrator/**`
-- `.github/workflows/**`
-- `AGENTS.md`, `CLAUDE.md`, `AI/README.md`, `Docs/AI_DEVELOPMENT_WORKFLOW.md`, `Docs/WORKFLOW/IMPLEMENT_TASK.md`, `Docs/WORKFLOW/REVIEW_TASK.md`, `Docs/CHANGELOG.md`
-
 ---
----
-
 ## [Unreleased]
 
 ### Added
@@ -1218,34 +1163,6 @@ Architecture嚗?
 - 銝耨??Driver Framework
 - 銝憓?SQL Query
 - Search ? ViewModel 閮擃???Filter
-
-# CHANGELOG
-## 2026-08-18 (AI01-008 - Autonomous Multi-Agent Development Pipeline)
-
-### Agent Router / Orchestrator Foundation
-
-Status:
-Implementation Complete - Pending Independent Review and Product Owner Acceptance. No commit, push, PR creation, autonomous merge, PR #7 remediation, or RTSP flaky investigation work performed.
-
-Summary:
-- Added `AI/Orchestrator/` as the PR-based orchestration layer for Agent Router policy, agent contracts, structured state, token budget gates, stop conditions, crash/session recovery, role separation, and bounded remediation.
-- Added PowerShell orchestrator scripts under `tools/orchestrator/` for PR metadata inspection, parallel gate evaluation, token budget checking, state reading, review request, remediation request, and router entry.
-- Added local GitHub workflow files for Windows CI, Claude Code Review, Claude Code comment handling, and AI01 Orchestrator routing.
-- Preserved the first-version terminal state as `READY_FOR_MERGE`; Product Owner manual merge remains required.
-- Added explicit PR #7 protection and kept the paused RTSP flaky investigation out of AI01-008 scope.
-
-Verification:
-- `AI/Orchestrator/Templates/task-state.template.json` parsed successfully with PowerShell `ConvertFrom-Json`.
-- `tools/orchestrator/*.ps1` parsed successfully with PowerShell parser.
-- Product runtime build/test not run because this task changes governance, workflows, and orchestration scripts only; existing RTSP/decoder worktree changes remain untouched.
-
-Files:
-- `AI/Orchestrator/**`
-- `tools/orchestrator/**`
-- `.github/workflows/**`
-- `AGENTS.md`, `CLAUDE.md`, `AI/README.md`, `Docs/AI_DEVELOPMENT_WORKFLOW.md`, `Docs/WORKFLOW/IMPLEMENT_TASK.md`, `Docs/WORKFLOW/REVIEW_TASK.md`, `Docs/CHANGELOG.md`
-
----
 ## [Unreleased]
 
 ### Added

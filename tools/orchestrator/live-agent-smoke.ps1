@@ -22,6 +22,8 @@ $result = [ordered]@{
     codexAvailable = Test-CommandAvailable -Name "codex"
     protectedPrNumber = $ProtectedPrNumber
     protectedPrBlockedByRouter = $false
+    protectedPrBlockedByRequestReview = $false
+    protectedPrBlockedByRequestRemediation = $false
     secretsPersisted = $false
     status = "UNKNOWN"
 }
@@ -31,7 +33,27 @@ if ($result.gitAvailable) {
 }
 
 if ($ProtectedPrNumber -eq 7) {
-    $result.protectedPrBlockedByRouter = $true
+    $statePath = Join-Path ([System.IO.Path]::GetTempPath()) "ai01-008-pr7-protection.state.json"
+    $routerOutput = & pwsh -NoProfile -File (Join-Path $PSScriptRoot "router.ps1") -PrNumber $ProtectedPrNumber -Repository "game2082001/VSP" -StatePath $statePath 2>&1
+    if ($LASTEXITCODE -eq 2 -and ($routerOutput | Out-String) -match "PR_7_OUT_OF_SCOPE") {
+        $result.protectedPrBlockedByRouter = $true
+    }
+
+    try {
+        & (Join-Path $PSScriptRoot "request-review.ps1") -PrNumber $ProtectedPrNumber -Repository "game2082001/VSP" 2>&1 | Out-Null
+    } catch {
+        if ($_.Exception.Message -match "PR #7 is protected") {
+            $result.protectedPrBlockedByRequestReview = $true
+        }
+    }
+
+    try {
+        & (Join-Path $PSScriptRoot "request-remediation.ps1") -PrNumber $ProtectedPrNumber -Repository "game2082001/VSP" 2>&1 | Out-Null
+    } catch {
+        if ($_.Exception.Message -match "PR #7 is protected") {
+            $result.protectedPrBlockedByRequestRemediation = $true
+        }
+    }
 }
 
 $secretPatterns = @(
@@ -64,7 +86,11 @@ if (-not $result.gitAvailable) {
 } elseif (-not $result.ghAvailable) {
     $result.status = "WARN: gh unavailable; GitHub live gate cannot run in this environment"
 } elseif (-not $result.protectedPrBlockedByRouter) {
-    $result.status = "FAIL: PR #7 protection unavailable"
+    $result.status = "FAIL: PR #7 router protection unavailable"
+} elseif (-not $result.protectedPrBlockedByRequestReview) {
+    $result.status = "FAIL: PR #7 review request protection unavailable"
+} elseif (-not $result.protectedPrBlockedByRequestRemediation) {
+    $result.status = "FAIL: PR #7 remediation request protection unavailable"
 } elseif ($result.secretsPersisted) {
     $result.status = "FAIL: secret marker found in orchestrator-controlled files"
 } else {

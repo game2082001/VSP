@@ -326,7 +326,7 @@ function Invoke-OrchestratorStep {
 }
 
 if (-not $StatePath) {
-    $StatePath = Join-Path $env:TEMP "ai01-008-$Scenario.state.json"
+    $StatePath = Join-Path ([System.IO.Path]::GetTempPath()) "ai01-008-$Scenario.state.json"
 }
 
 if ($Initialize -or -not (Test-Path -LiteralPath $StatePath)) {

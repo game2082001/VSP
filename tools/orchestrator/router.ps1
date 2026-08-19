@@ -176,7 +176,7 @@ while ($true) {
         Write-StateIfRequested -State $nextState -Path $StatePath
 
         if ($RequestIndependentReview) {
-            & "$PSScriptRoot\request-review.ps1" -PrNumber $PrNumber -Repository $Repository
+            & (Join-Path $PSScriptRoot "request-review.ps1") -PrNumber $PrNumber -Repository $Repository
             Write-Output "WAITING_INDEPENDENT_REVIEW"
         } else {
             Write-Output "PARALLEL_GATES_PASS"
