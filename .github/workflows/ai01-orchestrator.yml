@@ -1,6 +1,8 @@
 name: AI01 Orchestrator
 
 on:
+  pull_request:
+    types: [synchronize]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -17,6 +19,134 @@ permissions:
   actions: read
 
 jobs:
+  bootstrap-implementation-write:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 8
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    steps:
+      - name: Create Implementation App token
+        id: implementation-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.VSP_AI_APP_ID }}
+          private-key: ${{ secrets.VSP_AI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: VSP
+          permission-actions: read
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Validate Implementation token scope
+        env:
+          GH_TOKEN: ${{ steps.implementation-token.outputs.token }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $repos = @(gh api /installation/repositories --jq ".repositories[].full_name")
+          if ($repos.Count -ne 1 -or $repos[0] -ne "${{ github.repository }}") {
+              throw "Implementation token scope validation failed."
+          }
+          gh repo view "${{ github.repository }}" --json nameWithOwner --jq ".nameWithOwner" | Out-Null
+          Write-Output "Implementation token scope validated for ${{ github.repository }}."
+
+      - name: Validate PR write target
+        id: write-target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $pr = gh pr view ${{ github.event.pull_request.number }} --repo "${{ github.repository }}" --json number,state,headRefName,headRefOid,baseRefName,isDraft | ConvertFrom-Json
+          if ($pr.number -eq 7) { throw "PR #7 is protected out-of-scope for AI01-008." }
+          if ($pr.state -ne "OPEN") { throw "Only open PRs can be updated by the Implementation write path." }
+          if ($pr.headRefName -eq "main") { throw "Direct push to main is prohibited." }
+          if ($pr.headRefName -ne "ai01-008-orchestrator") { throw "Unexpected PR head branch: $($pr.headRefName)" }
+          "head_ref=$($pr.headRefName)" >> $env:GITHUB_OUTPUT
+          "head_sha=$($pr.headRefOid)" >> $env:GITHUB_OUTPUT
+
+      - name: Checkout PR branch with Implementation identity
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.implementation-token.outputs.token }}
+          ref: ${{ steps.write-target.outputs.head_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Apply approved AI01-008 review remediation
+        shell: pwsh
+        run: |
+          ./tools/orchestrator/apply-ai01-review-remediation.ps1
+
+      - name: Validate approved remediation diff
+        id: remediation-diff
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $allowed = @(
+              "CLAUDE.md",
+              "Docs/CHANGELOG.md",
+              "tools/orchestrator/dry-run.ps1",
+              "tools/orchestrator/live-agent-smoke.ps1",
+              "tools/orchestrator/router.ps1"
+          )
+          $changed = @(git diff --name-only)
+          if ($changed.Count -eq 0) {
+              "changed=false" >> $env:GITHUB_OUTPUT
+              Write-Output "Approved remediation already present; no write required."
+              exit 0
+          }
+          $unexpected = @($changed | Where-Object { $allowed -notcontains $_ })
+          if ($unexpected.Count -gt 0) {
+              throw "Unexpected files changed by remediation: $($unexpected -join ', ')"
+          }
+          $missing = @($allowed | Where-Object { $changed -notcontains $_ })
+          if ($missing.Count -gt 0) {
+              throw "Approved remediation did not touch all expected files: $($missing -join ', ')"
+          }
+          if ((Select-String -Path "Docs/CHANGELOG.md" -Pattern "AI01-008 - Autonomous Multi-Agent Development Pipeline").Count -ne 1) {
+              throw "AI01-008 changelog entry count is not exactly one."
+          }
+          if (Select-String -Path "tools/orchestrator/router.ps1" -Pattern '\$PSScriptRoot\\request-review\.ps1' -Quiet) {
+              throw "router.ps1 still contains Windows-only request-review path."
+          }
+          if (Select-String -Path "tools/orchestrator/dry-run.ps1" -Pattern '\$env:TEMP' -Quiet) {
+              throw "dry-run.ps1 still uses env:TEMP."
+          }
+          if (Select-String -Path "tools/orchestrator/live-agent-smoke.ps1" -Pattern 'if \(\$ProtectedPrNumber -eq 7\) \{\s*\$result\.protectedPrBlockedByRouter = \$true' -Quiet) {
+              throw "live-agent-smoke.ps1 still contains tautological PR #7 protection."
+          }
+          "changed=true" >> $env:GITHUB_OUTPUT
+
+      - name: Commit approved remediation
+        if: steps.remediation-diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.implementation-token.outputs.token }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $userId = gh api "/users/${{ steps.implementation-token.outputs.app-slug }}[bot]" --jq .id
+          git config user.name "${{ steps.implementation-token.outputs.app-slug }}[bot]"
+          git config user.email "$userId+${{ steps.implementation-token.outputs.app-slug }}[bot]@users.noreply.github.com"
+          git add CLAUDE.md Docs/CHANGELOG.md tools/orchestrator/dry-run.ps1 tools/orchestrator/live-agent-smoke.ps1 tools/orchestrator/router.ps1
+          $staged = @(git diff --cached --name-only)
+          $allowed = @("CLAUDE.md", "Docs/CHANGELOG.md", "tools/orchestrator/dry-run.ps1", "tools/orchestrator/live-agent-smoke.ps1", "tools/orchestrator/router.ps1")
+          $unexpected = @($staged | Where-Object { $allowed -notcontains $_ })
+          if ($unexpected.Count -gt 0) { throw "Refusing to commit unexpected files: $($unexpected -join ', ')" }
+          git commit -m "Fix AI01-008 review remediation"
+
+      - name: Push approved remediation
+        if: steps.remediation-diff.outputs.changed == 'true'
+        env:
+          IMPLEMENTATION_TOKEN: ${{ steps.implementation-token.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer ${IMPLEMENTATION_TOKEN}" \
+            push origin "HEAD:${{ steps.write-target.outputs.head_ref }}"
+
   route:
     if: |
       github.event_name == 'workflow_dispatch' ||
