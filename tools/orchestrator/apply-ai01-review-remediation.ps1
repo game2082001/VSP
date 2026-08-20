@@ -25,14 +25,14 @@ function Set-ClaudeAllowedBots {
     $allowedLine = '          allowed_bots: vsp-ai-implementation'
     $content = Get-Content -LiteralPath $Path -Raw
 
-    if ($content -match "(?m)^\s*allowed_bots:\s*['\"\"]?\*['\"\"]?\s*$") {
+    if ($content -match '(?m)^\s*allowed_bots:\s*[''"]?\*[''"]?\s*$') {
         throw "$Path allows all bots for Claude Automated Review."
     }
     if (-not $content.Contains($tokenLine)) {
         throw "Claude OAuth token line not found in $Path"
     }
 
-    $content = [regex]::Replace($content, "(?m)^\s*allowed_bots:\s*vsp-ai-implementation\s*\r?\n", "")
+    $content = [regex]::Replace($content, '(?m)^\s*allowed_bots:\s*vsp-ai-implementation\s*\r?\n', '')
     $content = $content.Replace($tokenLine, "$tokenLine`n$allowedLine")
     $content | Set-Content -LiteralPath $Path -NoNewline -Encoding utf8
 }
