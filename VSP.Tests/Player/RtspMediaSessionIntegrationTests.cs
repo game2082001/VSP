@@ -94,41 +94,66 @@ public class RtspMediaSessionIntegrationTests : IDisposable
         // even though the same scenario completes in well under a second in isolation.
         using var session = new RtspMediaSession(filePath, TimeSpan.FromSeconds(10));
 
-        // Subscribe before OpenAsync starts the read loop. Under full-suite load, this short
-        // synthetic stream can deliver its first packet immediately after open; subscribing after
-        // OpenAsync returns leaves a real race where the test misses the packet and times out.
-        var firstPacketTask = WaitForNextPacketAsync(session, TimeSpan.FromSeconds(20));
-        await session.OpenAsync(CancellationToken.None);
-        Assert.Equal(MediaSessionState.Open, session.State);
+        var packetGate = new object();
+        var bufferedPackets = new Queue<EncodedFrame>();
+        TaskCompletionSource<EncodedFrame>? nextPacketWaiter = null;
 
-        var firstPacket = await firstPacketTask;
-        Assert.True(firstPacket.Data.Length > 0);
-
-        using var decoder = new FfmpegVideoDecoder(session);
-
-        DecodedFrame? decodedFrame = null;
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
-        var pendingPacket = firstPacket;
-
-        while (decodedFrame is null && DateTime.UtcNow < deadline)
+        EventHandler<EncodedPacketReceivedEventArgs>? packetHandler = null;
+        packetHandler = (_, e) =>
         {
-            decodedFrame = decoder.Decode(pendingPacket);
-            if (decodedFrame is null)
+            TaskCompletionSource<EncodedFrame>? waiter;
+            lock (packetGate)
             {
-                pendingPacket = await WaitForNextPacketAsync(session, TimeSpan.FromSeconds(15));
+                waiter = nextPacketWaiter;
+                if (waiter is null)
+                {
+                    bufferedPackets.Enqueue(e.Packet);
+                }
+                else
+                {
+                    nextPacketWaiter = null;
+                }
             }
+
+            waiter?.TrySetResult(e.Packet);
+        };
+        session.PacketReceived += packetHandler;
+
+        try
+        {
+            // Subscribe before OpenAsync starts the read loop. Under full-suite load, this short
+            // synthetic stream can deliver packets immediately after open; buffering packets until
+            // the decoder is constructed prevents the test from losing them at that boundary.
+            await session.OpenAsync(CancellationToken.None);
+            Assert.Equal(MediaSessionState.Open, session.State);
+
+            using var decoder = new FfmpegVideoDecoder(session);
+
+            DecodedFrame? decodedFrame = null;
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
+
+            while (decodedFrame is null && DateTime.UtcNow < deadline)
+            {
+                var pendingPacket = await WaitForBufferedPacketAsync(TimeSpan.FromSeconds(15));
+                Assert.True(pendingPacket.Data.Length > 0);
+                decodedFrame = decoder.Decode(pendingPacket);
+            }
+
+            Assert.NotNull(decodedFrame);
+            Assert.Equal(FrameStorage.Cpu, decodedFrame!.Storage);
+            Assert.Equal(FramePixelFormat.Bgra32, decodedFrame.PixelFormat);
+            Assert.Equal(320, decodedFrame.Width);
+            Assert.Equal(240, decodedFrame.Height);
+            Assert.NotNull(decodedFrame.PixelBuffer);
+            Assert.Equal(decodedFrame.Stride * decodedFrame.Height, decodedFrame.PixelBuffer!.Length);
+
+            // A real decoded testsrc frame must contain actual image data, not an all-zero buffer.
+            Assert.Contains(decodedFrame.PixelBuffer, b => b != 0);
         }
-
-        Assert.NotNull(decodedFrame);
-        Assert.Equal(FrameStorage.Cpu, decodedFrame!.Storage);
-        Assert.Equal(FramePixelFormat.Bgra32, decodedFrame.PixelFormat);
-        Assert.Equal(320, decodedFrame.Width);
-        Assert.Equal(240, decodedFrame.Height);
-        Assert.NotNull(decodedFrame.PixelBuffer);
-        Assert.Equal(decodedFrame.Stride * decodedFrame.Height, decodedFrame.PixelBuffer!.Length);
-
-        // A real decoded testsrc frame must contain actual image data, not an all-zero buffer.
-        Assert.Contains(decodedFrame.PixelBuffer, b => b != 0);
+        finally
+        {
+            session.PacketReceived -= packetHandler;
+        }
 
         await session.CloseAsync();
         Assert.Equal(MediaSessionState.Closed, session.State);
@@ -147,6 +172,36 @@ public class RtspMediaSessionIntegrationTests : IDisposable
         // No diagnostic line from this pipeline ever carries a stream URL (this pipeline never
         // handles credentials, but the sanitization discipline is verified regardless).
         Assert.All(recorder.Calls, call => Assert.DoesNotContain("rtsp://", call.Message, StringComparison.OrdinalIgnoreCase));
+
+        async Task<EncodedFrame> WaitForBufferedPacketAsync(TimeSpan timeout)
+        {
+            Task<EncodedFrame> waitTask;
+            lock (packetGate)
+            {
+                if (bufferedPackets.Count > 0)
+                {
+                    return bufferedPackets.Dequeue();
+                }
+
+                nextPacketWaiter = new TaskCompletionSource<EncodedFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
+                waitTask = nextPacketWaiter.Task;
+            }
+
+            try
+            {
+                return await WaitWithTimeoutAsync(waitTask, timeout);
+            }
+            finally
+            {
+                lock (packetGate)
+                {
+                    if (ReferenceEquals(nextPacketWaiter?.Task, waitTask))
+                    {
+                        nextPacketWaiter = null;
+                    }
+                }
+            }
+        }
     }
 
     private static async Task EncodeRealTestStreamAsync(string outputPath, string codec, string pixelFormat, string containerFormat)
@@ -183,27 +238,6 @@ public class RtspMediaSessionIntegrationTests : IDisposable
 
         await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
         Assert.Equal(0, process.ExitCode);
-    }
-
-    private static async Task<EncodedFrame> WaitForNextPacketAsync(RtspMediaSession session, TimeSpan timeout)
-    {
-        var tcs = new TaskCompletionSource<EncodedFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
-        EventHandler<EncodedPacketReceivedEventArgs>? handler = null;
-        handler = (_, e) =>
-        {
-            tcs.TrySetResult(e.Packet);
-            session.PacketReceived -= handler;
-        };
-        session.PacketReceived += handler;
-
-        try
-        {
-            return await WaitWithTimeoutAsync(tcs.Task, timeout);
-        }
-        finally
-        {
-            session.PacketReceived -= handler;
-        }
     }
 
     private static async Task<T> WaitWithTimeoutAsync<T>(Task<T> task, TimeSpan timeout)
