@@ -12,6 +12,8 @@ Required Independent Review must be independent from implementation.
 - Reviewer credentials must not be stored in the repository.
 - Implementation evidence and review evidence must be recorded separately.
 - Review must inspect actual PR state, not only an implementation summary.
+- VSP-AI-Implementation may author approved feature-branch remediation commits, but it is not a reviewer identity.
+- Claude Automated Review may allow the trusted `vsp-ai-implementation` bot as a trigger actor only; it remains a read-only review gate and must not receive the Implementation write credential.
 
 ## Violation Handling
 

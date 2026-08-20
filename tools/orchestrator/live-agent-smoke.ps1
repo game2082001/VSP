@@ -24,6 +24,8 @@ $result = [ordered]@{
     protectedPrBlockedByRouter = $false
     protectedPrBlockedByRequestReview = $false
     protectedPrBlockedByRequestRemediation = $false
+    claudeReviewAllowsImplementationBot = $false
+    claudeReviewAvoidsWildcardBotAllow = $false
     secretsPersisted = $false
     status = "UNKNOWN"
 }
@@ -62,6 +64,19 @@ $secretPatterns = @(
     "sk-[A-Za-z0-9]{20,}",
     "sk-ant-[A-Za-z0-9_-]{20,}"
 )
+$reviewWorkflowPaths = @(
+    ".github/workflows/claude-code-review.yml",
+    "AI/Orchestrator/Templates/claude-code-review.yml"
+)
+$reviewWorkflowContents = @()
+foreach ($workflowPath in $reviewWorkflowPaths) {
+    if (Test-Path -LiteralPath $workflowPath) {
+        $reviewWorkflowContents += Get-Content -LiteralPath $workflowPath -Raw
+    }
+}
+$result.claudeReviewAllowsImplementationBot = ($reviewWorkflowContents.Count -eq $reviewWorkflowPaths.Count) -and -not ($reviewWorkflowContents | Where-Object { $_ -notmatch "(?m)^\s*allowed_bots:\s*vsp-ai-implementation\s*$" })
+$result.claudeReviewAvoidsWildcardBotAllow = -not ($reviewWorkflowContents | Where-Object { $_ -match "(?m)^\s*allowed_bots:\s*[""]?\*[""]?\s*$" })
+
 $repoFiles = @(
     "AI/Orchestrator",
     "tools/orchestrator",
@@ -91,6 +106,10 @@ if (-not $result.gitAvailable) {
     $result.status = "FAIL: PR #7 review request protection unavailable"
 } elseif (-not $result.protectedPrBlockedByRequestRemediation) {
     $result.status = "FAIL: PR #7 remediation request protection unavailable"
+} elseif (-not $result.claudeReviewAllowsImplementationBot) {
+    $result.status = "FAIL: Claude Automated Review does not allow the trusted implementation bot"
+} elseif (-not $result.claudeReviewAvoidsWildcardBotAllow) {
+    $result.status = "FAIL: Claude Automated Review allows arbitrary bots"
 } elseif ($result.secretsPersisted) {
     $result.status = "FAIL: secret marker found in orchestrator-controlled files"
 } else {

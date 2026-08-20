@@ -33,6 +33,7 @@ Phase 2 validates the AI01-008 Role Model V1.0 and Orchestrator MVP without touc
 - Pre-authorized PASS path: Task Plan authorization carries implementation, validation, commit, push, PR update, CI, automated review, and independent review through to `READY_FOR_MERGE` without intermediate Product Owner prompts.
 - Pre-authorized remediation path: in-scope remediation automatically routes to Claude Code, commits/pushes through the authorized path, re-runs gates, and reaches `READY_FOR_MERGE`.
 - Gate waiting path: queued, pending, and in-progress CI or Automated Review gates stay in lifecycle polling and do not become Product Owner decisions before timeout/tolerance.
+- Trusted implementation bot review trigger: VSP-AI-Implementation-authored PR branch updates must trigger Claude Automated Review through `allowed_bots: vsp-ai-implementation`; wildcard bot allowance is prohibited.
 - Merge Gate: `READY_FOR_MERGE` includes a `PRODUCT OWNER DECISION REQUIRED` payload recommending merge, but no autonomous merge occurs.
 - Restart recovery: state is persisted as JSON and re-read from `StatePath`; Git/GitHub/current-head evidence remains authoritative when state disagrees.
 
@@ -54,6 +55,7 @@ The Product Owner can approve the recommendation or choose an option number. The
 - No credentials or secret values are required in repo files, JSON state, scripts, logs, or templates.
 - Reviewer context is modeled separately from Codex Worker context.
 - Codex Independent Reviewer remains read-only and cannot commit, push, mutate workflows, or merge.
+- Claude Automated Review remains read-only and may be triggered by the trusted VSP implementation bot, but it must not receive the Implementation GitHub App write credential.
 - First version stops at `READY_FOR_MERGE`; Product Owner performs manual merge.
 
 ## Live-Agent Smoke
@@ -63,6 +65,7 @@ The Product Owner can approve the recommendation or choose an option number. The
 - Confirms `git`, `gh`, `claude`, and `codex` commands are discoverable.
 - Confirms PR #7 remains protected.
 - Scans orchestrator-controlled files for actual secret-looking values.
+- Confirms Claude Automated Review narrowly allows `vsp-ai-implementation` and does not allow arbitrary bots.
 
 It does not post comments, request reviews, push, open PRs, or invoke production workflows.
 
