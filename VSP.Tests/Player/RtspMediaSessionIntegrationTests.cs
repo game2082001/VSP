@@ -93,10 +93,15 @@ public class RtspMediaSessionIntegrationTests : IDisposable
         // (not any product defect) was observed to push this well past a 5s budget intermittently
         // even though the same scenario completes in well under a second in isolation.
         using var session = new RtspMediaSession(filePath, TimeSpan.FromSeconds(10));
+
+        // Subscribe before OpenAsync starts the read loop. Under full-suite load, this short
+        // synthetic stream can deliver its first packet immediately after open; subscribing after
+        // OpenAsync returns leaves a real race where the test misses the packet and times out.
+        var firstPacketTask = WaitForNextPacketAsync(session, TimeSpan.FromSeconds(20));
         await session.OpenAsync(CancellationToken.None);
         Assert.Equal(MediaSessionState.Open, session.State);
 
-        var firstPacket = await WaitForNextPacketAsync(session, TimeSpan.FromSeconds(20));
+        var firstPacket = await firstPacketTask;
         Assert.True(firstPacket.Data.Length > 0);
 
         using var decoder = new FfmpegVideoDecoder(session);
@@ -180,7 +185,7 @@ public class RtspMediaSessionIntegrationTests : IDisposable
         Assert.Equal(0, process.ExitCode);
     }
 
-    private static Task<EncodedFrame> WaitForNextPacketAsync(RtspMediaSession session, TimeSpan timeout)
+    private static async Task<EncodedFrame> WaitForNextPacketAsync(RtspMediaSession session, TimeSpan timeout)
     {
         var tcs = new TaskCompletionSource<EncodedFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
         EventHandler<EncodedPacketReceivedEventArgs>? handler = null;
@@ -190,7 +195,15 @@ public class RtspMediaSessionIntegrationTests : IDisposable
             session.PacketReceived -= handler;
         };
         session.PacketReceived += handler;
-        return WaitWithTimeoutAsync(tcs.Task, timeout);
+
+        try
+        {
+            return await WaitWithTimeoutAsync(tcs.Task, timeout);
+        }
+        finally
+        {
+            session.PacketReceived -= handler;
+        }
     }
 
     private static async Task<T> WaitWithTimeoutAsync<T>(Task<T> task, TimeSpan timeout)
