@@ -4,7 +4,7 @@ Version: 3.1
 
 ---
 
-本文件定義單一 Task 的 Task Plan 格式與執行細節。是否需要在 Task 之間停止等待確認，於 Epic 範圍內執行時改由 `AI/OperatingSystem/AUTONOMOUS_DEVELOPMENT.md` 的 Epic Execution Model 決定，見本文件後段的說明。
+本文件定義單一 Task 的 Task Plan 格式與執行細節。是否需要在 Task 之間停止等待確認，於 Epic 範圍內執行時改由 `AI/OperatingSystem/AUTONOMOUS_DEVELOPMENT.md` 的 Epic Execution Model 決定，見本文件後段的說明。PR-based autonomous multi-agent pipeline work additionally uses `AI/Orchestrator/README.md` for Agent Router, structured state, token budget, role separation, remediation loop, and `READY_FOR_MERGE` terminal-state rules.
 
 ---
 
@@ -234,6 +234,8 @@ Rollback：
 - 執行任何 Git 寫入指令（git add / git commit / git push）
 
 （唯讀 Git 指令如 `git status`／`git diff`／`git log`，為確認現況與提供 Diff 所需，不受此限制。Product Owner 可針對單一 Task 明確授權 staging/commit，即 Commit Gate，完整程序見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §23，本文件不重複該程序；push 永遠需要獨立、明確的另一次授權。）
+
+Orchestrated PR work must also follow `AI/Orchestrator/AGENT_CONTRACTS.md` and `AI/Orchestrator/ROUTER_POLICY.md`. The first orchestrator version must stop at `READY_FOR_MERGE`; autonomous merge is not allowed.
 
 若修改超過 Task Plan，
 

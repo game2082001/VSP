@@ -49,7 +49,7 @@ Recommended order for an agent to load context before starting any task:
 4. [`Docs/AI_DEVELOPMENT_WORKFLOW.md`](../Docs/AI_DEVELOPMENT_WORKFLOW.md) — the Task → Approval → Implementation workflow
 5. [`Docs/DEVELOPMENT_ROLES.md`](../Docs/DEVELOPMENT_ROLES.md) — roles and responsibilities
 6. This file (`AI/README.md`) — to see whether a relevant AI-Kit subdirectory applies to the task at hand
-7. The relevant `AI/<Category>/README.md`, if the task touches that category (e.g. an architecture task → [`AI/Architecture/README.md`](Architecture/README.md))
+7. The relevant `AI/<Category>/README.md`, if the task touches that category (e.g. an architecture task → [`AI/Architecture/README.md`](Architecture/README.md); orchestrated PR pipeline work → [`AI/Orchestrator/README.md`](Orchestrator/README.md))
 8. The Task Spec itself (`Docs/SPECS/Task-XXX.md`), supplied per task
 
 Steps 1–5 are the existing, authoritative startup sequence already defined by `AGENTS.md` / `CLAUDE.md`. Steps 6–7 are additive navigation this kit provides.
@@ -67,8 +67,9 @@ Steps 1–5 are the existing, authoritative startup sequence already defined by 
 | [`Product/`](Product/README.md) | Product Vision, Roadmap Index, Product Backlog, Architecture Backlog, Technical Debt Backlog, Release Plan | README only |
 | [`Memory/`](Memory/README.md) | Current State, Completed Tasks, Decisions, Known Technical Debt, Next Action | README only |
 | [`Templates/`](Templates/README.md) | Reusable templates for future AI tasks (task plans, spec skeletons, review reports) | README only |
+| [`Orchestrator/`](Orchestrator/README.md) | AI01-008 PR-based Agent Router, agent contracts, structured state, token budget gates, role separation, crash recovery, and remediation policy | Draft implementation |
 
-`OperatingSystem/` now holds two established documents (`AI_OPERATING_SYSTEM.md`, `AUTONOMOUS_DEVELOPMENT.md`); every other directory still contains only a `README.md` describing its intended future contents. No rule files, checklists, backlogs, or state files have been created yet for those — that remains intentionally out of scope until a future, separately approved task addresses each one.
+`OperatingSystem/` now holds two established documents (`AI_OPERATING_SYSTEM.md`, `AUTONOMOUS_DEVELOPMENT.md`). `Orchestrator/` holds AI01-008 draft implementation artifacts for PR-based multi-agent routing. Other directories still contain only a `README.md` describing intended future contents unless a later task explicitly populates them.
 
 ---
 

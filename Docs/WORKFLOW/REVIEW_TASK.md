@@ -197,4 +197,6 @@ NO
 
 本次 Review 不得修改任何程式。
 
+For Required Independent Review in orchestrated PR work, also follow `AI/Orchestrator/AGENT_CONTRACTS.md`, `AI/Orchestrator/ROLE_SEPARATION.md`, and `AI/Orchestrator/Templates/review-request.template.md`. The reviewer must use read-only credentials, inspect actual PR state, and return `APPROVED`, `REMEDIATION REQUIRED`, or `STOPPED FOR PRODUCT OWNER`.
+
 等待使用者決定是否接受。
