@@ -3,6 +3,8 @@ name: VSP Windows CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -24,6 +26,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      - name: Record validation target
+        run: |
+          echo Validation event: %GITHUB_EVENT_NAME%
+          echo Validation ref: %GITHUB_REF%
+          echo Validation sha: %GITHUB_SHA%
 
       - name: Verify .NET SDK
         run: |

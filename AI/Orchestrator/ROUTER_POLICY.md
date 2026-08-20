@@ -1,6 +1,6 @@
 # Router Policy
 
-**Task:** AI01-008
+**Scope:** Reusable AI01 task lifecycle
 
 ## Routing Order
 
@@ -84,4 +84,4 @@ READY_FOR_MERGE
 
 The Router must not merge the PR.
 
-`READY_FOR_MERGE` is a Product Owner decision gate in AI01-008 V1.0. The Router recommends merge and provides PR, HEAD SHA, gate results, remediation iterations, and remaining known risks, but performs no merge.
+`READY_FOR_MERGE` is a Product Owner decision gate. The Router recommends merge and provides PR, HEAD SHA, gate results, remediation iterations, and remaining known risks, but performs no merge.

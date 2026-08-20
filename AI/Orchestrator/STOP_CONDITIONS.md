@@ -1,6 +1,6 @@
 # Stop Conditions
 
-**Task:** AI01-008
+**Scope:** Reusable AI01 task lifecycle
 
 The Router must stop and request Product Owner input when any condition below is reached:
 
@@ -24,10 +24,10 @@ The Router must stop and request Product Owner input when any condition below is
 - Repeated identical finding beyond the configured limit.
 - Agent conflict cannot be resolved by the authority order.
 - Required role separation cannot be guaranteed.
-- Merge Gate in AI01-008 V1.0.
+- Merge Gate.
 
 Each stop must render the fixed `PRODUCT OWNER DECISION REQUIRED` format from `DECISION_UX.md`, including Reason, Recommended, Why, If approved, and Alternatives. The Router must provide a recommended option and must not ask an open-ended question.
 
 Normal queued, pending, or in-progress CI and Automated Review gates are not Stop Conditions before the configured timeout/tolerance. The Router must poll and wait without Product Owner input while gate execution is healthy.
 
-PR #7 and the paused RTSP flaky investigation are protected out-of-scope evidence for AI01-008.
+Protected PRs and paused investigations remain out of scope unless the Product Owner explicitly includes them in the approved task plan.

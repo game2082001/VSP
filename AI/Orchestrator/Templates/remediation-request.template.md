@@ -1,6 +1,6 @@
 # Remediation Request
 
-Task: AI01-008
+Task: AI01-XXX
 
 The Router may assign remediation only inside the approved scope and only while the remediation loop limit and token budget allow it.
 
@@ -13,4 +13,4 @@ Required response:
 - Stop Condition check
 - Expected commit scope
 
-Do not remediate PR #7 or the paused RTSP flaky investigation as part of AI01-008.
+Do not remediate protected PRs or paused investigations unless they are explicitly included in the approved task plan.

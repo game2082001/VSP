@@ -1,8 +1,8 @@
-# AI01-008 Orchestrator
+# AI01 Orchestrator
 
 **Status:** Draft implementation
 **Owner:** AI Development Kit
-**Task:** AI01-008 - Autonomous Multi-Agent Development Pipeline
+**Scope:** Reusable AI01 Autonomous Development Team lifecycle
 
 This directory defines the PR-based orchestration layer for autonomous multi-agent development in VSP.
 
@@ -29,7 +29,7 @@ Crash and session recovery must be based on verifiable repository state:
 
 ## Terminal State
 
-The first orchestrator version never merges automatically. A successful run stops at:
+The orchestrator never merges automatically. A successful run stops at:
 
 ```text
 READY_FOR_MERGE
@@ -39,12 +39,13 @@ READY_FOR_MERGE
 
 ## Protected Scope
 
-AI01-008 does not modify PR #7, does not remediate PR #7 CI failures, and does not include the paused RTSP flaky investigation.
+Each AI01 task must define its approved scope from current GitHub truth. Protected PRs, paused investigations, and product-feature exclusions remain out of scope unless the Product Owner explicitly includes them in that task plan.
 
 ## Documents
 
 - `AGENT_CONTRACTS.md` - role boundaries and allowed actions
 - `ROUTER_POLICY.md` - routing decisions and stage transitions
+- `POST_MERGE_MAIN_VALIDATION.md` - post-merge main-head validation rules
 - `STATE_SCHEMA.md` - structured state artifact contract
 - `TOKEN_BUDGET_POLICY.md` - budget gates and stop behavior
 - `STOP_CONDITIONS.md` - conditions that require Product Owner input

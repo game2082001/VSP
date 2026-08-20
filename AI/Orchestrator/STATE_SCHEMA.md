@@ -1,6 +1,6 @@
 # Structured State Schema
 
-**Task:** AI01-008
+**Scope:** Reusable AI01 task lifecycle
 
 State artifacts are stored as JSON and treated as recoverable evidence, not as a replacement for GitHub or Git.
 
@@ -15,7 +15,7 @@ AI/Orchestrator/State/<pr-number>.state.json
 ```json
 {
   "schemaVersion": "1.0",
-  "taskId": "AI01-008",
+  "taskId": "AI01-XXX",
   "prNumber": 0,
   "repository": "game2082001/VSP",
   "baseBranch": "main",

@@ -1,6 +1,6 @@
 # Required Independent Review Request
 
-Task: AI01-008
+Task: AI01-XXX
 Role: Codex Independent Reviewer
 Default model: gpt-5.6-luna medium
 

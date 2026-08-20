@@ -1,6 +1,6 @@
 # Crash And Session Recovery
 
-**Task:** AI01-008
+**Scope:** Reusable AI01 task lifecycle
 
 The orchestrator must recover from verifiable state, not chat memory.
 
