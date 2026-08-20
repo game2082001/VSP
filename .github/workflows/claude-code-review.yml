@@ -69,6 +69,7 @@ jobs:
           allowed_bots: vsp-ai-implementation
           allowed_bots: vsp-ai-implementation
           allowed_bots: vsp-ai-implementation
+          allowed_bots: vsp-ai-implementation
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
