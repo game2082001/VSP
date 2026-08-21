@@ -1,6 +1,6 @@
 # Product Owner Decision UX
 
-**Task:** AI01-008
+**Scope:** Reusable AI01 task lifecycle
 
 The Orchestrator must never leave the Product Owner guessing what to answer.
 
@@ -78,7 +78,7 @@ The Router may ask the Product Owner only when a configured timeout or tolerance
 
 ## Merge Gate
 
-AI01-008 V1.0 forbids autonomous merge.
+The AI01 lifecycle forbids autonomous merge. Merge authority remains with the Product Owner.
 
 After all gates pass, the Orchestrator must output a Product Owner decision using the fixed format with:
 

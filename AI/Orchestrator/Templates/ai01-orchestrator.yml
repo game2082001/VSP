@@ -37,7 +37,7 @@ jobs:
         if: steps.pr.outputs.number == '7'
         shell: bash
         run: |
-          echo "PR #7 is protected out-of-scope for AI01-008."
+          echo "PR #7 is protected out-of-scope for the current AI01 task."
           exit 1
 
       - name: Checkout

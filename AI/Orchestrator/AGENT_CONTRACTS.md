@@ -1,6 +1,6 @@
 # Agent Contracts
 
-**Task:** AI01-008
+**Scope:** Reusable AI01 task lifecycle
 
 ## Agent Router / Orchestrator
 

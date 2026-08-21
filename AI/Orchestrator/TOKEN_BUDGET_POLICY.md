@@ -1,6 +1,6 @@
 # Token Budget Policy
 
-**Task:** AI01-008
+**Scope:** Reusable AI01 task lifecycle
 
 Each orchestrated PR must define a token budget before implementation starts.
 

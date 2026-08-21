@@ -1,6 +1,6 @@
 # Role Separation
 
-**Task:** AI01-008
+**Scope:** Reusable AI01 task lifecycle
 
 Required Independent Review must be independent from implementation.
 

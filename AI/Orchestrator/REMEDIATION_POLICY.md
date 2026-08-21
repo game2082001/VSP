@@ -1,6 +1,6 @@
 # Remediation Policy
 
-**Task:** AI01-008
+**Scope:** Reusable AI01 task lifecycle
 
 The remediation loop is automatic only inside the approved scope.
 
@@ -29,6 +29,6 @@ The Router must stop if:
 - The token budget hard stop is reached.
 - CI failure cannot be repaired inside approved scope.
 
-## PR #7
+## Protected Scope
 
-PR #7 remains untouched. Its Windows CI failure is not an AI01-008 remediation target.
+Protected PRs, paused investigations, and excluded workstreams remain untouched unless the Product Owner explicitly includes them in the approved task plan.
