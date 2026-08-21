@@ -31,11 +31,11 @@ Implementation
   -> Push Gate
   -> PR Gate
   -> [Windows CI Gate || Claude Automated Review Gate]
-  -> Required Codex Independent Review Gate
+  -> Codex Independent Review Gate (when required)
   -> Merge Gate
 ```
 
-Windows CI and Claude Automated Review are parallel gates. They are not ordered relative to each other. Required Codex Independent Review starts only after both parallel gates have current-head PASS evidence.
+Windows CI and Claude Automated Review are parallel gates. They are not ordered relative to each other. When Codex Independent Review is required by `AI_OPERATING_SYSTEM.md` §27 or by the approved task lifecycle, it starts only after both parallel gates have current-head PASS evidence.
 
 ## 3. Gate Rules
 
@@ -63,11 +63,13 @@ For PR lifecycle validation, the gate must be evaluated against the PR current h
 
 The Claude Automated Review gate uses `.github/workflows/claude-code-review.yml`.
 
-Automated Review is evidence, not final approval. It never substitutes for a Required Codex Independent Review.
+Automated Review is evidence, not final approval. It never substitutes for any required Codex Independent Review.
 
-### Required Codex Independent Review Gate
+### Codex Independent Review Gate
 
-Required Independent Review is separate from implementation and automated review.
+Independent Review is separate from implementation and automated review.
+
+Trigger criteria are governed by `AI_OPERATING_SYSTEM.md` §27. Independent Review is mandatory for the §27 significant-change categories and for any approved task or PR lifecycle that explicitly requires it. Proportional review applies where §27 allows it for LOW-risk or documentation-only work.
 
 The reviewer must inspect:
 
@@ -84,7 +86,7 @@ Merge eligibility requires:
 
 1. Windows CI PASS.
 2. Claude Automated Review PASS.
-3. Required Codex Independent Review APPROVED when triggered.
+3. Codex Independent Review APPROVED when required by §27 or by the approved task/PR lifecycle.
 4. No unresolved in-scope findings.
 5. No PR head drift after approval evidence.
 
@@ -106,7 +108,7 @@ REMEDIATION_REQUIRED
   -> Local Validation
   -> Commit / Push through approved path
   -> [Windows CI Gate || Claude Automated Review Gate]
-  -> Required Codex Independent Re-Review
+  -> Codex Independent Re-Review when required
 ```
 
 The retry path never grants merge authority.
