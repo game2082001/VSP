@@ -98,3 +98,8 @@ The AI Development Kit is an index and navigation layer. It is **not** a second 
 | Task specifications | `Docs/SPECS/Task-XXX.md` (per task) | Not indexed here; supplied per task |
 | Architecture decisions | [`Docs/ADR/`](../Docs/ADR/) | Index only, see `Architecture/README.md` |
 | Coding rules & AI workflow | [`Docs/02_CODING_RULES.md`](../Docs/02_CODING_RULES.md), [`Docs/AI_PLAYBOOK.md`](../Docs/AI_PLAYBOOK.md), [`Docs/AI_DEVELOPMENT_WORKFLOW.md`](../Docs/AI_DEVELOPMENT_WORKFLOW.md), external `AI-Software-Engineering-Standard` repo | Index only, see `Standards/README.md` |
+| Project structure & tech stack | [`Docs/PROJECT.md`](../Docs/PROJECT.md) | Index only, see `Repository/README.md` |
+
+Note: [`Docs/00_AI_CONTEXT.md`](../Docs/00_AI_CONTEXT.md) is an older, partially outdated context document that predates the current `CLAUDE.md` / `AGENTS.md` / `AI_DEVELOPMENT_WORKFLOW.md` setup and is not fully consistent with them. This Task does not modify, replace, or reconcile it. Agents should treat `AGENTS.md`, `CLAUDE.md`, and `Docs/AI_DEVELOPMENT_WORKFLOW.md` as the current authority where the two conflict.
+
+See [`VERSION.md`](VERSION.md) for the current phase of this kit.
