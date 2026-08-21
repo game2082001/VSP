@@ -2,12 +2,12 @@
 
 **Status:** Stable
 **Owner:** AI Development Kit
-**Last Updated:** 2026-08-15
-**Next Task:** Task-AI01-006 Phase 2E — Codex Independent Re-Review of the Phase 2D remediation (Phase 2C review found 3 findings; Phase 2D remediation applied 2026-08-15; not yet committed or Product-Owner-accepted). See the Governance Backlog (`OperatingSystem/README.md`) and `VERSION.md` (current version 1.2.0).
+**Last Updated:** 2026-08-21
+**Next Task:** AI01-013 — PR #7 Governance Delta Reconciliation. See the Governance Backlog (`OperatingSystem/README.md`) and `VERSION.md` (current version 1.3.0).
 
 ---
 
-v1.2.0 (Stable — Governance Backlog Amendment Applied) is in progress in the working tree, not yet accepted. Governance changes are exceptional — made only via a Product-Owner-approved Governance Backlog entry when a real Epic exposes a genuine defect; v1.2.0 (Task-AI01-006) is the first such exception since v1.1.0 entered Stable. It was implemented (Phase 2B), independently reviewed with findings (Phase 2C), and remediated (Phase 2D); it is not yet committed, not yet independently re-reviewed, and not yet Product-Owner-accepted — see `VERSION.md`. Future work is driven by the Product Roadmap and executed Epic by Epic; this Kit does not generate its own work.
+v1.3.0 (Stable — Pipeline Governance Reconciled) is in progress through AI01-013. Governance changes remain exceptional: this task preserves the durable higher-level Pipeline Governance delta from PR #7 using current `main` truth, while leaving PR #7 itself untouched for a later evidence-based reconciliation. Future work is driven by the Product Roadmap and executed Epic by Epic; this Kit does not generate its own work.
 
 This Kit's governance rules begin with a single foundational axiom — see the top of [`OperatingSystem/AI_OPERATING_SYSTEM.md`](OperatingSystem/AI_OPERATING_SYSTEM.md): *"An approved Epic is a complete authorization for implementation within its approved scope"* / *"The default behaviour is CONTINUE, not STOP."*
 
@@ -60,7 +60,7 @@ Steps 1–5 are the existing, authoritative startup sequence already defined by 
 
 | Directory | Future Purpose | Status |
 |---|---|---|
-| [`OperatingSystem/`](OperatingSystem/README.md) | AI Operating System, Autonomous Development (Epic Governance), Decision Engine, Risk Matrix, Task Selection Rules, Approval Boundary | **`AI_OPERATING_SYSTEM.md`, `AUTONOMOUS_DEVELOPMENT.md` established** |
+| [`OperatingSystem/`](OperatingSystem/README.md) | AI Operating System, Autonomous Development (Epic Governance), Pipeline Governance, Decision Engine, Risk Matrix, Task Selection Rules, Approval Boundary | **`AI_OPERATING_SYSTEM.md`, `AUTONOMOUS_DEVELOPMENT.md`, `PIPELINE_GOVERNANCE.md` established** |
 | [`Architecture/`](Architecture/README.md) | Architecture Rules, Module Boundaries, Dependency Rules, Discovery/Driver Architecture, ADR Index | README only |
 | [`Repository/`](Repository/README.md) | Project Structure, Directory Guide, Module Map, Technology Stack, Naming Convention | README only |
 | [`Standards/`](Standards/README.md) | Coding Rules, Testing Rules, Review Checklist, Documentation Rules, Git Rules | README only |
@@ -69,7 +69,7 @@ Steps 1–5 are the existing, authoritative startup sequence already defined by 
 | [`Templates/`](Templates/README.md) | Reusable templates for future AI tasks (task plans, spec skeletons, review reports) | README only |
 | [`Orchestrator/`](Orchestrator/README.md) | AI01-008 PR-based Agent Router, agent contracts, structured state, token budget gates, role separation, crash recovery, and remediation policy | Draft implementation |
 
-`OperatingSystem/` now holds two established documents (`AI_OPERATING_SYSTEM.md`, `AUTONOMOUS_DEVELOPMENT.md`). `Orchestrator/` holds AI01-008 draft implementation artifacts for PR-based multi-agent routing. Other directories still contain only a `README.md` describing intended future contents unless a later task explicitly populates them.
+`OperatingSystem/` now holds three established documents (`AI_OPERATING_SYSTEM.md`, `AUTONOMOUS_DEVELOPMENT.md`, `PIPELINE_GOVERNANCE.md`). `Orchestrator/` holds AI01-008 draft implementation artifacts for PR-based multi-agent routing. Other directories still contain only a `README.md` describing intended future contents unless a later task explicitly populates them.
 
 ---
 
