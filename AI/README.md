@@ -3,11 +3,11 @@
 **Status:** Stable
 **Owner:** AI Development Kit
 **Last Updated:** 2026-08-21
-**Next Task:** AI01-013 — PR #7 Governance Delta Reconciliation. See the Governance Backlog (`OperatingSystem/README.md`) and `VERSION.md` (current version 1.3.0).
+**Current State:** AI01-013 complete; PR #11 merged; PR #7 closed unmerged through evidence-based reconciliation (`merged=false`). See the Governance Backlog (`OperatingSystem/README.md`) and `VERSION.md` (current version 1.3.0).
 
 ---
 
-v1.3.0 (Stable — Pipeline Governance Reconciled) is in progress through AI01-013. Governance changes remain exceptional: this task preserves the durable higher-level Pipeline Governance delta from PR #7 using current `main` truth, while leaving PR #7 itself untouched for a later evidence-based reconciliation. Future work is driven by the Product Roadmap and executed Epic by Epic; this Kit does not generate its own work.
+v1.3.0 (Stable — Pipeline Governance Reconciled) was completed by AI01-013 and merged through PR #11. Governance changes remain exceptional: AI01-013 preserves the durable higher-level Pipeline Governance delta from PR #7 using current `main` truth. PR #7 was then closed unmerged through evidence-based reconciliation (`merged=false`). Future work is driven by the Product Roadmap and executed Epic by Epic; this Kit does not generate its own work.
 
 This Kit's governance rules begin with a single foundational axiom — see the top of [`OperatingSystem/AI_OPERATING_SYSTEM.md`](OperatingSystem/AI_OPERATING_SYSTEM.md): *"An approved Epic is a complete authorization for implementation within its approved scope"* / *"The default behaviour is CONTINUE, not STOP."*
 
