@@ -1,0 +1,619 @@
+name: VSP RC2 Launch Diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: vsp-rc2-launch-diagnostic-b0df5fa9341b3c56a515e93b5f770d1f1c172530
+  cancel-in-progress: false
+
+env:
+  RC2_SOURCE_SHA: b0df5fa9341b3c56a515e93b5f770d1f1c172530
+  RC2_ORIGINAL_RUN_ID: "32561743888"
+  RC2_ORIGINAL_ARTIFACT_ID: "9473010560"
+  RC2_ORIGINAL_ARTIFACT_SHA256: 7dfc8baea9f0f1555ee37d56ebdfde2c2cc92acca4a81bd9b90890ac3931a528
+  RC2_PACKAGE_NAME: VSP_v1.0.0-RC2_win-x64.zip
+  RC2_PACKAGE_SHA256: 287A9E1782F8F6CDE16ADC13231203C5BE94954B33926BF66E9F0E32F485356E
+
+jobs:
+  collect-launch-diagnostics:
+    name: RC2 Launch Diagnostic Collection (not RC2 validation)
+    runs-on: [self-hosted, Windows, X64, vsp-server]
+    timeout-minutes: 45
+    defaults:
+      run:
+        # This runner blocks PowerShell script files. Keep workflow orchestration
+        # in cmd-launched inline PowerShell and compile the readable C# probe from
+        # this workflow into RUNNER_TEMP at runtime.
+        shell: cmd
+
+    steps:
+      - name: Initialize immutable diagnostic evidence
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+          WORKFLOW_DEFINITION_REF: ${{ github.workflow_ref }}
+          WORKFLOW_DEFINITION_SHA: ${{ github.workflow_sha }}
+          WORKFLOW_HOST_MAIN_SHA: ${{ github.sha }}
+        run: |
+          set "RC2_DIAGNOSTIC_ROOT=%RUNNER_TEMP%\vsp-rc2-diagnostic-evidence-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "RC2_DOWNLOAD_ROOT=%RUNNER_TEMP%\vsp-rc2-diagnostic-download-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "RC2_SMOKE_ROOT=%RUNNER_TEMP%\vsp-rc2-diagnostic-smoke-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "RC2_HELPER_SOURCE=%RUNNER_TEMP%\vsp-rc2-diagnostic-helper-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.cs"
+          >>"%GITHUB_ENV%" echo RC2_DIAGNOSTIC_ROOT=%RUNNER_TEMP%\vsp-rc2-diagnostic-evidence-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%
+          >>"%GITHUB_ENV%" echo RC2_DOWNLOAD_ROOT=%RUNNER_TEMP%\vsp-rc2-diagnostic-download-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%
+          >>"%GITHUB_ENV%" echo RC2_SMOKE_ROOT=%RUNNER_TEMP%\vsp-rc2-diagnostic-smoke-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%
+          >>"%GITHUB_ENV%" echo RC2_HELPER_SOURCE=%RUNNER_TEMP%\vsp-rc2-diagnostic-helper-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.cs
+          if exist "%RC2_DIAGNOSTIC_ROOT%" rmdir /s /q "%RC2_DIAGNOSTIC_ROOT%"
+          if exist "%RC2_DOWNLOAD_ROOT%" rmdir /s /q "%RC2_DOWNLOAD_ROOT%"
+          if exist "%RC2_SMOKE_ROOT%" rmdir /s /q "%RC2_SMOKE_ROOT%"
+          mkdir "%RC2_DIAGNOSTIC_ROOT%"
+          mkdir "%RC2_DIAGNOSTIC_ROOT%\provenance"
+          mkdir "%RC2_DIAGNOSTIC_ROOT%\runner"
+          mkdir "%RC2_DIAGNOSTIC_ROOT%\smoke"
+          mkdir "%RC2_DIAGNOSTIC_ROOT%\application-data"
+          mkdir "%RC2_DIAGNOSTIC_ROOT%\source"
+          mkdir "%RC2_DOWNLOAD_ROOT%"
+          >"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo RC2_RELEASE_RESULT=NOT_EVALUATED
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo DIAGNOSTIC_COLLECTION_ONLY=true
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo RC2_SOURCE_SHA=%RC2_SOURCE_SHA%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo RC2_ORIGINAL_RUN_ID=%RC2_ORIGINAL_RUN_ID%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo RC2_ORIGINAL_ARTIFACT_ID=%RC2_ORIGINAL_ARTIFACT_ID%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo WORKFLOW_HOST_MAIN_SHA=%WORKFLOW_HOST_MAIN_SHA%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo WORKFLOW_DEFINITION_REF=%WORKFLOW_DEFINITION_REF%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo WORKFLOW_DEFINITION_SHA=%WORKFLOW_DEFINITION_SHA%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo GITHUB_REF=%GITHUB_REF%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo GITHUB_SHA=%GITHUB_SHA%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo GITHUB_RUN_ID=%GITHUB_RUN_ID%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo GITHUB_RUN_NUMBER=%GITHUB_RUN_NUMBER%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo GITHUB_RUN_ATTEMPT=%GITHUB_RUN_ATTEMPT%
+          >>"%RC2_DIAGNOSTIC_ROOT%\provenance\diagnostic-run.txt" echo GITHUB_EVENT_NAME=%GITHUB_EVENT_NAME%
+          if not "%GITHUB_EVENT_NAME%"=="workflow_dispatch" exit /b 1
+          if not "%GITHUB_REF%"=="refs/heads/main" exit /b 1
+          if not "%GITHUB_RUN_ATTEMPT%"=="1" (
+            >"%RC2_DIAGNOSTIC_ROOT%\smoke\collector-error.txt" echo Re-run attempts cannot be authoritative RC2-002 diagnostic evidence.
+            exit /b 1
+          )
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-rc2-launch-diagnostic.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $current=[long]$env:GITHUB_RUN_NUMBER; $earlier=@($response.workflow_runs | Where-Object { [long]$_.run_number -lt $current }); ('EARLIER_DIAGNOSTIC_DISPATCH_COUNT=' + $earlier.Count) | Add-Content -LiteralPath (Join-Path $env:RC2_DIAGNOSTIC_ROOT 'provenance\diagnostic-run.txt') -Encoding ascii; if ($earlier.Count -gt 0) { 'A prior RC2-002 workflow_dispatch exists; this run is non-authoritative.' | Set-Content -LiteralPath (Join-Path $env:RC2_DIAGNOSTIC_ROOT 'smoke\collector-error.txt') -Encoding ascii; throw 'Subsequent RC2-002 dispatch rejected before artifact download and launch' }"
+
+      - name: Checkout exact approved RC2 source for identity only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RC2_SOURCE_SHA }}
+          clean: true
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify checked-out source identity
+        run: |
+          for /f %%S in ('git rev-parse HEAD') do set CHECKED_OUT_SHA=%%S
+          >"%RC2_DIAGNOSTIC_ROOT%\source\checked-out-sha.txt" echo CHECKED_OUT_SHA=%CHECKED_OUT_SHA%
+          git show -s --format=fuller HEAD>> "%RC2_DIAGNOSTIC_ROOT%\source\checked-out-sha.txt"
+          if /i not "%CHECKED_OUT_SHA%"=="%RC2_SOURCE_SHA%" (
+            >"%RC2_DIAGNOSTIC_ROOT%\smoke\collector-error.txt" echo Checked-out HEAD does not equal RC2_SOURCE_SHA.
+            exit /b 1
+          )
+
+      - name: Download and verify original authoritative artifact
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $artifactZip=Join-Path $env:RC2_DOWNLOAD_ROOT 'original-artifact.zip'; $artifactRoot=Join-Path $env:RC2_DOWNLOAD_ROOT 'original-artifact'; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/artifacts/' + $env:RC2_ORIGINAL_ARTIFACT_ID + '/zip'); Invoke-WebRequest -UseBasicParsing -Uri $uri -Headers $headers -OutFile $artifactZip; $actualArtifactHash=(Get-FileHash -LiteralPath $artifactZip -Algorithm SHA256).Hash; @('ORIGINAL_RUN_ID=' + $env:RC2_ORIGINAL_RUN_ID, 'ORIGINAL_ARTIFACT_ID=' + $env:RC2_ORIGINAL_ARTIFACT_ID, 'EXPECTED_ARTIFACT_SHA256=' + $env:RC2_ORIGINAL_ARTIFACT_SHA256, 'ACTUAL_ARTIFACT_SHA256=' + $actualArtifactHash) | Set-Content -LiteralPath (Join-Path $env:RC2_DIAGNOSTIC_ROOT 'provenance\artifact-integrity.txt') -Encoding ascii; if ($actualArtifactHash -ine $env:RC2_ORIGINAL_ARTIFACT_SHA256) { throw 'Original authoritative artifact SHA-256 mismatch' }; Expand-Archive -LiteralPath $artifactZip -DestinationPath $artifactRoot -Force; $provenance=Get-Content -LiteralPath (Join-Path $artifactRoot 'provenance.txt'); foreach ($required in @(('RC2_SOURCE_SHA=' + $env:RC2_SOURCE_SHA), ('CHECKED_OUT_SHA=' + $env:RC2_SOURCE_SHA), ('GITHUB_RUN_ID=' + $env:RC2_ORIGINAL_RUN_ID), 'GITHUB_RUN_ATTEMPT=1', 'AUTHORITATIVE_TEST_EXIT=0', 'LAUNCH_SMOKE_EXIT=1')) { if ($provenance -cnotcontains $required) { throw ('Original provenance missing exact line: ' + $required) } }; $package=Join-Path $artifactRoot $env:RC2_PACKAGE_NAME; if (-not (Test-Path -LiteralPath $package)) { throw 'Original RC2 package is absent from artifact' }; $actualPackageHash=(Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash; @('PACKAGE_NAME=' + $env:RC2_PACKAGE_NAME, 'EXPECTED_PACKAGE_SHA256=' + $env:RC2_PACKAGE_SHA256, 'ACTUAL_PACKAGE_SHA256=' + $actualPackageHash) | Set-Content -LiteralPath (Join-Path $env:RC2_DIAGNOSTIC_ROOT 'provenance\package-integrity.txt') -Encoding ascii; if ($actualPackageHash -ine $env:RC2_PACKAGE_SHA256) { throw 'Original RC2 package SHA-256 mismatch' }; Copy-Item -LiteralPath (Join-Path $artifactRoot 'provenance.txt') -Destination (Join-Path $env:RC2_DIAGNOSTIC_ROOT 'provenance\original-authoritative-run.txt')"
+
+      - name: Record runner service and process context
+        run: |
+          whoami> "%RC2_DIAGNOSTIC_ROOT%\runner\whoami.txt" 2>&1
+          whoami /user>> "%RC2_DIAGNOSTIC_ROOT%\runner\whoami.txt" 2>&1
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $services=@(Get-CimInstance Win32_Service | Where-Object { $_.Name -like 'actions.runner.*' } | Select-Object Name,State,StartMode,StartName,ProcessId); if ($services.Count -eq 0) { '[]' | Set-Content -LiteralPath (Join-Path $env:RC2_DIAGNOSTIC_ROOT 'runner\service.json') -Encoding utf8 } else { $services | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $env:RC2_DIAGNOSTIC_ROOT 'runner\service.json') -Encoding utf8 }; @(Get-CimInstance Win32_Process | Where-Object { $_.Name -in @('Runner.Listener.exe','Runner.Worker.exe','explorer.exe') } | Select-Object Name,ProcessId,ParentProcessId,SessionId,ExecutablePath) | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $env:RC2_DIAGNOSTIC_ROOT 'runner\process-tree.json') -Encoding utf8"
+
+      - name: Materialize readable Windows API diagnostic helper
+        env:
+          RC2_DIAGNOSTIC_SOURCE: |
+            using System;
+            using System.Collections.Generic;
+            using System.Diagnostics;
+            using System.Globalization;
+            using System.IO;
+            using System.Runtime.InteropServices;
+            using System.Security.Cryptography;
+            using System.Text;
+            using System.Threading;
+
+            public static class Rc2LaunchDiagnostic
+            {
+                private const uint WM_NULL = 0x0000;
+                private const uint WM_CLOSE = 0x0010;
+                private const uint SMTO_ABORTIFHUNG = 0x0002;
+                private const int UOI_NAME = 2;
+                private const uint DESKTOP_READOBJECTS = 0x0001;
+
+                private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+                [StructLayout(LayoutKind.Sequential)]
+                private struct RECT { public int Left, Top, Right, Bottom; }
+
+                [DllImport("user32.dll")]
+                private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+                [DllImport("user32.dll")]
+                private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+                [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+                private static extern int GetWindowTextW(IntPtr hwnd, StringBuilder text, int count);
+                [DllImport("user32.dll")]
+                private static extern int GetWindowTextLengthW(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsWindowVisible(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsWindowEnabled(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsHungAppWindow(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+                [DllImport("kernel32.dll", SetLastError = true)]
+                private static extern bool ProcessIdToSessionId(uint processId, out uint sessionId);
+                [DllImport("kernel32.dll")]
+                private static extern uint WTSGetActiveConsoleSessionId();
+                [DllImport("user32.dll")]
+                private static extern IntPtr GetProcessWindowStation();
+                [DllImport("user32.dll")]
+                private static extern IntPtr GetThreadDesktop(uint threadId);
+                [DllImport("kernel32.dll")]
+                private static extern uint GetCurrentThreadId();
+                [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+                private static extern bool GetUserObjectInformation(IntPtr handle, int index, StringBuilder info, uint length, out uint needed);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern IntPtr OpenInputDesktop(uint flags, bool inherit, uint access);
+                [DllImport("user32.dll")]
+                private static extern bool CloseDesktop(IntPtr desktop);
+                [DllImport("wtsapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+                private static extern bool WTSQuerySessionInformation(IntPtr server, int sessionId, int infoClass, out IntPtr buffer, out int bytesReturned);
+                [DllImport("wtsapi32.dll")]
+                private static extern void WTSFreeMemory(IntPtr buffer);
+
+                private sealed class WindowRecord
+                {
+                    public IntPtr Handle;
+                    public string Title;
+                    public bool Visible;
+                    public bool Enabled;
+                    public bool Hung;
+                    public bool Responsive;
+                    public uint ThreadId;
+                    public RECT Rect;
+                }
+
+                public static void Run(string evidenceRoot, string smokeRoot, string artifactRoot, string packageName)
+                {
+                    Directory.CreateDirectory(smokeRoot);
+                    string extractRoot = Path.Combine(smokeRoot, "app");
+                    string localAppData = Path.Combine(smokeRoot, "LocalAppData");
+                    Directory.CreateDirectory(extractRoot);
+                    Directory.CreateDirectory(localAppData);
+
+                    WriteRunnerIdentity(Path.Combine(evidenceRoot, "runner", "identity.json"));
+                    WriteSessionIdentity(Path.Combine(evidenceRoot, "runner", "sessions.json"));
+                    WriteDesktopIdentity(Path.Combine(evidenceRoot, "runner", "window-station-desktop.json"));
+
+                    string package = Path.Combine(artifactRoot, packageName);
+                    System.IO.Compression.ZipFile.ExtractToDirectory(package, extractRoot);
+                    string exe = Path.Combine(extractRoot, "VSP.UI.exe");
+                    if (!File.Exists(exe)) throw new InvalidOperationException("VSP.UI.exe is missing from original package");
+
+                    string childPath = RemoveDotnetFromPath(Environment.GetEnvironmentVariable("PATH") ?? "");
+                    VerifyDotnetAbsent(childPath, Path.Combine(evidenceRoot, "smoke", "where-dotnet.txt"));
+
+                    Process process = null;
+                    IntPtr closeTarget = IntPtr.Zero;
+                    bool diagnosticCompleted = false;
+                    string classification = "UNCLASSIFIED";
+                    try
+                    {
+                        var start = new ProcessStartInfo(exe);
+                        start.WorkingDirectory = extractRoot;
+                        start.UseShellExecute = false;
+                        start.EnvironmentVariables["PATH"] = childPath;
+                        start.EnvironmentVariables["LOCALAPPDATA"] = localAppData;
+                        process = Process.Start(start);
+                        if (process == null) throw new InvalidOperationException("Process.Start returned null");
+
+                        uint targetSession;
+                        bool targetSessionKnown = ProcessIdToSessionId((uint)process.Id, out targetSession);
+                        File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "launch-transcript.log"),
+                            "PID=" + process.Id + Environment.NewLine +
+                            "SESSION_ID=" + (targetSessionKnown ? targetSession.ToString(CultureInfo.InvariantCulture) : "UNKNOWN") + Environment.NewLine +
+                            "START_UTC=" + DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture) + Environment.NewLine +
+                            "OBSERVATION_SECONDS=20" + Environment.NewLine +
+                            "RC2_RELEASE_RESULT=NOT_EVALUATED" + Environment.NewLine);
+
+                        DateTime deadline = DateTime.UtcNow.AddSeconds(20);
+                        DateTime? firstQualified = null;
+                        int qualifiedCount = 0;
+                        var lastWindows = new List<WindowRecord>();
+                        while (true)
+                        {
+                            double remainingBeforeSleep = (deadline - DateTime.UtcNow).TotalMilliseconds;
+                            if (remainingBeforeSleep < 1) break;
+                            Thread.Sleep(Math.Min(500, (int)Math.Floor(remainingBeforeSleep)));
+                            if (DateTime.UtcNow >= deadline) break;
+                            process.Refresh();
+                            if (process.HasExited)
+                            {
+                                classification = "PROCESS_EXITED_BEFORE_LOGIN_WINDOW";
+                                AppendProcessSample(evidenceRoot, process, targetSessionKnown, targetSession, true);
+                                break;
+                            }
+
+                            AppendProcessSample(evidenceRoot, process, targetSessionKnown, targetSession, false);
+                            DateTime sampleUtc = DateTime.UtcNow;
+                            lastWindows = EnumerateWindows((uint)process.Id, deadline);
+                            AppendWindowSamples(evidenceRoot, process.Id, lastWindows, sampleUtc);
+                            foreach (WindowRecord window in lastWindows)
+                            {
+                                if (window.Title == "VSP - Login" && window.Visible && !window.Hung && window.Responsive)
+                                {
+                                    if (!firstQualified.HasValue)
+                                    {
+                                        firstQualified = sampleUtc;
+                                        qualifiedCount = 1;
+                                    }
+                                    else if ((sampleUtc - firstQualified.Value).TotalSeconds >= 5)
+                                    {
+                                        qualifiedCount++;
+                                        closeTarget = window.Handle;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!process.HasExited)
+                        {
+                            if (qualifiedCount >= 2)
+                                classification = "QUALIFIED_LOGIN_WINDOW_OBSERVED_DIAGNOSTIC_ONLY";
+                            else if (lastWindows.Count > 0)
+                                classification = "TOP_LEVEL_WINDOW_PRESENT_BUT_ACCEPTANCE_NOT_MET";
+                            else
+                                classification = "PROCESS_ALIVE_WITHOUT_ENUMERABLE_TOP_LEVEL_WINDOW";
+                        }
+                        diagnosticCompleted = true;
+                    }
+                    finally
+                    {
+                        try { PreserveApplicationData(evidenceRoot, localAppData, "pre-termination"); }
+                        catch (Exception preservationError)
+                        {
+                            try { File.AppendAllText(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), "PHASE=pre-termination" + Environment.NewLine + preservationError + Environment.NewLine); }
+                            catch { }
+                        }
+                        if (process != null)
+                        {
+                            try
+                            {
+                                process.Refresh();
+                                if (!process.HasExited)
+                                {
+                                    bool closePosted = closeTarget != IntPtr.Zero && PostMessage(closeTarget, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                                    File.AppendAllText(Path.Combine(evidenceRoot, "smoke", "termination.log"),
+                                        "WM_CLOSE_POSTED=" + closePosted + Environment.NewLine);
+                                    if (!closePosted || !process.WaitForExit(10000))
+                                    {
+                                        process.Kill();
+                                        process.WaitForExit();
+                                        File.AppendAllText(Path.Combine(evidenceRoot, "smoke", "termination.log"), "FORCED_KILL=true" + Environment.NewLine);
+                                    }
+                                    else
+                                    {
+                                        File.AppendAllText(Path.Combine(evidenceRoot, "smoke", "termination.log"), "FORCED_KILL=false" + Environment.NewLine);
+                                    }
+                                }
+                                File.AppendAllText(Path.Combine(evidenceRoot, "smoke", "termination.log"),
+                                    "FINAL_HAS_EXITED=" + process.HasExited + Environment.NewLine +
+                                    "FINAL_EXIT_CODE=" + (process.HasExited ? process.ExitCode.ToString(CultureInfo.InvariantCulture) : "UNAVAILABLE") + Environment.NewLine);
+                            }
+                            catch (Exception terminationError)
+                            {
+                                try { if (!process.HasExited) { process.Kill(); process.WaitForExit(); } } catch { }
+                                try { File.AppendAllText(Path.Combine(evidenceRoot, "smoke", "termination.log"), "TERMINATION_ERROR=" + terminationError + Environment.NewLine); }
+                                catch { }
+                            }
+                        }
+
+                        try { PreserveApplicationData(evidenceRoot, localAppData, "post-termination"); }
+                        catch (Exception preservationError)
+                        {
+                            try { File.AppendAllText(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), "PHASE=post-termination" + Environment.NewLine + preservationError + Environment.NewLine); }
+                            catch { }
+                        }
+
+                        bool finalExited = process == null || process.HasExited;
+                        string finalExitCode = process != null && process.HasExited ? process.ExitCode.ToString(CultureInfo.InvariantCulture) : "null";
+                        File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "final-state.json"),
+                            "{\"pid\":" + (process == null ? "null" : process.Id.ToString(CultureInfo.InvariantCulture)) +
+                            ",\"hasExited\":" + Bool(finalExited) +
+                            ",\"exitCode\":" + finalExitCode +
+                            ",\"observationClassification\":\"" + Json(classification) + "\"}" + Environment.NewLine);
+
+                        File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "classification-inputs.json"),
+                            "{\"diagnosticCollectionCompleted\":" + Bool(diagnosticCompleted) +
+                            ",\"observationClassification\":\"" + Json(classification) +
+                            "\",\"rc2ReleaseResult\":\"NOT_EVALUATED\"}" + Environment.NewLine);
+                    }
+                }
+
+                private static void WriteRunnerIdentity(string path)
+                {
+                    Process current = Process.GetCurrentProcess();
+                    uint session;
+                    bool known = ProcessIdToSessionId((uint)current.Id, out session);
+                    File.WriteAllText(path,
+                        "{\"machine\":\"" + Json(Environment.MachineName) +
+                        "\",\"user\":\"" + Json(Environment.UserDomainName + "\\" + Environment.UserName) +
+                        "\",\"collectorPid\":" + current.Id +
+                        ",\"collectorSessionId\":" + (known ? session.ToString(CultureInfo.InvariantCulture) : "null") +
+                        ",\"activeConsoleSessionId\":" + WTSGetActiveConsoleSessionId() +
+                        ",\"sessionName\":\"" + Json(Environment.GetEnvironmentVariable("SESSIONNAME") ?? "") + "\"}" + Environment.NewLine);
+                }
+
+                private static void WriteDesktopIdentity(string path)
+                {
+                    IntPtr station = GetProcessWindowStation();
+                    IntPtr desktop = GetThreadDesktop(GetCurrentThreadId());
+                    IntPtr input = OpenInputDesktop(0, false, DESKTOP_READOBJECTS);
+                    int inputError = input == IntPtr.Zero ? Marshal.GetLastWin32Error() : 0;
+                    string inputName = input == IntPtr.Zero ? "" : UserObjectName(input);
+                    File.WriteAllText(path,
+                        "{\"processWindowStation\":\"" + Json(UserObjectName(station)) +
+                        "\",\"threadDesktop\":\"" + Json(UserObjectName(desktop)) +
+                        "\",\"openInputDesktopSucceeded\":" + Bool(input != IntPtr.Zero) +
+                        ",\"inputDesktop\":\"" + Json(inputName) +
+                        "\",\"openInputDesktopError\":" + inputError + "}" + Environment.NewLine);
+                    if (input != IntPtr.Zero) CloseDesktop(input);
+                }
+
+                private static void WriteSessionIdentity(string path)
+                {
+                    uint currentSession;
+                    bool currentKnown = ProcessIdToSessionId((uint)Process.GetCurrentProcess().Id, out currentSession);
+                    uint consoleSession = WTSGetActiveConsoleSessionId();
+                    string current = currentKnown ? SessionJson(currentSession) : "null";
+                    string console = consoleSession == UInt32.MaxValue ? "null" : SessionJson(consoleSession);
+                    File.WriteAllText(path,
+                        "{\"currentProcessSession\":" + current +
+                        ",\"activeConsoleSession\":" + console + "}" + Environment.NewLine);
+                }
+
+                private static string SessionJson(uint sessionId)
+                {
+                    return "{\"sessionId\":" + sessionId +
+                        ",\"userName\":\"" + Json(QueryWtsString(sessionId, 5)) +
+                        "\",\"domainName\":\"" + Json(QueryWtsString(sessionId, 7)) +
+                        "\",\"sessionName\":\"" + Json(QueryWtsString(sessionId, 6)) +
+                        "\",\"connectState\":" + QueryWtsInt32(sessionId, 8) +
+                        ",\"clientProtocolType\":" + QueryWtsInt16(sessionId, 16) + "}";
+                }
+
+                private static string QueryWtsString(uint sessionId, int infoClass)
+                {
+                    IntPtr buffer;
+                    int bytes;
+                    if (!WTSQuerySessionInformation(IntPtr.Zero, (int)sessionId, infoClass, out buffer, out bytes)) return "";
+                    try { return buffer == IntPtr.Zero ? "" : (Marshal.PtrToStringUni(buffer) ?? ""); }
+                    finally { if (buffer != IntPtr.Zero) WTSFreeMemory(buffer); }
+                }
+
+                private static int QueryWtsInt32(uint sessionId, int infoClass)
+                {
+                    IntPtr buffer;
+                    int bytes;
+                    if (!WTSQuerySessionInformation(IntPtr.Zero, (int)sessionId, infoClass, out buffer, out bytes) || buffer == IntPtr.Zero) return -1;
+                    try { return Marshal.ReadInt32(buffer); }
+                    finally { WTSFreeMemory(buffer); }
+                }
+
+                private static int QueryWtsInt16(uint sessionId, int infoClass)
+                {
+                    IntPtr buffer;
+                    int bytes;
+                    if (!WTSQuerySessionInformation(IntPtr.Zero, (int)sessionId, infoClass, out buffer, out bytes) || buffer == IntPtr.Zero) return -1;
+                    try { return Marshal.ReadInt16(buffer); }
+                    finally { WTSFreeMemory(buffer); }
+                }
+
+                private static string UserObjectName(IntPtr handle)
+                {
+                    if (handle == IntPtr.Zero) return "";
+                    uint needed;
+                    GetUserObjectInformation(handle, UOI_NAME, null, 0, out needed);
+                    if (needed == 0) return "";
+                    var buffer = new StringBuilder((int)(needed / 2) + 2);
+                    return GetUserObjectInformation(handle, UOI_NAME, buffer, needed, out needed) ? buffer.ToString() : "";
+                }
+
+                private static List<WindowRecord> EnumerateWindows(uint targetPid, DateTime deadlineUtc)
+                {
+                    var result = new List<WindowRecord>();
+                    EnumWindows(delegate(IntPtr hwnd, IntPtr ignored)
+                    {
+                        if (DateTime.UtcNow >= deadlineUtc) return false;
+                        uint pid;
+                        uint tid = GetWindowThreadProcessId(hwnd, out pid);
+                        if (pid != targetPid) return true;
+                        int length = GetWindowTextLengthW(hwnd);
+                        var title = new StringBuilder(Math.Max(length + 1, 2));
+                        GetWindowTextW(hwnd, title, title.Capacity);
+                        RECT rect;
+                        GetWindowRect(hwnd, out rect);
+                        double remainingMilliseconds = (deadlineUtc - DateTime.UtcNow).TotalMilliseconds;
+                        if (remainingMilliseconds < 1) return false;
+                        uint responsivenessTimeout = (uint)Math.Max(1, Math.Min(1000, (int)Math.Floor(remainingMilliseconds)));
+                        IntPtr response;
+                        bool responsive = SendMessageTimeout(hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, responsivenessTimeout, out response) != IntPtr.Zero;
+                        result.Add(new WindowRecord { Handle=hwnd, Title=title.ToString(), Visible=IsWindowVisible(hwnd), Enabled=IsWindowEnabled(hwnd), Hung=IsHungAppWindow(hwnd), Responsive=responsive, ThreadId=tid, Rect=rect });
+                        return true;
+                    }, IntPtr.Zero);
+                    return result;
+                }
+
+                private static void AppendProcessSample(string root, Process process, bool sessionKnown, uint session, bool exited)
+                {
+                    string exitCode = exited ? process.ExitCode.ToString(CultureInfo.InvariantCulture) : "null";
+                    string line = "{\"utc\":\"" + DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture) +
+                        "\",\"pid\":" + process.Id +
+                        ",\"sessionId\":" + (sessionKnown ? session.ToString(CultureInfo.InvariantCulture) : "null") +
+                        ",\"hasExited\":" + Bool(exited) +
+                        ",\"exitCode\":" + exitCode +
+                        ",\"workingSet64\":" + (exited ? "null" : process.WorkingSet64.ToString(CultureInfo.InvariantCulture)) +
+                        ",\"totalProcessorMilliseconds\":" + (exited ? "null" : process.TotalProcessorTime.TotalMilliseconds.ToString(CultureInfo.InvariantCulture)) + "}";
+                    AppendLine(Path.Combine(root, "smoke", "process-samples.jsonl"), line);
+                }
+
+                private static void AppendWindowSamples(string root, int pid, List<WindowRecord> windows, DateTime sampleUtc)
+                {
+                    if (windows.Count == 0)
+                    {
+                        AppendLine(Path.Combine(root, "smoke", "window-samples.jsonl"),
+                            "{\"utc\":\"" + sampleUtc.ToString("O", CultureInfo.InvariantCulture) + "\",\"pid\":" + pid + ",\"windowCount\":0}");
+                        return;
+                    }
+                    foreach (WindowRecord window in windows)
+                    {
+                        AppendLine(Path.Combine(root, "smoke", "window-samples.jsonl"),
+                            "{\"utc\":\"" + sampleUtc.ToString("O", CultureInfo.InvariantCulture) +
+                            "\",\"pid\":" + pid +
+                            ",\"threadId\":" + window.ThreadId +
+                            ",\"handle\":\"0x" + window.Handle.ToInt64().ToString("X", CultureInfo.InvariantCulture) +
+                            "\",\"title\":\"" + Json(window.Title) +
+                            "\",\"visible\":" + Bool(window.Visible) +
+                            ",\"enabled\":" + Bool(window.Enabled) +
+                            ",\"hung\":" + Bool(window.Hung) +
+                            ",\"responsive\":" + Bool(window.Responsive) +
+                            ",\"rect\":{\"left\":" + window.Rect.Left + ",\"top\":" + window.Rect.Top + ",\"right\":" + window.Rect.Right + ",\"bottom\":" + window.Rect.Bottom + "}}");
+                    }
+                }
+
+                private static void PreserveApplicationData(string evidenceRoot, string localAppData, string phase)
+                {
+                    string vspRoot = Path.Combine(localAppData, "VSP");
+                    string manifest = Path.Combine(evidenceRoot, "application-data", "manifest-" + phase + ".jsonl");
+                    File.WriteAllText(manifest, "", new UTF8Encoding(false));
+                    if (!Directory.Exists(vspRoot))
+                    {
+                        AppendLine(manifest, "{\"vspApplicationDataExists\":false}");
+                        return;
+                    }
+                    AppendLine(manifest, "{\"vspApplicationDataExists\":true}");
+                    foreach (string file in Directory.GetFiles(vspRoot, "*", SearchOption.AllDirectories))
+                    {
+                        var info = new FileInfo(file);
+                        string relative = file.Substring(vspRoot.Length).TrimStart(Path.DirectorySeparatorChar);
+                        AppendLine(manifest,
+                            "{\"relativePath\":\"" + Json(relative) + "\",\"length\":" + info.Length +
+                            ",\"lastWriteUtc\":\"" + info.LastWriteTimeUtc.ToString("O", CultureInfo.InvariantCulture) +
+                            "\",\"sha256\":\"" + FileSha256(file) + "\",\"contentUploaded\":" + Bool(relative.StartsWith("Logs" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) + "}");
+                        if (relative.StartsWith("Logs" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                        {
+                            string destination = Path.Combine(evidenceRoot, "application-data", "logs-" + phase, relative.Substring(5));
+                            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                            File.Copy(file, destination, true);
+                        }
+                    }
+                }
+
+                private static string RemoveDotnetFromPath(string path)
+                {
+                    var retained = new List<string>();
+                    foreach (string entry in path.Split(';'))
+                    {
+                        if (String.IsNullOrWhiteSpace(entry)) continue;
+                        string normalized = entry.Trim().TrimEnd('\\');
+                        if (normalized.EndsWith("\\dotnet", StringComparison.OrdinalIgnoreCase) || normalized.IndexOf("Microsoft\\dotnet", StringComparison.OrdinalIgnoreCase) >= 0 || normalized.IndexOf("Program Files\\dotnet", StringComparison.OrdinalIgnoreCase) >= 0 || normalized.IndexOf("\\.dotnet", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                        retained.Add(entry);
+                    }
+                    return String.Join(";", retained.ToArray());
+                }
+
+                private static void VerifyDotnetAbsent(string path, string evidencePath)
+                {
+                    var start = new ProcessStartInfo("where.exe", "dotnet");
+                    start.UseShellExecute = false;
+                    start.RedirectStandardOutput = true;
+                    start.RedirectStandardError = true;
+                    start.EnvironmentVariables["PATH"] = path;
+                    using (Process probe = Process.Start(start))
+                    {
+                        string output = probe.StandardOutput.ReadToEnd() + probe.StandardError.ReadToEnd();
+                        probe.WaitForExit();
+                        File.WriteAllText(evidencePath, "WHERE_DOTNET_EXIT=" + probe.ExitCode + Environment.NewLine + output);
+                        if (probe.ExitCode == 0) throw new InvalidOperationException("dotnet remains reachable on child PATH");
+                    }
+                }
+
+                private static string FileSha256(string path)
+                {
+                    using (var stream = File.OpenRead(path))
+                    using (var hash = SHA256.Create())
+                    {
+                        byte[] value = hash.ComputeHash(stream);
+                        var text = new StringBuilder(value.Length * 2);
+                        foreach (byte item in value) text.Append(item.ToString("x2", CultureInfo.InvariantCulture));
+                        return text.ToString();
+                    }
+                }
+
+                private static void AppendLine(string path, string line)
+                {
+                    File.AppendAllText(path, line + Environment.NewLine, new UTF8Encoding(false));
+                }
+
+                private static string Bool(bool value) { return value ? "true" : "false"; }
+                private static string Json(string value)
+                {
+                    if (value == null) return "";
+                    return value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n");
+                }
+            }
+        run: |
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; [IO.File]::WriteAllText($env:RC2_HELPER_SOURCE, $env:RC2_DIAGNOSTIC_SOURCE, [Text.UTF8Encoding]::new($false)); $hash=(Get-FileHash -LiteralPath $env:RC2_HELPER_SOURCE -Algorithm SHA256).Hash; ('RUNTIME_HELPER_SOURCE_SHA256=' + $hash) | Set-Content -LiteralPath (Join-Path $env:RC2_DIAGNOSTIC_ROOT 'provenance\runtime-helper.txt') -Encoding ascii"
+
+      - name: Collect Windows session and launch diagnostics
+        run: |
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; Add-Type -Path $env:RC2_HELPER_SOURCE -ReferencedAssemblies @('System.dll','System.Core.dll','System.IO.Compression.dll','System.IO.Compression.FileSystem.dll'); [Rc2LaunchDiagnostic]::Run($env:RC2_DIAGNOSTIC_ROOT, $env:RC2_SMOKE_ROOT, (Join-Path $env:RC2_DOWNLOAD_ROOT 'original-artifact'), $env:RC2_PACKAGE_NAME)"
+
+      - name: Record diagnostic collection summary
+        if: always()
+        env:
+          DIAGNOSTIC_JOB_STATUS: ${{ job.status }}
+        run: |
+          >"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo # VSP RC2 Launch Diagnostic
+          >>"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo.
+          >>"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo - RC2 release result: `NOT_EVALUATED`
+          >>"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo - RC2-001 authoritative run: `32561743888` remains `FAIL`
+          >>"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo - RC2 source SHA: `%RC2_SOURCE_SHA%`
+          >>"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo - Diagnostic run ID: `%GITHUB_RUN_ID%`
+          >>"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo - Diagnostic run attempt: `%GITHUB_RUN_ATTEMPT%`
+          >>"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo - Collection job status at summary: `%DIAGNOSTIC_JOB_STATUS%`
+          >>"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo.
+          >>"%RC2_DIAGNOSTIC_ROOT%\DIAGNOSTIC_SUMMARY.md" echo A successful job means diagnostic collection completed; it does not mean RC2 passed.
+
+      - name: Upload RC2-002 diagnostic evidence
+        id: upload-diagnostic-evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsp-rc2-launch-diagnostic-run-${{ github.run_id }}
+          path: ${{ env.RC2_DIAGNOSTIC_ROOT }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Clean temporary data after preserved upload
+        if: always() && steps.upload-diagnostic-evidence.outcome == 'success'
+        run: |
+          if exist "%RC2_SMOKE_ROOT%" rmdir /s /q "%RC2_SMOKE_ROOT%"
+          if exist "%RC2_DOWNLOAD_ROOT%" rmdir /s /q "%RC2_DOWNLOAD_ROOT%"
+          if exist "%RC2_HELPER_SOURCE%" del /q "%RC2_HELPER_SOURCE%"
+          if exist "%RC2_DIAGNOSTIC_ROOT%" rmdir /s /q "%RC2_DIAGNOSTIC_ROOT%"
