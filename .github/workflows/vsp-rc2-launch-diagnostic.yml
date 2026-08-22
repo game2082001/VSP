@@ -234,9 +234,13 @@ jobs:
                         DateTime deadline = DateTime.UtcNow.AddSeconds(20);
                         DateTime? firstQualified = null;
                         int qualifiedCount = 0;
-                        while (DateTime.UtcNow < deadline)
+                        var lastWindows = new List<WindowRecord>();
+                        while (true)
                         {
-                            Thread.Sleep(500);
+                            double remainingBeforeSleep = (deadline - DateTime.UtcNow).TotalMilliseconds;
+                            if (remainingBeforeSleep < 1) break;
+                            Thread.Sleep(Math.Min(500, (int)Math.Floor(remainingBeforeSleep)));
+                            if (DateTime.UtcNow >= deadline) break;
                             process.Refresh();
                             if (process.HasExited)
                             {
@@ -246,18 +250,19 @@ jobs:
                             }
 
                             AppendProcessSample(evidenceRoot, process, targetSessionKnown, targetSession, false);
-                            List<WindowRecord> windows = EnumerateWindows((uint)process.Id);
-                            AppendWindowSamples(evidenceRoot, process.Id, windows);
-                            foreach (WindowRecord window in windows)
+                            DateTime sampleUtc = DateTime.UtcNow;
+                            lastWindows = EnumerateWindows((uint)process.Id, deadline);
+                            AppendWindowSamples(evidenceRoot, process.Id, lastWindows, sampleUtc);
+                            foreach (WindowRecord window in lastWindows)
                             {
                                 if (window.Title == "VSP - Login" && window.Visible && !window.Hung && window.Responsive)
                                 {
                                     if (!firstQualified.HasValue)
                                     {
-                                        firstQualified = DateTime.UtcNow;
+                                        firstQualified = sampleUtc;
                                         qualifiedCount = 1;
                                     }
-                                    else if ((DateTime.UtcNow - firstQualified.Value).TotalSeconds >= 5)
+                                    else if ((sampleUtc - firstQualified.Value).TotalSeconds >= 5)
                                     {
                                         qualifiedCount++;
                                         closeTarget = window.Handle;
@@ -270,7 +275,7 @@ jobs:
                         {
                             if (qualifiedCount >= 2)
                                 classification = "QUALIFIED_LOGIN_WINDOW_OBSERVED_DIAGNOSTIC_ONLY";
-                            else if (EnumerateWindows((uint)process.Id).Count > 0)
+                            else if (lastWindows.Count > 0)
                                 classification = "TOP_LEVEL_WINDOW_PRESENT_BUT_ACCEPTANCE_NOT_MET";
                             else
                                 classification = "PROCESS_ALIVE_WITHOUT_ENUMERABLE_TOP_LEVEL_WINDOW";
@@ -279,7 +284,12 @@ jobs:
                     }
                     finally
                     {
-                        PreserveApplicationData(evidenceRoot, localAppData);
+                        try { PreserveApplicationData(evidenceRoot, localAppData); }
+                        catch (Exception preservationError)
+                        {
+                            try { File.AppendAllText(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), preservationError + Environment.NewLine); }
+                            catch { }
+                        }
                         if (process != null)
                         {
                             try
@@ -307,15 +317,17 @@ jobs:
                             }
                             catch (Exception terminationError)
                             {
-                                File.AppendAllText(Path.Combine(evidenceRoot, "smoke", "termination.log"), "TERMINATION_ERROR=" + terminationError + Environment.NewLine);
-                                try { if (!process.HasExited) process.Kill(); } catch { }
+                                try { if (!process.HasExited) { process.Kill(); process.WaitForExit(); } } catch { }
+                                try { File.AppendAllText(Path.Combine(evidenceRoot, "smoke", "termination.log"), "TERMINATION_ERROR=" + terminationError + Environment.NewLine); }
+                                catch { }
                             }
                         }
 
                         try { PreserveApplicationData(evidenceRoot, localAppData); }
                         catch (Exception preservationError)
                         {
-                            File.AppendAllText(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), preservationError + Environment.NewLine);
+                            try { File.AppendAllText(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), preservationError + Environment.NewLine); }
+                            catch { }
                         }
 
                         bool finalExited = process == null || process.HasExited;
@@ -422,11 +434,12 @@ jobs:
                     return GetUserObjectInformation(handle, UOI_NAME, buffer, needed, out needed) ? buffer.ToString() : "";
                 }
 
-                private static List<WindowRecord> EnumerateWindows(uint targetPid)
+                private static List<WindowRecord> EnumerateWindows(uint targetPid, DateTime deadlineUtc)
                 {
                     var result = new List<WindowRecord>();
                     EnumWindows(delegate(IntPtr hwnd, IntPtr ignored)
                     {
+                        if (DateTime.UtcNow >= deadlineUtc) return false;
                         uint pid;
                         uint tid = GetWindowThreadProcessId(hwnd, out pid);
                         if (pid != targetPid) return true;
@@ -435,8 +448,11 @@ jobs:
                         GetWindowTextW(hwnd, title, title.Capacity);
                         RECT rect;
                         GetWindowRect(hwnd, out rect);
+                        double remainingMilliseconds = (deadlineUtc - DateTime.UtcNow).TotalMilliseconds;
+                        if (remainingMilliseconds < 1) return false;
+                        uint responsivenessTimeout = (uint)Math.Max(1, Math.Min(1000, (int)Math.Floor(remainingMilliseconds)));
                         IntPtr response;
-                        bool responsive = SendMessageTimeout(hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, 1000, out response) != IntPtr.Zero;
+                        bool responsive = SendMessageTimeout(hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, responsivenessTimeout, out response) != IntPtr.Zero;
                         result.Add(new WindowRecord { Handle=hwnd, Title=title.ToString(), Visible=IsWindowVisible(hwnd), Enabled=IsWindowEnabled(hwnd), Hung=IsHungAppWindow(hwnd), Responsive=responsive, ThreadId=tid, Rect=rect });
                         return true;
                     }, IntPtr.Zero);
@@ -456,18 +472,18 @@ jobs:
                     AppendLine(Path.Combine(root, "smoke", "process-samples.jsonl"), line);
                 }
 
-                private static void AppendWindowSamples(string root, int pid, List<WindowRecord> windows)
+                private static void AppendWindowSamples(string root, int pid, List<WindowRecord> windows, DateTime sampleUtc)
                 {
                     if (windows.Count == 0)
                     {
                         AppendLine(Path.Combine(root, "smoke", "window-samples.jsonl"),
-                            "{\"utc\":\"" + DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture) + "\",\"pid\":" + pid + ",\"windowCount\":0}");
+                            "{\"utc\":\"" + sampleUtc.ToString("O", CultureInfo.InvariantCulture) + "\",\"pid\":" + pid + ",\"windowCount\":0}");
                         return;
                     }
                     foreach (WindowRecord window in windows)
                     {
                         AppendLine(Path.Combine(root, "smoke", "window-samples.jsonl"),
-                            "{\"utc\":\"" + DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture) +
+                            "{\"utc\":\"" + sampleUtc.ToString("O", CultureInfo.InvariantCulture) +
                             "\",\"pid\":" + pid +
                             ",\"threadId\":" + window.ThreadId +
                             ",\"handle\":\"0x" + window.Handle.ToInt64().ToString("X", CultureInfo.InvariantCulture) +
