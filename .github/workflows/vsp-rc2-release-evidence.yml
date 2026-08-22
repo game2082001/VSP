@@ -52,6 +52,7 @@ jobs:
           echo GITHUB_REF=%GITHUB_REF%>> "%RC2_EVIDENCE_ROOT%\provenance.txt"
           echo GITHUB_SHA=%GITHUB_SHA%>> "%RC2_EVIDENCE_ROOT%\provenance.txt"
           echo GITHUB_RUN_ID=%GITHUB_RUN_ID%>> "%RC2_EVIDENCE_ROOT%\provenance.txt"
+          echo GITHUB_RUN_NUMBER=%GITHUB_RUN_NUMBER%>> "%RC2_EVIDENCE_ROOT%\provenance.txt"
           echo GITHUB_RUN_ATTEMPT=%GITHUB_RUN_ATTEMPT%>> "%RC2_EVIDENCE_ROOT%\provenance.txt"
           echo GITHUB_EVENT_NAME=%GITHUB_EVENT_NAME%>> "%RC2_EVIDENCE_ROOT%\provenance.txt"
           if not "%GITHUB_EVENT_NAME%"=="workflow_dispatch" exit /b 1
@@ -60,7 +61,7 @@ jobs:
             echo Re-run attempts cannot be authoritative RC2 evidence.>> "%RC2_EVIDENCE_ROOT%\failure.txt"
             exit /b 1
           )
-          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-rc2-release-evidence.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $prior=@($response.workflow_runs | Where-Object { [string]$_.id -ne [string]$env:GITHUB_RUN_ID }); ('PRIOR_DISPATCH_COUNT=' + $prior.Count) | Add-Content -LiteralPath (Join-Path $env:RC2_EVIDENCE_ROOT 'provenance.txt') -Encoding ascii; if ($prior.Count -gt 0) { 'A prior workflow_dispatch run already exists; this dispatch is non-authoritative.' | Add-Content -LiteralPath (Join-Path $env:RC2_EVIDENCE_ROOT 'failure.txt') -Encoding ascii; throw 'Duplicate RC2 dispatch rejected before source checkout and test execution' }"
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-rc2-release-evidence.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $currentRunNumber=[long]$env:GITHUB_RUN_NUMBER; $earlier=@($response.workflow_runs | Where-Object { [long]$_.run_number -lt $currentRunNumber }); ('EARLIER_DISPATCH_COUNT=' + $earlier.Count) | Add-Content -LiteralPath (Join-Path $env:RC2_EVIDENCE_ROOT 'provenance.txt') -Encoding ascii; if ($earlier.Count -gt 0) { 'An earlier workflow_dispatch run already exists; this dispatch is non-authoritative.' | Add-Content -LiteralPath (Join-Path $env:RC2_EVIDENCE_ROOT 'failure.txt') -Encoding ascii; throw 'Subsequent RC2 dispatch rejected before source checkout and test execution' }"
 
       - name: Checkout exact approved RC2 source
         uses: actions/checkout@v4
