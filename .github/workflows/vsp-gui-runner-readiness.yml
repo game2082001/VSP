@@ -54,6 +54,7 @@ jobs:
             using System.Globalization;
             using System.IO;
             using System.Runtime.InteropServices;
+            using System.Security.Principal;
             using System.Text;
             using System.Threading;
             using System.Windows;
@@ -71,7 +72,8 @@ jobs:
                 private const int WTS_DOMAIN_NAME = 7;
                 private const int WTS_CONNECT_STATE = 8;
                 private const int WTS_ACTIVE = 0;
-                private const string ExpectedUser = "vsp_gui_runner";
+                private const string ExpectedAccount = @"Yousin\game2082001";
+                private const string ExpectedSid = "S-1-5-21-246760006-3988060075-516279282-1001";
                 private const string ExpectedRunner = "VSP-GUI-01";
                 private const string ProbeTitle = "VSP GUI Runner Readiness Probe";
 
@@ -165,6 +167,13 @@ jobs:
                 private static void Run(string evidenceRoot)
                 {
                     Process current = Process.GetCurrentProcess();
+                    string processAccount;
+                    string processSid;
+                    using (WindowsIdentity currentIdentity = WindowsIdentity.GetCurrent())
+                    {
+                        processAccount = currentIdentity.Name ?? "";
+                        processSid = currentIdentity.User == null ? "" : currentIdentity.User.Value;
+                    }
                     uint probeSession;
                     if (!ProcessIdToSessionId((uint)current.Id, out probeSession))
                         throw new InvalidOperationException("ProcessIdToSessionId failed for readiness probe");
@@ -172,6 +181,7 @@ jobs:
                     uint activeConsoleSession = WTSGetActiveConsoleSessionId();
                     string sessionUser = QueryWtsString(probeSession, WTS_USER_NAME);
                     string sessionDomain = QueryWtsString(probeSession, WTS_DOMAIN_NAME);
+                    string sessionAccount = sessionDomain + "\\" + sessionUser;
                     string sessionName = QueryWtsString(probeSession, WTS_WINSTATION_NAME);
                     int connectState = QueryWtsInt32(probeSession, WTS_CONNECT_STATE);
                     string windowStation = UserObjectName(GetProcessWindowStation());
@@ -188,12 +198,14 @@ jobs:
                     string runnerName = Environment.GetEnvironmentVariable("RUNNER_NAME") ?? "";
                     string identity = "{\"machine\":\"" + Json(Environment.MachineName) +
                         "\",\"runnerName\":\"" + Json(runnerName) +
-                        "\",\"user\":\"" + Json(Environment.UserDomainName + "\\" + Environment.UserName) +
+                        "\",\"processAccount\":\"" + Json(processAccount) +
+                        "\",\"processSid\":\"" + Json(processSid) +
                         "\",\"probePid\":" + current.Id +
                         ",\"probeSessionId\":" + probeSession +
                         ",\"activeConsoleSessionId\":" + activeConsoleSession +
                         ",\"sessionUser\":\"" + Json(sessionUser) +
                         "\",\"sessionDomain\":\"" + Json(sessionDomain) +
+                        "\",\"sessionAccount\":\"" + Json(sessionAccount) +
                         "\",\"sessionName\":\"" + Json(sessionName) +
                         "\",\"connectState\":" + connectState +
                         ",\"processWindowStation\":\"" + Json(windowStation) +
@@ -211,8 +223,9 @@ jobs:
                     Require(activeConsoleSession != UInt32.MaxValue, "There is no active console session");
                     Require(probeSession == activeConsoleSession, "Runner session does not equal active console session");
                     Require(connectState == WTS_ACTIVE, "Runner WTS session is not Active");
-                    Require(String.Equals(Environment.UserName, ExpectedUser, StringComparison.OrdinalIgnoreCase), "Readiness probe process user is not vsp_gui_runner");
-                    Require(String.Equals(sessionUser, ExpectedUser, StringComparison.OrdinalIgnoreCase), "Runner session user is not vsp_gui_runner");
+                    Require(String.Equals(processAccount, ExpectedAccount, StringComparison.OrdinalIgnoreCase), "Readiness probe is not running as the approved interactive account");
+                    Require(String.Equals(processSid, ExpectedSid, StringComparison.Ordinal), "Readiness probe SID does not match the approved interactive identity");
+                    Require(String.Equals(sessionAccount, ExpectedAccount, StringComparison.OrdinalIgnoreCase), "Active WTS session does not belong to the approved interactive account");
                     Require(String.Equals(windowStation, "WinSta0", StringComparison.OrdinalIgnoreCase), "Process window station is not WinSta0");
                     Require(String.Equals(threadDesktop, "Default", StringComparison.OrdinalIgnoreCase), "Thread desktop is not Default");
                     Require(inputDesktopError == 0, "OpenInputDesktop failed");
