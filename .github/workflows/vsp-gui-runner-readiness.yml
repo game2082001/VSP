@@ -1,0 +1,500 @@
+name: VSP GUI Runner Readiness
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+
+concurrency:
+  group: vsp-gui-runner-readiness
+  cancel-in-progress: false
+
+jobs:
+  validate-interactive-gui-runner:
+    name: Interactive GUI Runner Readiness (not RC2 validation)
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'game2082001'
+    runs-on: [self-hosted, Windows, X64, vsp-gui, interactive-desktop]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Initialize immutable readiness evidence
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+          WORKFLOW_DEFINITION_REF: ${{ github.workflow_ref }}
+          WORKFLOW_DEFINITION_SHA: ${{ github.workflow_sha }}
+        run: |
+          set "READINESS_EVIDENCE_ROOT=%RUNNER_TEMP%\vsp-gui-readiness-evidence-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "READINESS_HELPER_SOURCE=%RUNNER_TEMP%\vsp-gui-readiness-probe-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.cs"
+          set "READINESS_HELPER_EXE=%RUNNER_TEMP%\vsp-gui-readiness-probe-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.exe"
+          >>"%GITHUB_ENV%" echo READINESS_EVIDENCE_ROOT=%RUNNER_TEMP%\vsp-gui-readiness-evidence-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%
+          >>"%GITHUB_ENV%" echo READINESS_HELPER_SOURCE=%RUNNER_TEMP%\vsp-gui-readiness-probe-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.cs
+          >>"%GITHUB_ENV%" echo READINESS_HELPER_EXE=%RUNNER_TEMP%\vsp-gui-readiness-probe-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.exe
+          if exist "%READINESS_EVIDENCE_ROOT%" rmdir /s /q "%READINESS_EVIDENCE_ROOT%"
+          if exist "%READINESS_HELPER_SOURCE%" del /q "%READINESS_HELPER_SOURCE%"
+          if exist "%READINESS_HELPER_EXE%" del /q "%READINESS_HELPER_EXE%"
+          mkdir "%READINESS_EVIDENCE_ROOT%"
+          mkdir "%READINESS_EVIDENCE_ROOT%\provenance"
+          mkdir "%READINESS_EVIDENCE_ROOT%\runner"
+          mkdir "%READINESS_EVIDENCE_ROOT%\probe"
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $runPath=Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\run.txt'; @('READINESS_RESULT=NOT_EVALUATED','RC2_RELEASE_RESULT=NOT_EVALUATED','RC2_001_AUTHORITATIVE_RUN=32561743888','RC2_001_DISPOSITION=AUTHORITATIVE_FAIL','RC2_002_DIAGNOSTIC_RUN=32571209557',('GITHUB_RUN_ID=' + $env:GITHUB_RUN_ID),('GITHUB_RUN_NUMBER=' + $env:GITHUB_RUN_NUMBER),('GITHUB_RUN_ATTEMPT=' + $env:GITHUB_RUN_ATTEMPT),('GITHUB_EVENT_NAME=' + $env:GITHUB_EVENT_NAME),('GITHUB_REF=' + $env:GITHUB_REF),('GITHUB_SHA=' + $env:GITHUB_SHA),('GITHUB_ACTOR=' + $env:GITHUB_ACTOR),('RUNNER_NAME=' + $env:RUNNER_NAME),('RUNNER_OS=' + $env:RUNNER_OS),('RUNNER_ARCH=' + $env:RUNNER_ARCH),('WORKFLOW_DEFINITION_REF=' + $env:WORKFLOW_DEFINITION_REF),('WORKFLOW_DEFINITION_SHA=' + $env:WORKFLOW_DEFINITION_SHA)) | Set-Content -LiteralPath $runPath -Encoding utf8; if ($env:GITHUB_EVENT_NAME -cne 'workflow_dispatch') { throw 'Event is not workflow_dispatch' }; if ($env:GITHUB_REF -cne 'refs/heads/main') { throw 'Workflow must run from refs/heads/main' }; if ($env:GITHUB_ACTOR -ine 'game2082001') { throw 'Workflow actor is not the approved Product Owner' }; if ($env:GITHUB_RUN_ATTEMPT -cne '1') { throw 'Re-run attempts cannot be authoritative RC2-003 evidence' }; if ($env:RUNNER_NAME -ine 'VSP-GUI-01') { throw 'Job was not routed to VSP-GUI-01' }; if ($env:RUNNER_OS -ine 'Windows') { throw 'Runner OS is not Windows' }; if ($env:RUNNER_ARCH -ine 'X64') { throw 'Runner architecture is not X64' }; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-gui-runner-readiness.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $current=[long]$env:GITHUB_RUN_NUMBER; $earlier=@($response.workflow_runs | Where-Object { [long]$_.run_number -lt $current }); ('EARLIER_READINESS_DISPATCH_COUNT=' + $earlier.Count) | Add-Content -LiteralPath $runPath -Encoding utf8; if ($earlier.Count -gt 0) { 'A prior RC2-003 workflow_dispatch exists; this run is non-authoritative.' | Set-Content -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\guard-failure.txt') -Encoding utf8; throw 'Subsequent RC2-003 dispatch rejected before GUI probe execution' }"
+
+      - name: Materialize non-VSP interactive desktop probe
+        env:
+          READINESS_PROBE_SOURCE: |
+            using System;
+            using System.Collections.Generic;
+            using System.Diagnostics;
+            using System.Globalization;
+            using System.IO;
+            using System.Runtime.InteropServices;
+            using System.Text;
+            using System.Threading;
+            using System.Windows;
+            using System.Windows.Interop;
+
+            internal static class VspGuiRunnerReadinessProbe
+            {
+                private const uint WM_NULL = 0x0000;
+                private const uint WM_CLOSE = 0x0010;
+                private const uint SMTO_ABORTIFHUNG = 0x0002;
+                private const uint DESKTOP_READOBJECTS = 0x0001;
+                private const int UOI_NAME = 2;
+                private const int WTS_USER_NAME = 5;
+                private const int WTS_WINSTATION_NAME = 6;
+                private const int WTS_DOMAIN_NAME = 7;
+                private const int WTS_CONNECT_STATE = 8;
+                private const int WTS_ACTIVE = 0;
+                private const string ExpectedUser = "vsp_gui_runner";
+                private const string ExpectedRunner = "VSP-GUI-01";
+                private const string ProbeTitle = "VSP GUI Runner Readiness Probe";
+
+                private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr parameter);
+
+                [StructLayout(LayoutKind.Sequential)]
+                private struct RECT
+                {
+                    public int Left;
+                    public int Top;
+                    public int Right;
+                    public int Bottom;
+                }
+
+                private sealed class WindowRecord
+                {
+                    public IntPtr Handle;
+                    public uint ProcessId;
+                    public uint ThreadId;
+                    public string Title;
+                    public bool Visible;
+                    public bool Enabled;
+                    public bool Hung;
+                    public bool Responsive;
+                    public RECT Rect;
+                }
+
+                [DllImport("user32.dll")]
+                private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+                [DllImport("user32.dll")]
+                private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+                [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+                private static extern int GetWindowTextW(IntPtr hwnd, StringBuilder text, int count);
+                [DllImport("user32.dll")]
+                private static extern int GetWindowTextLengthW(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsWindowVisible(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsWindowEnabled(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsHungAppWindow(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+                [DllImport("kernel32.dll", SetLastError = true)]
+                private static extern bool ProcessIdToSessionId(uint processId, out uint sessionId);
+                [DllImport("kernel32.dll")]
+                private static extern uint WTSGetActiveConsoleSessionId();
+                [DllImport("user32.dll")]
+                private static extern IntPtr GetProcessWindowStation();
+                [DllImport("user32.dll")]
+                private static extern IntPtr GetThreadDesktop(uint threadId);
+                [DllImport("kernel32.dll")]
+                private static extern uint GetCurrentThreadId();
+                [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+                private static extern bool GetUserObjectInformation(IntPtr handle, int index, StringBuilder info, uint length, out uint needed);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern IntPtr OpenInputDesktop(uint flags, bool inherit, uint access);
+                [DllImport("user32.dll")]
+                private static extern bool CloseDesktop(IntPtr desktop);
+                [DllImport("wtsapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+                private static extern bool WTSQuerySessionInformation(IntPtr server, int sessionId, int infoClass, out IntPtr buffer, out int bytesReturned);
+                [DllImport("wtsapi32.dll")]
+                private static extern void WTSFreeMemory(IntPtr buffer);
+
+                private static readonly ManualResetEvent WindowReady = new ManualResetEvent(false);
+                private static readonly ManualResetEvent WindowClosed = new ManualResetEvent(false);
+                private static IntPtr probeHandle = IntPtr.Zero;
+
+                public static int Main(string[] args)
+                {
+                    string evidenceRoot = args.Length == 1 ? args[0] : Environment.CurrentDirectory;
+                    Directory.CreateDirectory(evidenceRoot);
+                    Directory.CreateDirectory(Path.Combine(evidenceRoot, "runner"));
+                    Directory.CreateDirectory(Path.Combine(evidenceRoot, "probe"));
+                    try
+                    {
+                        Run(evidenceRoot);
+                        return 0;
+                    }
+                    catch (Exception error)
+                    {
+                        File.WriteAllText(Path.Combine(evidenceRoot, "probe", "error.txt"), error.ToString());
+                        return 1;
+                    }
+                }
+
+                private static void Run(string evidenceRoot)
+                {
+                    Process current = Process.GetCurrentProcess();
+                    uint probeSession;
+                    if (!ProcessIdToSessionId((uint)current.Id, out probeSession))
+                        throw new InvalidOperationException("ProcessIdToSessionId failed for readiness probe");
+
+                    uint activeConsoleSession = WTSGetActiveConsoleSessionId();
+                    string sessionUser = QueryWtsString(probeSession, WTS_USER_NAME);
+                    string sessionDomain = QueryWtsString(probeSession, WTS_DOMAIN_NAME);
+                    string sessionName = QueryWtsString(probeSession, WTS_WINSTATION_NAME);
+                    int connectState = QueryWtsInt32(probeSession, WTS_CONNECT_STATE);
+                    string windowStation = UserObjectName(GetProcessWindowStation());
+                    string threadDesktop = UserObjectName(GetThreadDesktop(GetCurrentThreadId()));
+                    IntPtr inputDesktopHandle = OpenInputDesktop(0, false, DESKTOP_READOBJECTS);
+                    int inputDesktopError = inputDesktopHandle == IntPtr.Zero ? Marshal.GetLastWin32Error() : 0;
+                    string inputDesktop = inputDesktopHandle == IntPtr.Zero ? "" : UserObjectName(inputDesktopHandle);
+                    if (inputDesktopHandle != IntPtr.Zero) CloseDesktop(inputDesktopHandle);
+
+                    List<int> workerPids = ProcessIdsInSession("Runner.Worker", probeSession);
+                    List<int> listenerPids = ProcessIdsInSession("Runner.Listener", probeSession);
+                    List<int> explorerPids = ProcessIdsInSession("explorer", probeSession);
+
+                    string runnerName = Environment.GetEnvironmentVariable("RUNNER_NAME") ?? "";
+                    string identity = "{\"machine\":\"" + Json(Environment.MachineName) +
+                        "\",\"runnerName\":\"" + Json(runnerName) +
+                        "\",\"user\":\"" + Json(Environment.UserDomainName + "\\" + Environment.UserName) +
+                        "\",\"probePid\":" + current.Id +
+                        ",\"probeSessionId\":" + probeSession +
+                        ",\"activeConsoleSessionId\":" + activeConsoleSession +
+                        ",\"sessionUser\":\"" + Json(sessionUser) +
+                        "\",\"sessionDomain\":\"" + Json(sessionDomain) +
+                        "\",\"sessionName\":\"" + Json(sessionName) +
+                        "\",\"connectState\":" + connectState +
+                        ",\"processWindowStation\":\"" + Json(windowStation) +
+                        "\",\"threadDesktop\":\"" + Json(threadDesktop) +
+                        "\",\"openInputDesktopSucceeded\":" + Bool(inputDesktopError == 0) +
+                        ",\"inputDesktop\":\"" + Json(inputDesktop) +
+                        "\",\"openInputDesktopError\":" + inputDesktopError +
+                        ",\"runnerWorkerPidsInSession\":" + IntArray(workerPids) +
+                        ",\"runnerListenerPidsInSession\":" + IntArray(listenerPids) +
+                        ",\"explorerPidsInSession\":" + IntArray(explorerPids) + "}";
+                    File.WriteAllText(Path.Combine(evidenceRoot, "runner", "identity-pre.json"), identity + Environment.NewLine, new UTF8Encoding(false));
+
+                    Require(String.Equals(runnerName, ExpectedRunner, StringComparison.OrdinalIgnoreCase), "Runner name is not VSP-GUI-01");
+                    Require(probeSession != 0, "Readiness probe is running in Session 0");
+                    Require(activeConsoleSession != UInt32.MaxValue, "There is no active console session");
+                    Require(probeSession == activeConsoleSession, "Runner session does not equal active console session");
+                    Require(connectState == WTS_ACTIVE, "Runner WTS session is not Active");
+                    Require(String.Equals(Environment.UserName, ExpectedUser, StringComparison.OrdinalIgnoreCase), "Readiness probe process user is not vsp_gui_runner");
+                    Require(String.Equals(sessionUser, ExpectedUser, StringComparison.OrdinalIgnoreCase), "Runner session user is not vsp_gui_runner");
+                    Require(String.Equals(windowStation, "WinSta0", StringComparison.OrdinalIgnoreCase), "Process window station is not WinSta0");
+                    Require(String.Equals(threadDesktop, "Default", StringComparison.OrdinalIgnoreCase), "Thread desktop is not Default");
+                    Require(inputDesktopError == 0, "OpenInputDesktop failed");
+                    Require(String.Equals(inputDesktop, "Default", StringComparison.OrdinalIgnoreCase), "Input desktop is not Default");
+                    Require(workerPids.Count == 1, "Exactly one Runner.Worker must exist in the interactive session");
+                    Require(listenerPids.Count == 1, "Exactly one Runner.Listener must exist in the interactive session");
+                    Require(explorerPids.Count >= 1, "Explorer is absent from the interactive session");
+
+                    File.WriteAllText(Path.Combine(evidenceRoot, "probe", "launch.json"),
+                        "{\"title\":\"" + ProbeTitle + "\",\"width\":480,\"height\":240,\"expectedSamples\":3}" + Environment.NewLine,
+                        new UTF8Encoding(false));
+
+                    Thread uiThread = new Thread(RunWindow);
+                    uiThread.Name = "VSP GUI Runner Readiness Probe UI";
+                    uiThread.IsBackground = true;
+                    uiThread.SetApartmentState(ApartmentState.STA);
+                    uiThread.Start();
+
+                    Require(WindowReady.WaitOne(TimeSpan.FromSeconds(10)), "Probe window did not initialize within 10 seconds");
+                    Require(probeHandle != IntPtr.Zero, "Probe window handle is zero");
+
+                    bool samplesAccepted = true;
+                    for (int sample = 1; sample <= 3; sample++)
+                    {
+                        WindowRecord record = FindProbeWindow((uint)current.Id);
+                        bool accepted = record != null && record.Visible && record.Enabled && !record.Hung && record.Responsive &&
+                            record.Rect.Right > record.Rect.Left && record.Rect.Bottom > record.Rect.Top;
+                        samplesAccepted = samplesAccepted && accepted;
+                        AppendLine(Path.Combine(evidenceRoot, "probe", "window-samples.jsonl"), WindowJson(sample, record, accepted));
+                        AppendLine(Path.Combine(evidenceRoot, "probe", "process-samples.jsonl"),
+                            "{\"sample\":" + sample + ",\"pid\":" + current.Id +
+                            ",\"sessionId\":" + probeSession +
+                            ",\"hasExited\":false,\"workingSet64\":" + current.WorkingSet64 +
+                            ",\"totalProcessorMilliseconds\":" + current.TotalProcessorTime.TotalMilliseconds.ToString(CultureInfo.InvariantCulture) + "}");
+                        if (sample < 3) Thread.Sleep(500);
+                    }
+
+                    bool closePosted = PostMessage(probeHandle, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                    bool cleanClose = closePosted && WindowClosed.WaitOne(TimeSpan.FromSeconds(5)) && uiThread.Join(TimeSpan.FromSeconds(5));
+                    bool handleGone = FindProbeWindow((uint)current.Id) == null;
+                    File.WriteAllText(Path.Combine(evidenceRoot, "probe", "close.json"),
+                        "{\"wmClosePosted\":" + Bool(closePosted) +
+                        ",\"cleanClose\":" + Bool(cleanClose) +
+                        ",\"handleGone\":" + Bool(handleGone) +
+                        ",\"forcedKill\":false}" + Environment.NewLine,
+                        new UTF8Encoding(false));
+
+                    WritePostSessionEvidence(evidenceRoot, probeSession);
+                    Require(samplesAccepted, "One or more visible/responsive window samples failed acceptance");
+                    Require(cleanClose, "Probe window did not close cleanly");
+                    Require(handleGone, "Probe window remained enumerable after close");
+
+                    File.WriteAllText(Path.Combine(evidenceRoot, "probe", "final-state.json"),
+                        "{\"readinessResult\":\"PASS\",\"rc2ReleaseResult\":\"NOT_EVALUATED\",\"forcedKill\":false}" + Environment.NewLine,
+                        new UTF8Encoding(false));
+                }
+
+                private static void RunWindow()
+                {
+                    var application = new Application();
+                    var window = new Window
+                    {
+                        Title = ProbeTitle,
+                        Width = 480,
+                        Height = 240,
+                        WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                        ShowInTaskbar = true,
+                        Content = new System.Windows.Controls.TextBlock
+                        {
+                            Text = "Interactive GUI runner readiness probe",
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            FontSize = 18
+                        }
+                    };
+                    window.SourceInitialized += delegate
+                    {
+                        probeHandle = new WindowInteropHelper(window).Handle;
+                        WindowReady.Set();
+                    };
+                    window.Closed += delegate { WindowClosed.Set(); };
+                    application.Run(window);
+                }
+
+                private static void WritePostSessionEvidence(string evidenceRoot, uint expectedSession)
+                {
+                    uint session;
+                    ProcessIdToSessionId((uint)Process.GetCurrentProcess().Id, out session);
+                    uint active = WTSGetActiveConsoleSessionId();
+                    string station = UserObjectName(GetProcessWindowStation());
+                    string desktop = UserObjectName(GetThreadDesktop(GetCurrentThreadId()));
+                    IntPtr input = OpenInputDesktop(0, false, DESKTOP_READOBJECTS);
+                    int inputError = input == IntPtr.Zero ? Marshal.GetLastWin32Error() : 0;
+                    string inputName = input == IntPtr.Zero ? "" : UserObjectName(input);
+                    if (input != IntPtr.Zero) CloseDesktop(input);
+                    File.WriteAllText(Path.Combine(evidenceRoot, "runner", "identity-post.json"),
+                        "{\"probeSessionId\":" + session +
+                        ",\"expectedSessionId\":" + expectedSession +
+                        ",\"activeConsoleSessionId\":" + active +
+                        ",\"connectState\":" + QueryWtsInt32(session, WTS_CONNECT_STATE) +
+                        ",\"processWindowStation\":\"" + Json(station) +
+                        "\",\"threadDesktop\":\"" + Json(desktop) +
+                        "\",\"openInputDesktopSucceeded\":" + Bool(inputError == 0) +
+                        ",\"inputDesktop\":\"" + Json(inputName) +
+                        "\",\"openInputDesktopError\":" + inputError + "}" + Environment.NewLine,
+                        new UTF8Encoding(false));
+                    Require(session == expectedSession && session == active && session != 0, "Session drift detected after probe close");
+                    Require(QueryWtsInt32(session, WTS_CONNECT_STATE) == WTS_ACTIVE, "WTS session became inactive during readiness probe");
+                    Require(String.Equals(station, "WinSta0", StringComparison.OrdinalIgnoreCase), "Window station drift detected");
+                    Require(String.Equals(desktop, "Default", StringComparison.OrdinalIgnoreCase), "Desktop drift detected");
+                    Require(inputError == 0 && String.Equals(inputName, "Default", StringComparison.OrdinalIgnoreCase), "Input desktop drift detected");
+                }
+
+                private static WindowRecord FindProbeWindow(uint targetPid)
+                {
+                    WindowRecord found = null;
+                    EnumWindows(delegate(IntPtr hwnd, IntPtr ignored)
+                    {
+                        uint pid;
+                        uint tid = GetWindowThreadProcessId(hwnd, out pid);
+                        if (pid != targetPid) return true;
+                        int length = GetWindowTextLengthW(hwnd);
+                        var text = new StringBuilder(Math.Max(length + 1, 2));
+                        GetWindowTextW(hwnd, text, text.Capacity);
+                        if (!String.Equals(text.ToString(), ProbeTitle, StringComparison.Ordinal)) return true;
+                        RECT rect;
+                        GetWindowRect(hwnd, out rect);
+                        IntPtr response;
+                        bool responsive = SendMessageTimeout(hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, 1000, out response) != IntPtr.Zero;
+                        found = new WindowRecord
+                        {
+                            Handle = hwnd,
+                            ProcessId = pid,
+                            ThreadId = tid,
+                            Title = text.ToString(),
+                            Visible = IsWindowVisible(hwnd),
+                            Enabled = IsWindowEnabled(hwnd),
+                            Hung = IsHungAppWindow(hwnd),
+                            Responsive = responsive,
+                            Rect = rect
+                        };
+                        return false;
+                    }, IntPtr.Zero);
+                    return found;
+                }
+
+                private static string WindowJson(int sample, WindowRecord record, bool accepted)
+                {
+                    if (record == null)
+                        return "{\"sample\":" + sample + ",\"found\":false,\"accepted\":false}";
+                    return "{\"sample\":" + sample +
+                        ",\"found\":true,\"accepted\":" + Bool(accepted) +
+                        ",\"pid\":" + record.ProcessId +
+                        ",\"threadId\":" + record.ThreadId +
+                        ",\"handle\":\"0x" + record.Handle.ToInt64().ToString("X", CultureInfo.InvariantCulture) +
+                        "\",\"title\":\"" + Json(record.Title) +
+                        "\",\"visible\":" + Bool(record.Visible) +
+                        ",\"enabled\":" + Bool(record.Enabled) +
+                        ",\"hung\":" + Bool(record.Hung) +
+                        ",\"responsive\":" + Bool(record.Responsive) +
+                        ",\"rect\":{\"left\":" + record.Rect.Left +
+                        ",\"top\":" + record.Rect.Top +
+                        ",\"right\":" + record.Rect.Right +
+                        ",\"bottom\":" + record.Rect.Bottom + "}}";
+                }
+
+                private static List<int> ProcessIdsInSession(string processName, uint session)
+                {
+                    var ids = new List<int>();
+                    foreach (Process process in Process.GetProcessesByName(processName))
+                    {
+                        try
+                        {
+                            uint candidate;
+                            if (ProcessIdToSessionId((uint)process.Id, out candidate) && candidate == session) ids.Add(process.Id);
+                        }
+                        finally { process.Dispose(); }
+                    }
+                    ids.Sort();
+                    return ids;
+                }
+
+                private static string QueryWtsString(uint sessionId, int infoClass)
+                {
+                    IntPtr buffer;
+                    int bytes;
+                    if (!WTSQuerySessionInformation(IntPtr.Zero, (int)sessionId, infoClass, out buffer, out bytes)) return "";
+                    try { return buffer == IntPtr.Zero ? "" : (Marshal.PtrToStringUni(buffer) ?? ""); }
+                    finally { if (buffer != IntPtr.Zero) WTSFreeMemory(buffer); }
+                }
+
+                private static int QueryWtsInt32(uint sessionId, int infoClass)
+                {
+                    IntPtr buffer;
+                    int bytes;
+                    if (!WTSQuerySessionInformation(IntPtr.Zero, (int)sessionId, infoClass, out buffer, out bytes) || buffer == IntPtr.Zero) return -1;
+                    try { return Marshal.ReadInt32(buffer); }
+                    finally { WTSFreeMemory(buffer); }
+                }
+
+                private static string UserObjectName(IntPtr handle)
+                {
+                    if (handle == IntPtr.Zero) return "";
+                    uint needed;
+                    GetUserObjectInformation(handle, UOI_NAME, null, 0, out needed);
+                    if (needed == 0) return "";
+                    var buffer = new StringBuilder((int)(needed / 2) + 2);
+                    return GetUserObjectInformation(handle, UOI_NAME, buffer, needed, out needed) ? buffer.ToString() : "";
+                }
+
+                private static string IntArray(List<int> values)
+                {
+                    var items = new string[values.Count];
+                    for (int index = 0; index < values.Count; index++) items[index] = values[index].ToString(CultureInfo.InvariantCulture);
+                    return "[" + String.Join(",", items) + "]";
+                }
+
+                private static void Require(bool condition, string message)
+                {
+                    if (!condition) throw new InvalidOperationException(message);
+                }
+
+                private static void AppendLine(string path, string line)
+                {
+                    File.AppendAllText(path, line + Environment.NewLine, new UTF8Encoding(false));
+                }
+
+                private static string Bool(bool value) { return value ? "true" : "false"; }
+                private static string Json(string value)
+                {
+                    if (value == null) return "";
+                    return value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n");
+                }
+            }
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [IO.File]::WriteAllText(
+            $env:READINESS_HELPER_SOURCE,
+            $env:READINESS_PROBE_SOURCE,
+            [Text.UTF8Encoding]::new($false)
+          )
+          Add-Type -Path $env:READINESS_HELPER_SOURCE `
+            -ReferencedAssemblies @(
+              'System.dll',
+              'System.Core.dll',
+              'PresentationCore.dll',
+              'PresentationFramework.dll',
+              'WindowsBase.dll',
+              'System.Xaml.dll'
+            ) `
+            -OutputAssembly $env:READINESS_HELPER_EXE `
+            -OutputType ConsoleApplication
+          $hash = (Get-FileHash -LiteralPath $env:READINESS_HELPER_SOURCE -Algorithm SHA256).Hash
+          ('READINESS_PROBE_SOURCE_SHA256=' + $hash) | Set-Content `
+            -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\runtime-helper.txt') `
+            -Encoding ascii
+
+      - name: Validate interactive session and non-VSP GUI window
+        run: |
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "& $env:READINESS_HELPER_EXE $env:READINESS_EVIDENCE_ROOT; $code=$LASTEXITCODE; ('READINESS_PROBE_EXIT_CODE=' + $code) | Set-Content -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'probe\exit-code.txt') -Encoding ascii; if ($code -ne 0) { exit $code }"
+
+      - name: Record readiness summary
+        if: always()
+        env:
+          READINESS_JOB_STATUS: ${{ job.status }}
+        run: |
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$summary=Join-Path $env:READINESS_EVIDENCE_ROOT 'READINESS_SUMMARY.md'; @('# VSP GUI Runner Readiness','',('- Readiness job status at summary: `' + $env:READINESS_JOB_STATUS + '`'),'- RC2 release result: `NOT_EVALUATED`','- RC2-001 authoritative run `32561743888` remains `FAIL`','- RC2-002 diagnostic run `32571209557` remains diagnostic-only',('- Readiness run ID: `' + $env:GITHUB_RUN_ID + '`'),('- Readiness run attempt: `' + $env:GITHUB_RUN_ATTEMPT + '`'),('- Runner name: `' + $env:RUNNER_NAME + '`'),'','PASS means only that the interactive GUI runner environment is ready. It does not mean RC2 passed and does not authorize Replacement Release Validation.') | Set-Content -LiteralPath $summary -Encoding utf8"
+
+      - name: Upload RC2-003 readiness evidence
+        id: upload-readiness-evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vsp-gui-runner-readiness-run-${{ github.run_id }}
+          path: ${{ env.READINESS_EVIDENCE_ROOT }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Clean temporary readiness data after preserved upload
+        if: always() && steps.upload-readiness-evidence.outcome == 'success'
+        run: |
+          if exist "%READINESS_HELPER_SOURCE%" del /q "%READINESS_HELPER_SOURCE%"
+          if exist "%READINESS_HELPER_EXE%" del /q "%READINESS_HELPER_EXE%"
+          if exist "%READINESS_EVIDENCE_ROOT%" rmdir /s /q "%READINESS_EVIDENCE_ROOT%"
