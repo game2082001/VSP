@@ -13,6 +13,10 @@ concurrency:
 jobs:
   validate-interactive-gui-runner:
     name: Interactive GUI Runner Readiness (not RC2 validation)
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'game2082001'
     runs-on: [self-hosted, Windows, X64, vsp-gui, interactive-desktop]
     timeout-minutes: 15
     defaults:
@@ -23,8 +27,6 @@ jobs:
       - name: Initialize immutable readiness evidence
         env:
           ACTIONS_READ_TOKEN: ${{ github.token }}
-          EXPECTED_ACTOR: game2082001
-          EXPECTED_RUNNER_NAME: VSP-GUI-01
           WORKFLOW_DEFINITION_REF: ${{ github.workflow_ref }}
           WORKFLOW_DEFINITION_SHA: ${{ github.workflow_sha }}
         run: |
@@ -41,52 +43,7 @@ jobs:
           mkdir "%READINESS_EVIDENCE_ROOT%\provenance"
           mkdir "%READINESS_EVIDENCE_ROOT%\runner"
           mkdir "%READINESS_EVIDENCE_ROOT%\probe"
-          >"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo READINESS_RESULT=NOT_EVALUATED
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo RC2_RELEASE_RESULT=NOT_EVALUATED
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo RC2_001_AUTHORITATIVE_RUN=32561743888
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo RC2_001_DISPOSITION=AUTHORITATIVE_FAIL
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo RC2_002_DIAGNOSTIC_RUN=32571209557
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_RUN_ID=%GITHUB_RUN_ID%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_RUN_NUMBER=%GITHUB_RUN_NUMBER%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_RUN_ATTEMPT=%GITHUB_RUN_ATTEMPT%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_EVENT_NAME=%GITHUB_EVENT_NAME%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_REF=%GITHUB_REF%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_SHA=%GITHUB_SHA%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_ACTOR=%GITHUB_ACTOR%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo RUNNER_NAME=%RUNNER_NAME%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo RUNNER_OS=%RUNNER_OS%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo RUNNER_ARCH=%RUNNER_ARCH%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo WORKFLOW_DEFINITION_REF=%WORKFLOW_DEFINITION_REF%
-          >>"%READINESS_EVIDENCE_ROOT%\provenance\run.txt" echo WORKFLOW_DEFINITION_SHA=%WORKFLOW_DEFINITION_SHA%
-          if not "%GITHUB_EVENT_NAME%"=="workflow_dispatch" (
-            >"%READINESS_EVIDENCE_ROOT%\provenance\guard-failure.txt" echo Event is not workflow_dispatch.
-            exit /b 1
-          )
-          if not "%GITHUB_REF%"=="refs/heads/main" (
-            >"%READINESS_EVIDENCE_ROOT%\provenance\guard-failure.txt" echo Workflow must run from refs/heads/main.
-            exit /b 1
-          )
-          if /i not "%GITHUB_ACTOR%"=="%EXPECTED_ACTOR%" (
-            >"%READINESS_EVIDENCE_ROOT%\provenance\guard-failure.txt" echo Workflow actor is not the approved Product Owner.
-            exit /b 1
-          )
-          if not "%GITHUB_RUN_ATTEMPT%"=="1" (
-            >"%READINESS_EVIDENCE_ROOT%\provenance\guard-failure.txt" echo Re-run attempts cannot be authoritative RC2-003 evidence.
-            exit /b 1
-          )
-          if /i not "%RUNNER_NAME%"=="%EXPECTED_RUNNER_NAME%" (
-            >"%READINESS_EVIDENCE_ROOT%\provenance\guard-failure.txt" echo Job was not routed to VSP-GUI-01.
-            exit /b 1
-          )
-          if /i not "%RUNNER_OS%"=="Windows" (
-            >"%READINESS_EVIDENCE_ROOT%\provenance\guard-failure.txt" echo Runner OS is not Windows.
-            exit /b 1
-          )
-          if /i not "%RUNNER_ARCH%"=="X64" (
-            >"%READINESS_EVIDENCE_ROOT%\provenance\guard-failure.txt" echo Runner architecture is not X64.
-            exit /b 1
-          )
-          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-gui-runner-readiness.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $current=[long]$env:GITHUB_RUN_NUMBER; $earlier=@($response.workflow_runs | Where-Object { [long]$_.run_number -lt $current }); ('EARLIER_READINESS_DISPATCH_COUNT=' + $earlier.Count) | Add-Content -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\run.txt') -Encoding ascii; if ($earlier.Count -gt 0) { 'A prior RC2-003 workflow_dispatch exists; this run is non-authoritative.' | Set-Content -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\guard-failure.txt') -Encoding ascii; throw 'Subsequent RC2-003 dispatch rejected before GUI probe execution' }"
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $runPath=Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\run.txt'; @('READINESS_RESULT=NOT_EVALUATED','RC2_RELEASE_RESULT=NOT_EVALUATED','RC2_001_AUTHORITATIVE_RUN=32561743888','RC2_001_DISPOSITION=AUTHORITATIVE_FAIL','RC2_002_DIAGNOSTIC_RUN=32571209557',('GITHUB_RUN_ID=' + $env:GITHUB_RUN_ID),('GITHUB_RUN_NUMBER=' + $env:GITHUB_RUN_NUMBER),('GITHUB_RUN_ATTEMPT=' + $env:GITHUB_RUN_ATTEMPT),('GITHUB_EVENT_NAME=' + $env:GITHUB_EVENT_NAME),('GITHUB_REF=' + $env:GITHUB_REF),('GITHUB_SHA=' + $env:GITHUB_SHA),('GITHUB_ACTOR=' + $env:GITHUB_ACTOR),('RUNNER_NAME=' + $env:RUNNER_NAME),('RUNNER_OS=' + $env:RUNNER_OS),('RUNNER_ARCH=' + $env:RUNNER_ARCH),('WORKFLOW_DEFINITION_REF=' + $env:WORKFLOW_DEFINITION_REF),('WORKFLOW_DEFINITION_SHA=' + $env:WORKFLOW_DEFINITION_SHA)) | Set-Content -LiteralPath $runPath -Encoding utf8; if ($env:GITHUB_EVENT_NAME -cne 'workflow_dispatch') { throw 'Event is not workflow_dispatch' }; if ($env:GITHUB_REF -cne 'refs/heads/main') { throw 'Workflow must run from refs/heads/main' }; if ($env:GITHUB_ACTOR -ine 'game2082001') { throw 'Workflow actor is not the approved Product Owner' }; if ($env:GITHUB_RUN_ATTEMPT -cne '1') { throw 'Re-run attempts cannot be authoritative RC2-003 evidence' }; if ($env:RUNNER_NAME -ine 'VSP-GUI-01') { throw 'Job was not routed to VSP-GUI-01' }; if ($env:RUNNER_OS -ine 'Windows') { throw 'Runner OS is not Windows' }; if ($env:RUNNER_ARCH -ine 'X64') { throw 'Runner architecture is not X64' }; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-gui-runner-readiness.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $current=[long]$env:GITHUB_RUN_NUMBER; $earlier=@($response.workflow_runs | Where-Object { [long]$_.run_number -lt $current }); ('EARLIER_READINESS_DISPATCH_COUNT=' + $earlier.Count) | Add-Content -LiteralPath $runPath -Encoding utf8; if ($earlier.Count -gt 0) { 'A prior RC2-003 workflow_dispatch exists; this run is non-authoritative.' | Set-Content -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\guard-failure.txt') -Encoding utf8; throw 'Subsequent RC2-003 dispatch rejected before GUI probe execution' }"
 
       - name: Materialize non-VSP interactive desktop probe
         env:
@@ -501,17 +458,7 @@ jobs:
         env:
           READINESS_JOB_STATUS: ${{ job.status }}
         run: |
-          >"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo # VSP GUI Runner Readiness
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo.
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo - Readiness job status at summary: `%READINESS_JOB_STATUS%`
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo - RC2 release result: `NOT_EVALUATED`
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo - RC2-001 authoritative run `32561743888` remains `FAIL`
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo - RC2-002 diagnostic run `32571209557` remains diagnostic-only
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo - Readiness run ID: `%GITHUB_RUN_ID%`
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo - Readiness run attempt: `%GITHUB_RUN_ATTEMPT%`
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo - Runner name: `%RUNNER_NAME%`
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo.
-          >>"%READINESS_EVIDENCE_ROOT%\READINESS_SUMMARY.md" echo PASS means only that the interactive GUI runner environment is ready. It does not mean RC2 passed and does not authorize Replacement Release Validation.
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$summary=Join-Path $env:READINESS_EVIDENCE_ROOT 'READINESS_SUMMARY.md'; @('# VSP GUI Runner Readiness','',('- Readiness job status at summary: `' + $env:READINESS_JOB_STATUS + '`'),'- RC2 release result: `NOT_EVALUATED`','- RC2-001 authoritative run `32561743888` remains `FAIL`','- RC2-002 diagnostic run `32571209557` remains diagnostic-only',('- Readiness run ID: `' + $env:GITHUB_RUN_ID + '`'),('- Readiness run attempt: `' + $env:GITHUB_RUN_ATTEMPT + '`'),('- Runner name: `' + $env:RUNNER_NAME + '`'),'','PASS means only that the interactive GUI runner environment is ready. It does not mean RC2 passed and does not authorize Replacement Release Validation.') | Set-Content -LiteralPath $summary -Encoding utf8"
 
       - name: Upload RC2-003 readiness evidence
         id: upload-readiness-evidence
