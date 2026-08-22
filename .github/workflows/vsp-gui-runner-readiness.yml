@@ -211,6 +211,7 @@ jobs:
                     Require(activeConsoleSession != UInt32.MaxValue, "There is no active console session");
                     Require(probeSession == activeConsoleSession, "Runner session does not equal active console session");
                     Require(connectState == WTS_ACTIVE, "Runner WTS session is not Active");
+                    Require(String.Equals(Environment.UserName, ExpectedUser, StringComparison.OrdinalIgnoreCase), "Readiness probe process user is not vsp_gui_runner");
                     Require(String.Equals(sessionUser, ExpectedUser, StringComparison.OrdinalIgnoreCase), "Runner session user is not vsp_gui_runner");
                     Require(String.Equals(windowStation, "WinSta0", StringComparison.OrdinalIgnoreCase), "Process window station is not WinSta0");
                     Require(String.Equals(threadDesktop, "Default", StringComparison.OrdinalIgnoreCase), "Thread desktop is not Default");
@@ -446,8 +447,29 @@ jobs:
                     return value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n");
                 }
             }
+        shell: powershell
         run: |
-          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; [IO.File]::WriteAllText($env:READINESS_HELPER_SOURCE, $env:READINESS_PROBE_SOURCE, [Text.UTF8Encoding]::new($false)); Add-Type -Path $env:READINESS_HELPER_SOURCE -ReferencedAssemblies @('System.dll','System.Core.dll','PresentationCore.dll','PresentationFramework.dll','WindowsBase.dll','System.Xaml.dll') -OutputAssembly $env:READINESS_HELPER_EXE -OutputType ConsoleApplication; $hash=(Get-FileHash -LiteralPath $env:READINESS_HELPER_SOURCE -Algorithm SHA256).Hash; ('READINESS_PROBE_SOURCE_SHA256=' + $hash) | Set-Content -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\runtime-helper.txt') -Encoding ascii"
+          $ErrorActionPreference = 'Stop'
+          [IO.File]::WriteAllText(
+            $env:READINESS_HELPER_SOURCE,
+            $env:READINESS_PROBE_SOURCE,
+            [Text.UTF8Encoding]::new($false)
+          )
+          Add-Type -Path $env:READINESS_HELPER_SOURCE `
+            -ReferencedAssemblies @(
+              'System.dll',
+              'System.Core.dll',
+              'PresentationCore.dll',
+              'PresentationFramework.dll',
+              'WindowsBase.dll',
+              'System.Xaml.dll'
+            ) `
+            -OutputAssembly $env:READINESS_HELPER_EXE `
+            -OutputType ConsoleApplication
+          $hash = (Get-FileHash -LiteralPath $env:READINESS_HELPER_SOURCE -Algorithm SHA256).Hash
+          ('READINESS_PROBE_SOURCE_SHA256=' + $hash) | Set-Content `
+            -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\runtime-helper.txt') `
+            -Encoding ascii
 
       - name: Validate interactive session and non-VSP GUI window
         run: |
