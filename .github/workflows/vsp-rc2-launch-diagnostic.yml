@@ -284,10 +284,10 @@ jobs:
                     }
                     finally
                     {
-                        try { PreserveApplicationData(evidenceRoot, localAppData); }
+                        try { PreserveApplicationData(evidenceRoot, localAppData, "pre-termination"); }
                         catch (Exception preservationError)
                         {
-                            try { File.AppendAllText(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), preservationError + Environment.NewLine); }
+                            try { File.AppendAllText(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), "PHASE=pre-termination" + Environment.NewLine + preservationError + Environment.NewLine); }
                             catch { }
                         }
                         if (process != null)
@@ -323,10 +323,10 @@ jobs:
                             }
                         }
 
-                        try { PreserveApplicationData(evidenceRoot, localAppData); }
+                        try { PreserveApplicationData(evidenceRoot, localAppData, "post-termination"); }
                         catch (Exception preservationError)
                         {
-                            try { File.AppendAllText(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), preservationError + Environment.NewLine); }
+                            try { File.AppendAllText(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), "PHASE=post-termination" + Environment.NewLine + preservationError + Environment.NewLine); }
                             catch { }
                         }
 
@@ -496,10 +496,10 @@ jobs:
                     }
                 }
 
-                private static void PreserveApplicationData(string evidenceRoot, string localAppData)
+                private static void PreserveApplicationData(string evidenceRoot, string localAppData, string phase)
                 {
                     string vspRoot = Path.Combine(localAppData, "VSP");
-                    string manifest = Path.Combine(evidenceRoot, "application-data", "manifest.jsonl");
+                    string manifest = Path.Combine(evidenceRoot, "application-data", "manifest-" + phase + ".jsonl");
                     File.WriteAllText(manifest, "", new UTF8Encoding(false));
                     if (!Directory.Exists(vspRoot))
                     {
@@ -517,7 +517,7 @@ jobs:
                             "\",\"sha256\":\"" + FileSha256(file) + "\",\"contentUploaded\":" + Bool(relative.StartsWith("Logs" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) + "}");
                         if (relative.StartsWith("Logs" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                         {
-                            string destination = Path.Combine(evidenceRoot, "application-data", "logs", relative.Substring(5));
+                            string destination = Path.Combine(evidenceRoot, "application-data", "logs-" + phase, relative.Substring(5));
                             Directory.CreateDirectory(Path.GetDirectoryName(destination));
                             File.Copy(file, destination, true);
                         }
