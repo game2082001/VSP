@@ -1,0 +1,741 @@
+name: VSP RC2 Replacement GUI Launch Validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+
+concurrency:
+  group: vsp-rc2-replacement-gui-launch-validation
+  cancel-in-progress: false
+
+env:
+  RC2_SOURCE_SHA: b0df5fa9341b3c56a515e93b5f770d1f1c172530
+  RC2_ORIGINAL_RUN_ID: "32561743888"
+  RC2_ORIGINAL_ARTIFACT_ID: "9473010560"
+  RC2_ORIGINAL_ARTIFACT_SHA256: 7dfc8baea9f0f1555ee37d56ebdfde2c2cc92acca4a81bd9b90890ac3931a528
+  RC2_PACKAGE_NAME: VSP_v1.0.0-RC2_win-x64.zip
+  RC2_PACKAGE_SHA256: 287A9E1782F8F6CDE16ADC13231203C5BE94954B33926BF66E9F0E32F485356E
+  RC2_READINESS_RUN_ID: "32628211639"
+  RC2_READINESS_ARTIFACT_ID: "9490292220"
+  RC2_READINESS_ARTIFACT_SHA256: 172a9cf4a6873232c2d489a3dea25d4f3c74a171ee0ea72cfdd584b72c583014
+  RC2_READINESS_MAIN_SHA: d2e4760567108fdc27353f68fbffcff72dcc9d23
+
+jobs:
+  replacement-gui-launch-validation:
+    name: RC2 Replacement GUI Launch Validation
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'game2082001'
+    runs-on: [self-hosted, Windows, X64, vsp-gui, interactive-desktop]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Initialize immutable replacement validation evidence
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+          WORKFLOW_DEFINITION_REF: ${{ github.workflow_ref }}
+          WORKFLOW_DEFINITION_SHA: ${{ github.workflow_sha }}
+          WORKFLOW_HOST_MAIN_SHA: ${{ github.sha }}
+        run: |
+          set "RC2_REPLACEMENT_ROOT=%RUNNER_TEMP%\vsp-rc2-replacement-evidence-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "RC2_DOWNLOAD_ROOT=%RUNNER_TEMP%\vsp-rc2-replacement-download-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "RC2_SMOKE_ROOT=%RUNNER_TEMP%\vsp-rc2-replacement-smoke-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "RC2_HELPER_SOURCE=%RUNNER_TEMP%\vsp-rc2-replacement-helper-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.cs"
+          set "RC2_HELPER_EXE=%RUNNER_TEMP%\vsp-rc2-replacement-helper-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.exe"
+          >>"%GITHUB_ENV%" echo RC2_REPLACEMENT_ROOT=%RUNNER_TEMP%\vsp-rc2-replacement-evidence-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%
+          >>"%GITHUB_ENV%" echo RC2_DOWNLOAD_ROOT=%RUNNER_TEMP%\vsp-rc2-replacement-download-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%
+          >>"%GITHUB_ENV%" echo RC2_SMOKE_ROOT=%RUNNER_TEMP%\vsp-rc2-replacement-smoke-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%
+          >>"%GITHUB_ENV%" echo RC2_HELPER_SOURCE=%RUNNER_TEMP%\vsp-rc2-replacement-helper-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.cs
+          >>"%GITHUB_ENV%" echo RC2_HELPER_EXE=%RUNNER_TEMP%\vsp-rc2-replacement-helper-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.exe
+          if exist "%RC2_REPLACEMENT_ROOT%" rmdir /s /q "%RC2_REPLACEMENT_ROOT%"
+          if exist "%RC2_DOWNLOAD_ROOT%" rmdir /s /q "%RC2_DOWNLOAD_ROOT%"
+          if exist "%RC2_SMOKE_ROOT%" rmdir /s /q "%RC2_SMOKE_ROOT%"
+          if exist "%RC2_HELPER_SOURCE%" del /q "%RC2_HELPER_SOURCE%"
+          if exist "%RC2_HELPER_EXE%" del /q "%RC2_HELPER_EXE%"
+          mkdir "%RC2_REPLACEMENT_ROOT%"
+          mkdir "%RC2_REPLACEMENT_ROOT%\provenance"
+          mkdir "%RC2_REPLACEMENT_ROOT%\runner"
+          mkdir "%RC2_REPLACEMENT_ROOT%\smoke"
+          mkdir "%RC2_REPLACEMENT_ROOT%\application-data"
+          mkdir "%RC2_DOWNLOAD_ROOT%"
+          >"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RC2_RELEASE_RESULT=NOT_EVALUATED
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo REPLACEMENT_GUI_LAUNCH_RESULT=NOT_EVALUATED
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RC2_001_DISPOSITION=AUTHORITATIVE_FAIL
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RC2_SOURCE_SHA=%RC2_SOURCE_SHA%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RC2_ORIGINAL_RUN_ID=%RC2_ORIGINAL_RUN_ID%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RC2_ORIGINAL_ARTIFACT_ID=%RC2_ORIGINAL_ARTIFACT_ID%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RC2_READINESS_RUN_ID=%RC2_READINESS_RUN_ID%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RC2_READINESS_ARTIFACT_ID=%RC2_READINESS_ARTIFACT_ID%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo WORKFLOW_HOST_MAIN_SHA=%WORKFLOW_HOST_MAIN_SHA%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo WORKFLOW_DEFINITION_REF=%WORKFLOW_DEFINITION_REF%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo WORKFLOW_DEFINITION_SHA=%WORKFLOW_DEFINITION_SHA%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo GITHUB_REF=%GITHUB_REF%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo GITHUB_SHA=%GITHUB_SHA%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo GITHUB_RUN_ID=%GITHUB_RUN_ID%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo GITHUB_RUN_NUMBER=%GITHUB_RUN_NUMBER%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo GITHUB_RUN_ATTEMPT=%GITHUB_RUN_ATTEMPT%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo GITHUB_EVENT_NAME=%GITHUB_EVENT_NAME%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo GITHUB_ACTOR=%GITHUB_ACTOR%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RUNNER_NAME=%RUNNER_NAME%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RUNNER_OS=%RUNNER_OS%
+          >>"%RC2_REPLACEMENT_ROOT%\provenance\run.txt" echo RUNNER_ARCH=%RUNNER_ARCH%
+          if not "%GITHUB_EVENT_NAME%"=="workflow_dispatch" exit /b 1
+          if not "%GITHUB_REF%"=="refs/heads/main" exit /b 1
+          if /i not "%GITHUB_ACTOR%"=="game2082001" exit /b 1
+          if not "%GITHUB_RUN_ATTEMPT%"=="1" (
+            >"%RC2_REPLACEMENT_ROOT%\smoke\validation-error.txt" echo Re-run attempts cannot be authoritative RC2-004 evidence.
+            exit /b 1
+          )
+          if /i not "%RUNNER_NAME%"=="VSP-GUI-01" (
+            >"%RC2_REPLACEMENT_ROOT%\smoke\validation-error.txt" echo Job was not routed to VSP-GUI-01.
+            exit /b 1
+          )
+          if /i not "%RUNNER_OS%"=="Windows" exit /b 1
+          if /i not "%RUNNER_ARCH%"=="X64" exit /b 1
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-rc2-replacement-release-validation.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $current=[long]$env:GITHUB_RUN_NUMBER; $earlier=@($response.workflow_runs | Where-Object { [long]$_.run_number -lt $current }); ('EARLIER_REPLACEMENT_DISPATCH_COUNT=' + $earlier.Count) | Add-Content -LiteralPath (Join-Path $env:RC2_REPLACEMENT_ROOT 'provenance\run.txt') -Encoding ascii; if ($earlier.Count -gt 0) { 'An earlier RC2-004 workflow_dispatch exists; this run is non-authoritative.' | Set-Content -LiteralPath (Join-Path $env:RC2_REPLACEMENT_ROOT 'smoke\validation-error.txt') -Encoding ascii; throw 'Subsequent RC2-004 dispatch rejected before artifact download and launch' }"
+
+      - name: Download and verify immutable RC2 evidence
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; trap { ($_ | Out-String) | Set-Content -LiteralPath (Join-Path $env:RC2_REPLACEMENT_ROOT 'provenance\artifact-verification-error.txt') -Encoding utf8; exit 1 }; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; function Download-Artifact([string]$id,[string]$expectedHash,[string]$zipName,[string]$rootName,[string]$evidenceName) { $zip=Join-Path $env:RC2_DOWNLOAD_ROOT $zipName; $root=Join-Path $env:RC2_DOWNLOAD_ROOT $rootName; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/artifacts/' + $id + '/zip'); Invoke-WebRequest -UseBasicParsing -Uri $uri -Headers $headers -OutFile $zip; $actual=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash; @('ARTIFACT_ID=' + $id,'EXPECTED_ARTIFACT_SHA256=' + $expectedHash,'ACTUAL_ARTIFACT_SHA256=' + $actual) | Set-Content -LiteralPath (Join-Path $env:RC2_REPLACEMENT_ROOT ('provenance\' + $evidenceName)) -Encoding ascii; if ($actual -ine $expectedHash) { throw ('Artifact SHA-256 mismatch for ID ' + $id) }; New-Item -ItemType Directory -Path $root | Out-Null; Expand-Archive -LiteralPath $zip -DestinationPath $root -Force; return $root }; $original=Download-Artifact $env:RC2_ORIGINAL_ARTIFACT_ID $env:RC2_ORIGINAL_ARTIFACT_SHA256 'original-artifact.zip' 'original-artifact' 'original-artifact-integrity.txt'; $originalProvenance=Get-Content -LiteralPath (Join-Path $original 'provenance.txt'); foreach ($required in @(('RC2_SOURCE_SHA=' + $env:RC2_SOURCE_SHA),('CHECKED_OUT_SHA=' + $env:RC2_SOURCE_SHA),('GITHUB_RUN_ID=' + $env:RC2_ORIGINAL_RUN_ID),'GITHUB_RUN_ATTEMPT=1','AUTHORITATIVE_TEST_EXIT=0','LAUNCH_SMOKE_EXIT=1')) { if ($originalProvenance -cnotcontains $required) { throw ('Original provenance missing exact line: ' + $required) } }; Copy-Item -LiteralPath (Join-Path $original 'provenance.txt') -Destination (Join-Path $env:RC2_REPLACEMENT_ROOT 'provenance\original-run.txt'); $package=Join-Path $original $env:RC2_PACKAGE_NAME; if (-not (Test-Path -LiteralPath $package)) { throw 'Original RC2 package is absent from artifact' }; $packageHash=(Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash; @('PACKAGE_NAME=' + $env:RC2_PACKAGE_NAME,'EXPECTED_PACKAGE_SHA256=' + $env:RC2_PACKAGE_SHA256,'ACTUAL_PACKAGE_SHA256=' + $packageHash) | Set-Content -LiteralPath (Join-Path $env:RC2_REPLACEMENT_ROOT 'provenance\package-integrity.txt') -Encoding ascii; if ($packageHash -ine $env:RC2_PACKAGE_SHA256) { throw 'Original RC2 package SHA-256 mismatch' }; $readiness=Download-Artifact $env:RC2_READINESS_ARTIFACT_ID $env:RC2_READINESS_ARTIFACT_SHA256 'readiness-artifact.zip' 'readiness-artifact' 'readiness-artifact-integrity.txt'; $readinessRun=Get-Content -LiteralPath (Join-Path $readiness 'provenance\run.txt'); foreach ($required in @(('GITHUB_RUN_ID=' + $env:RC2_READINESS_RUN_ID),'GITHUB_RUN_ATTEMPT=1',('GITHUB_SHA=' + $env:RC2_READINESS_MAIN_SHA),('WORKFLOW_DEFINITION_SHA=' + $env:RC2_READINESS_MAIN_SHA),'RUNNER_NAME=VSP-GUI-01','NON_ACCEPTED_EARLIER_READINESS_DISPATCH_COUNT=0')) { if ($readinessRun -cnotcontains $required) { throw ('Readiness provenance missing exact line: ' + $required) } }; $readinessFinal=Get-Content -LiteralPath (Join-Path $readiness 'probe\final-state.json') -Raw | ConvertFrom-Json; if ($readinessFinal.readinessResult -cne 'PASS' -or $readinessFinal.rc2ReleaseResult -cne 'NOT_EVALUATED' -or $readinessFinal.forcedKill -ne $false) { throw 'RC2-003D final-state evidence is not the approved readiness PASS' }; $readinessObservation=Get-Content -LiteralPath (Join-Path $readiness 'probe\observation-summary.json') -Raw | ConvertFrom-Json; if ($readinessObservation.acceptanceSource -cne 'PID-based EnumWindows' -or $readinessObservation.expectedSamples -ne 3 -or $readinessObservation.acceptedSamples -ne 3) { throw 'RC2-003D observation evidence is not the approved 3/3 PID-based EnumWindows PASS' }; Copy-Item -LiteralPath (Join-Path $readiness 'provenance\run.txt') -Destination (Join-Path $env:RC2_REPLACEMENT_ROOT 'provenance\readiness-run.txt'); Copy-Item -LiteralPath (Join-Path $readiness 'probe\final-state.json') -Destination (Join-Path $env:RC2_REPLACEMENT_ROOT 'provenance\readiness-final-state.json'); Copy-Item -LiteralPath (Join-Path $readiness 'probe\observation-summary.json') -Destination (Join-Path $env:RC2_REPLACEMENT_ROOT 'provenance\readiness-observation-summary.json')"
+
+      - name: Materialize Unicode PID window validation helper
+        env:
+          RC2_REPLACEMENT_SOURCE: |
+            using System;
+            using System.Collections.Generic;
+            using System.Diagnostics;
+            using System.Globalization;
+            using System.IO;
+            using System.IO.Compression;
+            using System.Runtime.InteropServices;
+            using System.Security.Cryptography;
+            using System.Security.Principal;
+            using System.Text;
+            using System.Threading;
+
+            internal static class Rc2ReplacementGuiLaunchValidation
+            {
+                private const uint WM_NULL = 0x0000;
+                private const uint WM_CLOSE = 0x0010;
+                private const uint SMTO_ABORTIFHUNG = 0x0002;
+                private const uint DESKTOP_READOBJECTS = 0x0001;
+                private const int UOI_NAME = 2;
+                private const int WTS_USER_NAME = 5;
+                private const int WTS_DOMAIN_NAME = 7;
+                private const int WTS_CONNECT_STATE = 8;
+                private const int WTS_ACTIVE = 0;
+                private const string ExpectedRunner = "VSP-GUI-01";
+                private const string ExpectedAccount = @"Yousin\game2082001";
+                private const string ExpectedSid = "S-1-5-21-246760006-3988060075-516279282-1001";
+                private const string ExpectedTitle = "VSP - Login";
+
+                private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr parameter);
+
+                [StructLayout(LayoutKind.Sequential)]
+                private struct RECT
+                {
+                    public int Left;
+                    public int Top;
+                    public int Right;
+                    public int Bottom;
+                }
+
+                private sealed class WindowRecord
+                {
+                    public IntPtr Handle;
+                    public uint ProcessId;
+                    public uint ThreadId;
+                    public string Title;
+                    public string ClassName;
+                    public bool IsUnicode;
+                    public bool Visible;
+                    public bool Enabled;
+                    public bool Hung;
+                    public bool Responsive;
+                    public int ResponsivenessError;
+                    public int ExpectedTitleLength;
+                    public int GetWindowTextLengthReturn;
+                    public int GetWindowTextReturn;
+                    public int ActualTitleLength;
+                    public RECT Rect;
+                }
+
+                private sealed class EnumerationRecord
+                {
+                    public bool ApiResult;
+                    public int LastError;
+                    public int CallbackCount;
+                    public readonly List<WindowRecord> ProcessWindows = new List<WindowRecord>();
+                    public WindowRecord MatchingWindow;
+                }
+
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+                [DllImport("user32.dll")]
+                private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+                [DllImport("user32.dll", EntryPoint = "GetWindowTextW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+                private static extern int GetWindowTextW(IntPtr hwnd, StringBuilder text, int count);
+                [DllImport("user32.dll", EntryPoint = "GetWindowTextLengthW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+                private static extern int GetWindowTextLengthW(IntPtr hwnd);
+                [DllImport("user32.dll", EntryPoint = "GetClassNameW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+                private static extern int GetClassNameW(IntPtr hwnd, StringBuilder className, int count);
+                [DllImport("user32.dll", EntryPoint = "IsWindowUnicode", ExactSpelling = true)]
+                private static extern bool IsWindowUnicode(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsWindowVisible(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsWindowEnabled(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsHungAppWindow(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+                [DllImport("kernel32.dll", SetLastError = true)]
+                private static extern bool ProcessIdToSessionId(uint processId, out uint sessionId);
+                [DllImport("kernel32.dll")]
+                private static extern uint WTSGetActiveConsoleSessionId();
+                [DllImport("user32.dll")]
+                private static extern IntPtr GetProcessWindowStation();
+                [DllImport("user32.dll")]
+                private static extern IntPtr GetThreadDesktop(uint threadId);
+                [DllImport("kernel32.dll")]
+                private static extern uint GetCurrentThreadId();
+                [DllImport("kernel32.dll")]
+                private static extern void SetLastError(uint errorCode);
+                [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+                private static extern bool GetUserObjectInformation(IntPtr handle, int index, StringBuilder info, uint length, out uint needed);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern IntPtr OpenInputDesktop(uint flags, bool inherit, uint access);
+                [DllImport("user32.dll")]
+                private static extern bool CloseDesktop(IntPtr desktop);
+                [DllImport("wtsapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+                private static extern bool WTSQuerySessionInformation(IntPtr server, int sessionId, int infoClass, out IntPtr buffer, out int bytesReturned);
+                [DllImport("wtsapi32.dll")]
+                private static extern void WTSFreeMemory(IntPtr buffer);
+
+                public static int Main(string[] args)
+                {
+                    if (args.Length != 3) return 2;
+                    string evidenceRoot = args[0];
+                    string smokeRoot = args[1];
+                    string packagePath = args[2];
+                    Directory.CreateDirectory(evidenceRoot);
+                    Directory.CreateDirectory(Path.Combine(evidenceRoot, "runner"));
+                    Directory.CreateDirectory(Path.Combine(evidenceRoot, "smoke"));
+                    Directory.CreateDirectory(Path.Combine(evidenceRoot, "application-data"));
+                    try
+                    {
+                        Run(evidenceRoot, smokeRoot, packagePath);
+                        return 0;
+                    }
+                    catch (Exception error)
+                    {
+                        string errorPath = Path.Combine(evidenceRoot, "smoke", "validation-error.txt");
+                        File.AppendAllText(errorPath, Environment.NewLine + error + Environment.NewLine, new UTF8Encoding(false));
+                        string finalStatePath = Path.Combine(evidenceRoot, "smoke", "final-state.json");
+                        if (!File.Exists(finalStatePath))
+                        {
+                            File.WriteAllText(finalStatePath,
+                                "{\"replacementGuiLaunchResult\":\"FAIL\",\"rc2ReleaseResult\":\"NOT_EVALUATED\",\"cleanExit\":false,\"forcedKill\":false,\"finalExitCode\":null}" + Environment.NewLine,
+                                new UTF8Encoding(false));
+                        }
+                        return 1;
+                    }
+                }
+
+                private static void Run(string evidenceRoot, string smokeRoot, string packagePath)
+                {
+                    if (Directory.Exists(smokeRoot)) Directory.Delete(smokeRoot, true);
+                    Directory.CreateDirectory(smokeRoot);
+                    string extractRoot = Path.Combine(smokeRoot, "app");
+                    string localAppData = Path.Combine(smokeRoot, "LocalAppData");
+                    Directory.CreateDirectory(extractRoot);
+                    Directory.CreateDirectory(localAppData);
+
+                    uint runnerSession = ValidateInteractiveIdentity(Path.Combine(evidenceRoot, "runner", "identity-pre.json"));
+                    ZipFile.ExtractToDirectory(packagePath, extractRoot);
+                    string exe = Path.Combine(extractRoot, "VSP.UI.exe");
+                    Require(File.Exists(exe), "VSP.UI.exe is missing from the original RC2 package");
+                    Require(File.Exists(Path.Combine(extractRoot, "coreclr.dll")), "coreclr.dll is missing from the self-contained package");
+                    Require(File.Exists(Path.Combine(extractRoot, "hostfxr.dll")), "hostfxr.dll is missing from the self-contained package");
+
+                    string childPath = RemoveDotnetFromPath(Environment.GetEnvironmentVariable("PATH") ?? "");
+                    VerifyDotnetAbsent(childPath, Path.Combine(evidenceRoot, "smoke", "where-dotnet.txt"));
+
+                    Process process = null;
+                    IntPtr acceptedHandle = IntPtr.Zero;
+                    DateTime? firstAcceptedUtc = null;
+                    DateTime? lastAcceptedUtc = null;
+                    int acceptedCount = 0;
+                    bool cleanExit = false;
+                    bool forcedKill = false;
+                    int? finalExitCode = null;
+                    string failure = "";
+
+                    try
+                    {
+                        var start = new ProcessStartInfo(exe);
+                        start.WorkingDirectory = extractRoot;
+                        start.UseShellExecute = false;
+                        start.EnvironmentVariables["PATH"] = childPath;
+                        start.EnvironmentVariables["LOCALAPPDATA"] = localAppData;
+                        process = Process.Start(start);
+                        Require(process != null, "Process.Start returned null");
+
+                        uint processSession;
+                        Require(ProcessIdToSessionId((uint)process.Id, out processSession), "ProcessIdToSessionId failed for VSP.UI.exe");
+                        Require(processSession == runnerSession, "VSP.UI.exe session does not equal the validated runner session");
+                        File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "launch.json"),
+                            "{\"pid\":" + process.Id +
+                            ",\"sessionId\":" + processSession +
+                            ",\"expectedTitle\":\"" + Json(ExpectedTitle) +
+                            "\",\"observationLimitSeconds\":20,\"minimumAcceptedSamples\":3,\"minimumAcceptedSpanSeconds\":5}" + Environment.NewLine,
+                            new UTF8Encoding(false));
+
+                        DateTime deadline = DateTime.UtcNow.AddSeconds(20);
+                        int sample = 0;
+                        while (DateTime.UtcNow < deadline)
+                        {
+                            Thread.Sleep(500);
+                            sample++;
+                            process.Refresh();
+                            if (process.HasExited)
+                            {
+                                finalExitCode = process.ExitCode;
+                                throw new InvalidOperationException("VSP.UI.exe exited before GUI launch acceptance; exit=" + process.ExitCode.ToString(CultureInfo.InvariantCulture));
+                            }
+
+                            EnumerationRecord enumeration = CaptureEnumWindows((uint)process.Id);
+                            AppendLine(Path.Combine(evidenceRoot, "smoke", "enumwindows-samples.jsonl"),
+                                "{\"sample\":" + sample + ",\"utc\":\"" + DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture) +
+                                "\",\"enumeration\":" + EnumerationJson(enumeration) + "}");
+                            WindowRecord window = enumeration.MatchingWindow;
+                            bool accepted = enumeration.ApiResult && enumeration.LastError == 0 && window != null &&
+                                window.ProcessId == (uint)process.Id && window.IsUnicode && window.Visible && window.Enabled &&
+                                !window.Hung && window.Responsive &&
+                                window.Rect.Right > window.Rect.Left && window.Rect.Bottom > window.Rect.Top;
+                            AppendLine(Path.Combine(evidenceRoot, "smoke", "acceptance-samples.jsonl"),
+                                AcceptanceJson(sample, window, accepted));
+                            if (accepted)
+                            {
+                                DateTime now = DateTime.UtcNow;
+                                if (!firstAcceptedUtc.HasValue) firstAcceptedUtc = now;
+                                lastAcceptedUtc = now;
+                                acceptedCount++;
+                                acceptedHandle = window.Handle;
+                                if (acceptedCount >= 3 && (lastAcceptedUtc.Value - firstAcceptedUtc.Value).TotalSeconds >= 5) break;
+                            }
+                        }
+
+                        double acceptedSpan = firstAcceptedUtc.HasValue && lastAcceptedUtc.HasValue
+                            ? (lastAcceptedUtc.Value - firstAcceptedUtc.Value).TotalSeconds : 0;
+                        File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "observation-summary.json"),
+                            "{\"acceptanceSource\":\"PID-based EnumWindows\",\"acceptedSamples\":" + acceptedCount +
+                            ",\"acceptedSpanSeconds\":" + acceptedSpan.ToString(CultureInfo.InvariantCulture) +
+                            ",\"minimumAcceptedSamples\":3,\"minimumAcceptedSpanSeconds\":5}" + Environment.NewLine,
+                            new UTF8Encoding(false));
+                        Require(acceptedCount >= 3, "Fewer than three PID-based EnumWindows observations passed acceptance");
+                        Require(acceptedSpan >= 5, "First and last accepted observations were less than five seconds apart");
+                        Require(acceptedHandle != IntPtr.Zero, "No accepted Login HWND is available for clean close");
+                    }
+                    catch (Exception error)
+                    {
+                        failure = error.ToString();
+                    }
+                    finally
+                    {
+                        try { PreserveApplicationData(evidenceRoot, localAppData, "pre-termination"); }
+                        catch (Exception error) { AppendLine(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), "PHASE=pre-termination " + error); }
+
+                        if (process != null)
+                        {
+                            try
+                            {
+                                process.Refresh();
+                                bool closePosted = false;
+                                bool exitedInTime = false;
+                                if (!process.HasExited)
+                                {
+                                    closePosted = acceptedHandle != IntPtr.Zero && PostMessage(acceptedHandle, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                                    exitedInTime = closePosted && process.WaitForExit(10000);
+                                    cleanExit = exitedInTime;
+                                    if (!exitedInTime)
+                                    {
+                                        process.Kill();
+                                        process.WaitForExit();
+                                        forcedKill = true;
+                                    }
+                                }
+                                finalExitCode = process.HasExited ? (int?)process.ExitCode : null;
+                                File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "termination.json"),
+                                    "{\"acceptedHandle\":\"0x" + acceptedHandle.ToInt64().ToString("X", CultureInfo.InvariantCulture) +
+                                    "\",\"wmClosePosted\":" + Bool(closePosted) +
+                                    ",\"exitedWithin10Seconds\":" + Bool(exitedInTime) +
+                                    ",\"forcedKill\":" + Bool(forcedKill) +
+                                    ",\"finalExitCode\":" + (finalExitCode.HasValue ? finalExitCode.Value.ToString(CultureInfo.InvariantCulture) : "null") + "}" + Environment.NewLine,
+                                    new UTF8Encoding(false));
+                            }
+                            catch (Exception error)
+                            {
+                                failure = failure + Environment.NewLine + "TERMINATION_ERROR" + Environment.NewLine + error;
+                                try
+                                {
+                                    if (!process.HasExited)
+                                    {
+                                        process.Kill();
+                                        process.WaitForExit();
+                                        forcedKill = true;
+                                    }
+                                }
+                                catch { }
+                            }
+                        }
+
+                        try { PreserveApplicationData(evidenceRoot, localAppData, "post-termination"); }
+                        catch (Exception error) { AppendLine(Path.Combine(evidenceRoot, "application-data", "preservation-error.txt"), "PHASE=post-termination " + error); }
+                    }
+
+                    try { ValidateInteractiveIdentity(Path.Combine(evidenceRoot, "runner", "identity-post.json")); }
+                    catch (Exception error) { failure = failure + Environment.NewLine + "POST_IDENTITY_ERROR" + Environment.NewLine + error; }
+
+                    if (String.IsNullOrEmpty(failure) && (!cleanExit || forcedKill || finalExitCode != 0))
+                        failure = "VSP.UI.exe did not complete a clean zero-exit-code WM_CLOSE shutdown";
+
+                    bool passed = String.IsNullOrEmpty(failure) && cleanExit && !forcedKill && finalExitCode == 0;
+                    File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "final-state.json"),
+                        "{\"replacementGuiLaunchResult\":\"" + (passed ? "PASS" : "FAIL") +
+                        "\",\"rc2ReleaseResult\":\"NOT_EVALUATED\",\"cleanExit\":" + Bool(cleanExit) +
+                        ",\"forcedKill\":" + Bool(forcedKill) +
+                        ",\"finalExitCode\":" + (finalExitCode.HasValue ? finalExitCode.Value.ToString(CultureInfo.InvariantCulture) : "null") + "}" + Environment.NewLine,
+                        new UTF8Encoding(false));
+                    if (!passed)
+                    {
+                        File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "validation-error.txt"), failure, new UTF8Encoding(false));
+                        throw new InvalidOperationException("VSP-RC2-004 authoritative replacement validation failed");
+                    }
+                }
+
+                private static uint ValidateInteractiveIdentity(string path)
+                {
+                    string processAccount;
+                    string processSid;
+                    using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+                    {
+                        processAccount = identity.Name ?? "";
+                        processSid = identity.User == null ? "" : identity.User.Value;
+                    }
+                    uint session;
+                    Require(ProcessIdToSessionId((uint)Process.GetCurrentProcess().Id, out session), "ProcessIdToSessionId failed for validation helper");
+                    uint active = WTSGetActiveConsoleSessionId();
+                    string sessionAccount = QueryWtsString(session, WTS_DOMAIN_NAME) + "\\" + QueryWtsString(session, WTS_USER_NAME);
+                    int state = QueryWtsInt32(session, WTS_CONNECT_STATE);
+                    string station = UserObjectName(GetProcessWindowStation());
+                    string desktop = UserObjectName(GetThreadDesktop(GetCurrentThreadId()));
+                    IntPtr input = OpenInputDesktop(0, false, DESKTOP_READOBJECTS);
+                    int inputError = input == IntPtr.Zero ? Marshal.GetLastWin32Error() : 0;
+                    string inputName = input == IntPtr.Zero ? "" : UserObjectName(input);
+                    if (input != IntPtr.Zero) CloseDesktop(input);
+                    string runnerName = Environment.GetEnvironmentVariable("RUNNER_NAME") ?? "";
+                    File.WriteAllText(path,
+                        "{\"runnerName\":\"" + Json(runnerName) +
+                        "\",\"processAccount\":\"" + Json(processAccount) +
+                        "\",\"processSid\":\"" + Json(processSid) +
+                        "\",\"sessionAccount\":\"" + Json(sessionAccount) +
+                        "\",\"processSessionId\":" + session +
+                        ",\"activeConsoleSessionId\":" + active +
+                        ",\"connectState\":" + state +
+                        ",\"processWindowStation\":\"" + Json(station) +
+                        "\",\"threadDesktop\":\"" + Json(desktop) +
+                        "\",\"openInputDesktopSucceeded\":" + Bool(inputError == 0) +
+                        ",\"inputDesktop\":\"" + Json(inputName) +
+                        "\",\"openInputDesktopError\":" + inputError + "}" + Environment.NewLine,
+                        new UTF8Encoding(false));
+                    Require(String.Equals(runnerName, ExpectedRunner, StringComparison.OrdinalIgnoreCase), "Runner name is not VSP-GUI-01");
+                    Require(String.Equals(processAccount, ExpectedAccount, StringComparison.OrdinalIgnoreCase), "Process account is not the approved interactive account");
+                    Require(String.Equals(processSid, ExpectedSid, StringComparison.Ordinal), "Process SID is not the approved SID");
+                    Require(String.Equals(sessionAccount, ExpectedAccount, StringComparison.OrdinalIgnoreCase), "WTS session account is not the approved interactive account");
+                    Require(session != 0 && active != UInt32.MaxValue && session == active, "Runner is not in the active non-zero console session");
+                    Require(state == WTS_ACTIVE, "Runner WTS session is not Active");
+                    Require(String.Equals(station, "WinSta0", StringComparison.OrdinalIgnoreCase), "Window station is not WinSta0");
+                    Require(String.Equals(desktop, "Default", StringComparison.OrdinalIgnoreCase), "Thread desktop is not Default");
+                    Require(inputError == 0 && String.Equals(inputName, "Default", StringComparison.OrdinalIgnoreCase), "Default input desktop is unavailable");
+                    return session;
+                }
+
+                private static EnumerationRecord CaptureEnumWindows(uint targetPid)
+                {
+                    var result = new EnumerationRecord();
+                    EnumWindowsProc callback = delegate(IntPtr hwnd, IntPtr ignored)
+                    {
+                        result.CallbackCount++;
+                        uint pid;
+                        GetWindowThreadProcessId(hwnd, out pid);
+                        if (pid != targetPid) return true;
+                        WindowRecord window = InspectWindow(hwnd);
+                        result.ProcessWindows.Add(window);
+                        if (result.MatchingWindow == null && String.Equals(window.Title, ExpectedTitle, StringComparison.Ordinal))
+                            result.MatchingWindow = window;
+                        return true;
+                    };
+                    SetLastError(0);
+                    result.ApiResult = EnumWindows(callback, IntPtr.Zero);
+                    result.LastError = result.ApiResult ? 0 : Marshal.GetLastWin32Error();
+                    return result;
+                }
+
+                private static WindowRecord InspectWindow(IntPtr hwnd)
+                {
+                    uint pid;
+                    uint tid = GetWindowThreadProcessId(hwnd, out pid);
+                    int length = GetWindowTextLengthW(hwnd);
+                    var title = new StringBuilder(Math.Max(Math.Max(length + 1, ExpectedTitle.Length + 1), 2));
+                    int titleReturn = GetWindowTextW(hwnd, title, title.Capacity);
+                    var className = new StringBuilder(256);
+                    GetClassNameW(hwnd, className, className.Capacity);
+                    RECT rect;
+                    GetWindowRect(hwnd, out rect);
+                    IntPtr response;
+                    SetLastError(0);
+                    bool responsive = SendMessageTimeout(hwnd, WM_NULL, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, 1000, out response) != IntPtr.Zero;
+                    int responseError = responsive ? 0 : Marshal.GetLastWin32Error();
+                    return new WindowRecord
+                    {
+                        Handle = hwnd,
+                        ProcessId = pid,
+                        ThreadId = tid,
+                        Title = title.ToString(),
+                        ClassName = className.ToString(),
+                        IsUnicode = IsWindowUnicode(hwnd),
+                        Visible = IsWindowVisible(hwnd),
+                        Enabled = IsWindowEnabled(hwnd),
+                        Hung = IsHungAppWindow(hwnd),
+                        Responsive = responsive,
+                        ResponsivenessError = responseError,
+                        ExpectedTitleLength = ExpectedTitle.Length,
+                        GetWindowTextLengthReturn = length,
+                        GetWindowTextReturn = titleReturn,
+                        ActualTitleLength = title.Length,
+                        Rect = rect
+                    };
+                }
+
+                private static string EnumerationJson(EnumerationRecord record)
+                {
+                    var windows = new string[record.ProcessWindows.Count];
+                    for (int index = 0; index < windows.Length; index++) windows[index] = WindowJson(record.ProcessWindows[index]);
+                    return "{\"api\":\"EnumWindows\",\"apiResult\":" + Bool(record.ApiResult) +
+                        ",\"lastError\":" + record.LastError +
+                        ",\"callbackCount\":" + record.CallbackCount +
+                        ",\"matchingWindow\":" + WindowJson(record.MatchingWindow) +
+                        ",\"processWindows\":[" + String.Join(",", windows) + "]}";
+                }
+
+                private static string AcceptanceJson(int sample, WindowRecord window, bool accepted)
+                {
+                    return "{\"sample\":" + sample +
+                        ",\"found\":" + Bool(window != null) +
+                        ",\"accepted\":" + Bool(accepted) +
+                        ",\"window\":" + WindowJson(window) + "}";
+                }
+
+                private static string WindowJson(WindowRecord window)
+                {
+                    if (window == null) return "null";
+                    return "{\"handle\":\"0x" + window.Handle.ToInt64().ToString("X", CultureInfo.InvariantCulture) +
+                        "\",\"pid\":" + window.ProcessId +
+                        ",\"threadId\":" + window.ThreadId +
+                        ",\"title\":\"" + Json(window.Title) +
+                        "\",\"className\":\"" + Json(window.ClassName) +
+                        "\",\"isWindowUnicode\":" + Bool(window.IsUnicode) +
+                        ",\"expectedTitleLength\":" + window.ExpectedTitleLength +
+                        ",\"getWindowTextLengthWReturn\":" + window.GetWindowTextLengthReturn +
+                        ",\"getWindowTextWReturn\":" + window.GetWindowTextReturn +
+                        ",\"actualTitleLength\":" + window.ActualTitleLength +
+                        ",\"titleMatchesExpected\":" + Bool(String.Equals(window.Title, ExpectedTitle, StringComparison.Ordinal)) +
+                        ",\"visible\":" + Bool(window.Visible) +
+                        ",\"enabled\":" + Bool(window.Enabled) +
+                        ",\"hung\":" + Bool(window.Hung) +
+                        ",\"responsive\":" + Bool(window.Responsive) +
+                        ",\"responsivenessError\":" + window.ResponsivenessError +
+                        ",\"rect\":{\"left\":" + window.Rect.Left +
+                        ",\"top\":" + window.Rect.Top +
+                        ",\"right\":" + window.Rect.Right +
+                        ",\"bottom\":" + window.Rect.Bottom + "}}";
+                }
+
+                private static void PreserveApplicationData(string evidenceRoot, string localAppData, string phase)
+                {
+                    string vspRoot = Path.Combine(localAppData, "VSP");
+                    string manifest = Path.Combine(evidenceRoot, "application-data", "manifest-" + phase + ".jsonl");
+                    File.WriteAllText(manifest, "", new UTF8Encoding(false));
+                    if (!Directory.Exists(vspRoot))
+                    {
+                        AppendLine(manifest, "{\"vspApplicationDataExists\":false}");
+                        return;
+                    }
+                    AppendLine(manifest, "{\"vspApplicationDataExists\":true}");
+                    foreach (string file in Directory.GetFiles(vspRoot, "*", SearchOption.AllDirectories))
+                    {
+                        var info = new FileInfo(file);
+                        string relative = file.Substring(vspRoot.Length).TrimStart(Path.DirectorySeparatorChar);
+                        bool isLog = relative.StartsWith("Logs" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+                        AppendLine(manifest,
+                            "{\"relativePath\":\"" + Json(relative) +
+                            "\",\"length\":" + info.Length +
+                            ",\"lastWriteUtc\":\"" + info.LastWriteTimeUtc.ToString("O", CultureInfo.InvariantCulture) +
+                            "\",\"sha256\":\"" + FileSha256(file) +
+                            "\",\"contentUploaded\":" + Bool(isLog) + "}");
+                        if (isLog)
+                        {
+                            string destination = Path.Combine(evidenceRoot, "application-data", "logs-" + phase, relative.Substring(5));
+                            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                            File.Copy(file, destination, true);
+                        }
+                    }
+                }
+
+                private static string RemoveDotnetFromPath(string path)
+                {
+                    var retained = new List<string>();
+                    foreach (string entry in path.Split(';'))
+                    {
+                        if (String.IsNullOrWhiteSpace(entry)) continue;
+                        string normalized = entry.Trim().TrimEnd('\\');
+                        if (normalized.EndsWith("\\dotnet", StringComparison.OrdinalIgnoreCase) ||
+                            normalized.IndexOf("Microsoft\\dotnet", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            normalized.IndexOf("Program Files\\dotnet", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            normalized.IndexOf("\\.dotnet", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                        retained.Add(entry);
+                    }
+                    return String.Join(";", retained);
+                }
+
+                private static void VerifyDotnetAbsent(string path, string evidencePath)
+                {
+                    var start = new ProcessStartInfo("where.exe", "dotnet");
+                    start.UseShellExecute = false;
+                    start.RedirectStandardOutput = true;
+                    start.RedirectStandardError = true;
+                    start.EnvironmentVariables["PATH"] = path;
+                    using (Process probe = Process.Start(start))
+                    {
+                        Require(probe != null, "where dotnet probe did not start");
+                        probe.WaitForExit();
+                        string output = probe.StandardOutput.ReadToEnd() + probe.StandardError.ReadToEnd();
+                        File.WriteAllText(evidencePath,
+                            "WHERE_DOTNET_EXIT=" + probe.ExitCode + Environment.NewLine + output,
+                            new UTF8Encoding(false));
+                        Require(probe.ExitCode != 0, "dotnet remains reachable on child PATH");
+                    }
+                }
+
+                private static string QueryWtsString(uint sessionId, int infoClass)
+                {
+                    IntPtr buffer;
+                    int bytes;
+                    if (!WTSQuerySessionInformation(IntPtr.Zero, (int)sessionId, infoClass, out buffer, out bytes)) return "";
+                    try { return buffer == IntPtr.Zero ? "" : (Marshal.PtrToStringUni(buffer) ?? ""); }
+                    finally { if (buffer != IntPtr.Zero) WTSFreeMemory(buffer); }
+                }
+
+                private static int QueryWtsInt32(uint sessionId, int infoClass)
+                {
+                    IntPtr buffer;
+                    int bytes;
+                    if (!WTSQuerySessionInformation(IntPtr.Zero, (int)sessionId, infoClass, out buffer, out bytes) || buffer == IntPtr.Zero) return -1;
+                    try { return Marshal.ReadInt32(buffer); }
+                    finally { WTSFreeMemory(buffer); }
+                }
+
+                private static string UserObjectName(IntPtr handle)
+                {
+                    if (handle == IntPtr.Zero) return "";
+                    uint needed;
+                    GetUserObjectInformation(handle, UOI_NAME, null, 0, out needed);
+                    if (needed == 0) return "";
+                    var buffer = new StringBuilder((int)(needed / 2) + 2);
+                    return GetUserObjectInformation(handle, UOI_NAME, buffer, needed, out needed) ? buffer.ToString() : "";
+                }
+
+                private static string FileSha256(string path)
+                {
+                    using (var stream = File.OpenRead(path))
+                    using (var hash = SHA256.Create())
+                    {
+                        var bytes = hash.ComputeHash(stream);
+                        var text = new StringBuilder(bytes.Length * 2);
+                        foreach (byte value in bytes) text.Append(value.ToString("x2", CultureInfo.InvariantCulture));
+                        return text.ToString();
+                    }
+                }
+
+                private static void Require(bool condition, string message)
+                {
+                    if (!condition) throw new InvalidOperationException(message);
+                }
+
+                private static void AppendLine(string path, string line)
+                {
+                    File.AppendAllText(path, line + Environment.NewLine, new UTF8Encoding(false));
+                }
+
+                private static string Bool(bool value) { return value ? "true" : "false"; }
+                private static string Json(string value)
+                {
+                    if (value == null) return "";
+                    return value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n");
+                }
+            }
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [IO.File]::WriteAllText($env:RC2_HELPER_SOURCE, $env:RC2_REPLACEMENT_SOURCE, [Text.UTF8Encoding]::new($false))
+          $hash = (Get-FileHash -LiteralPath $env:RC2_HELPER_SOURCE -Algorithm SHA256).Hash
+          ('RUNTIME_HELPER_SOURCE_SHA256=' + $hash) | Set-Content -LiteralPath (Join-Path $env:RC2_REPLACEMENT_ROOT 'provenance\runtime-helper.txt') -Encoding ascii
+          try {
+            Add-Type -Path $env:RC2_HELPER_SOURCE -ReferencedAssemblies @('System.dll','System.Core.dll','System.IO.Compression.dll','System.IO.Compression.FileSystem.dll') -OutputAssembly $env:RC2_HELPER_EXE -OutputType ConsoleApplication
+          } catch {
+            @('ADD_TYPE_FAILED',('RUNTIME_HELPER_SOURCE_SHA256=' + $hash),'','PRIMARY_ERROR',($_ | Out-String),'','ERROR_RECORDS',($Error | Out-String)) | Set-Content -LiteralPath (Join-Path $env:RC2_REPLACEMENT_ROOT 'provenance\compiler-diagnostics.txt') -Encoding utf8
+            throw
+          }
+
+      - name: Execute authoritative replacement GUI launch validation
+        run: |
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "& $env:RC2_HELPER_EXE $env:RC2_REPLACEMENT_ROOT $env:RC2_SMOKE_ROOT (Join-Path $env:RC2_DOWNLOAD_ROOT ('original-artifact\' + $env:RC2_PACKAGE_NAME)); $code=$LASTEXITCODE; ('REPLACEMENT_VALIDATION_EXIT_CODE=' + $code) | Set-Content -LiteralPath (Join-Path $env:RC2_REPLACEMENT_ROOT 'smoke\exit-code.txt') -Encoding ascii; if ($code -ne 0) { exit $code }"
+
+      - name: Record replacement validation summary
+        if: always()
+        env:
+          REPLACEMENT_JOB_STATUS: ${{ job.status }}
+        run: |
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$summary=Join-Path $env:RC2_REPLACEMENT_ROOT 'REPLACEMENT_SUMMARY.md'; @('# VSP RC2 Replacement GUI Launch Validation','',('Job status at summary: ' + $env:REPLACEMENT_JOB_STATUS),('Run ID: ' + $env:GITHUB_RUN_ID),('Run attempt: ' + $env:GITHUB_RUN_ATTEMPT),('Runner: ' + $env:RUNNER_NAME),('RC2 source SHA: ' + $env:RC2_SOURCE_SHA),('Original RC2-001 run ' + $env:RC2_ORIGINAL_RUN_ID + ' remains AUTHORITATIVE FAIL'),('RC2-003D readiness run ' + $env:RC2_READINESS_RUN_ID + ' remains environment-readiness evidence'),'','A successful job means only Replacement RC2 GUI Launch Validation = PASS.','RC2_RELEASE_RESULT=NOT_EVALUATED remains unchanged pending Release Evidence Reconciliation.') | Set-Content -LiteralPath $summary -Encoding utf8"
+
+      - name: Upload RC2-004 replacement validation evidence
+        id: upload-replacement-evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vsp-rc2-replacement-gui-validation-run-${{ github.run_id }}
+          path: ${{ env.RC2_REPLACEMENT_ROOT }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Clean temporary replacement validation data after preserved upload
+        if: always() && steps.upload-replacement-evidence.outcome == 'success'
+        run: |
+          if exist "%RC2_SMOKE_ROOT%" rmdir /s /q "%RC2_SMOKE_ROOT%"
+          if exist "%RC2_DOWNLOAD_ROOT%" rmdir /s /q "%RC2_DOWNLOAD_ROOT%"
+          if exist "%RC2_HELPER_SOURCE%" del /q "%RC2_HELPER_SOURCE%"
+          if exist "%RC2_HELPER_EXE%" del /q "%RC2_HELPER_EXE%"
+          if exist "%RC2_REPLACEMENT_ROOT%" rmdir /s /q "%RC2_REPLACEMENT_ROOT%"
