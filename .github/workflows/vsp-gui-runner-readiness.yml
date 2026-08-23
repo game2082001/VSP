@@ -43,7 +43,7 @@ jobs:
           mkdir "%READINESS_EVIDENCE_ROOT%\provenance"
           mkdir "%READINESS_EVIDENCE_ROOT%\runner"
           mkdir "%READINESS_EVIDENCE_ROOT%\probe"
-          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $runPath=Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\run.txt'; @('READINESS_RESULT=NOT_EVALUATED','RC2_RELEASE_RESULT=NOT_EVALUATED','RC2_001_AUTHORITATIVE_RUN=32561743888','RC2_001_DISPOSITION=AUTHORITATIVE_FAIL','RC2_002_DIAGNOSTIC_RUN=32571209557',('GITHUB_RUN_ID=' + $env:GITHUB_RUN_ID),('GITHUB_RUN_NUMBER=' + $env:GITHUB_RUN_NUMBER),('GITHUB_RUN_ATTEMPT=' + $env:GITHUB_RUN_ATTEMPT),('GITHUB_EVENT_NAME=' + $env:GITHUB_EVENT_NAME),('GITHUB_REF=' + $env:GITHUB_REF),('GITHUB_SHA=' + $env:GITHUB_SHA),('GITHUB_ACTOR=' + $env:GITHUB_ACTOR),('RUNNER_NAME=' + $env:RUNNER_NAME),('RUNNER_OS=' + $env:RUNNER_OS),('RUNNER_ARCH=' + $env:RUNNER_ARCH),('WORKFLOW_DEFINITION_REF=' + $env:WORKFLOW_DEFINITION_REF),('WORKFLOW_DEFINITION_SHA=' + $env:WORKFLOW_DEFINITION_SHA)) | Set-Content -LiteralPath $runPath -Encoding utf8; if ($env:GITHUB_EVENT_NAME -cne 'workflow_dispatch') { throw 'Event is not workflow_dispatch' }; if ($env:GITHUB_REF -cne 'refs/heads/main') { throw 'Workflow must run from refs/heads/main' }; if ($env:GITHUB_ACTOR -ine 'game2082001') { throw 'Workflow actor is not the approved Product Owner' }; if ($env:GITHUB_RUN_ATTEMPT -cne '1') { throw 'Re-run attempts cannot be authoritative RC2-003 evidence' }; if ($env:RUNNER_NAME -ine 'VSP-GUI-01') { throw 'Job was not routed to VSP-GUI-01' }; if ($env:RUNNER_OS -ine 'Windows') { throw 'Runner OS is not Windows' }; if ($env:RUNNER_ARCH -ine 'X64') { throw 'Runner architecture is not X64' }; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-gui-runner-readiness.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $current=[long]$env:GITHUB_RUN_NUMBER; $earlier=@($response.workflow_runs | Where-Object { [long]$_.run_number -lt $current }); ('EARLIER_READINESS_DISPATCH_COUNT=' + $earlier.Count) | Add-Content -LiteralPath $runPath -Encoding utf8; if ($earlier.Count -gt 0) { 'A prior RC2-003 workflow_dispatch exists; this run is non-authoritative.' | Set-Content -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\guard-failure.txt') -Encoding utf8; throw 'Subsequent RC2-003 dispatch rejected before GUI probe execution' }"
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $runPath=Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\run.txt'; @('READINESS_RESULT=NOT_EVALUATED','RC2_RELEASE_RESULT=NOT_EVALUATED','RC2_001_AUTHORITATIVE_RUN=32561743888','RC2_001_DISPOSITION=AUTHORITATIVE_FAIL','RC2_002_DIAGNOSTIC_RUN=32571209557','RC2_003_AUTHORITATIVE_FAIL_RUN=32587312778','RC2_003_AUTHORITATIVE_FAIL_CLASSIFICATION=READINESS_WORKFLOW_DEFECT',('GITHUB_RUN_ID=' + $env:GITHUB_RUN_ID),('GITHUB_RUN_NUMBER=' + $env:GITHUB_RUN_NUMBER),('GITHUB_RUN_ATTEMPT=' + $env:GITHUB_RUN_ATTEMPT),('GITHUB_EVENT_NAME=' + $env:GITHUB_EVENT_NAME),('GITHUB_REF=' + $env:GITHUB_REF),('GITHUB_SHA=' + $env:GITHUB_SHA),('GITHUB_ACTOR=' + $env:GITHUB_ACTOR),('RUNNER_NAME=' + $env:RUNNER_NAME),('RUNNER_OS=' + $env:RUNNER_OS),('RUNNER_ARCH=' + $env:RUNNER_ARCH),('WORKFLOW_DEFINITION_REF=' + $env:WORKFLOW_DEFINITION_REF),('WORKFLOW_DEFINITION_SHA=' + $env:WORKFLOW_DEFINITION_SHA)) | Set-Content -LiteralPath $runPath -Encoding utf8; if ($env:GITHUB_EVENT_NAME -cne 'workflow_dispatch') { throw 'Event is not workflow_dispatch' }; if ($env:GITHUB_REF -cne 'refs/heads/main') { throw 'Workflow must run from refs/heads/main' }; if ($env:GITHUB_ACTOR -ine 'game2082001') { throw 'Workflow actor is not the approved Product Owner' }; if ($env:GITHUB_RUN_ATTEMPT -cne '1') { throw 'Re-run attempts cannot be authoritative RC2-003 evidence' }; if ($env:RUNNER_NAME -ine 'VSP-GUI-01') { throw 'Job was not routed to VSP-GUI-01' }; if ($env:RUNNER_OS -ine 'Windows') { throw 'Runner OS is not Windows' }; if ($env:RUNNER_ARCH -ine 'X64') { throw 'Runner architecture is not X64' }; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-gui-runner-readiness.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $current=[long]$env:GITHUB_RUN_NUMBER; $acceptedPrior=32587312778; $earlier=@($response.workflow_runs | Where-Object { [long]$_.run_number -lt $current }); $nonAcceptedEarlier=@($earlier | Where-Object { [long]$_.id -ne $acceptedPrior }); ('EARLIER_READINESS_DISPATCH_COUNT=' + $earlier.Count) | Add-Content -LiteralPath $runPath -Encoding utf8; ('ACCEPTED_PRIOR_READINESS_WORKFLOW_DEFECT_RUN=' + $acceptedPrior) | Add-Content -LiteralPath $runPath -Encoding utf8; ('NON_ACCEPTED_EARLIER_READINESS_DISPATCH_COUNT=' + $nonAcceptedEarlier.Count) | Add-Content -LiteralPath $runPath -Encoding utf8; if ($nonAcceptedEarlier.Count -gt 0) { 'A non-accepted prior RC2-003 workflow_dispatch exists; this run is non-authoritative.' | Set-Content -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\guard-failure.txt') -Encoding utf8; throw 'Subsequent RC2-003 dispatch rejected before GUI probe execution' }"
 
       - name: Materialize non-VSP interactive desktop probe
         env:
@@ -57,15 +57,21 @@ jobs:
             using System.Security.Principal;
             using System.Text;
             using System.Threading;
-            using System.Windows;
-            using System.Windows.Interop;
 
             internal static class VspGuiRunnerReadinessProbe
             {
                 private const uint WM_NULL = 0x0000;
                 private const uint WM_CLOSE = 0x0010;
+                private const uint WM_DESTROY = 0x0002;
                 private const uint SMTO_ABORTIFHUNG = 0x0002;
                 private const uint DESKTOP_READOBJECTS = 0x0001;
+                private const uint CS_HREDRAW = 0x0002;
+                private const uint CS_VREDRAW = 0x0001;
+                private const uint WS_OVERLAPPEDWINDOW = 0x00CF0000;
+                private const uint WS_VISIBLE = 0x10000000;
+                private const int CW_USEDEFAULT = unchecked((int)0x80000000);
+                private const int SW_SHOWNORMAL = 1;
+                private const int COLOR_WINDOW = 5;
                 private const int UOI_NAME = 2;
                 private const int WTS_USER_NAME = 5;
                 private const int WTS_WINSTATION_NAME = 6;
@@ -76,8 +82,10 @@ jobs:
                 private const string ExpectedSid = "S-1-5-21-246760006-3988060075-516279282-1001";
                 private const string ExpectedRunner = "VSP-GUI-01";
                 private const string ProbeTitle = "VSP GUI Runner Readiness Probe";
+                private const string ProbeWindowClass = "VspGuiRunnerReadinessProbeWindow";
 
                 private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr parameter);
+                private delegate IntPtr WindowProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
 
                 [StructLayout(LayoutKind.Sequential)]
                 private struct RECT
@@ -101,6 +109,39 @@ jobs:
                     public RECT Rect;
                 }
 
+                [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+                private struct WNDCLASS
+                {
+                    public uint Style;
+                    public WindowProc WindowProcedure;
+                    public int ClassExtraBytes;
+                    public int WindowExtraBytes;
+                    public IntPtr Instance;
+                    public IntPtr Icon;
+                    public IntPtr Cursor;
+                    public IntPtr Background;
+                    public string MenuName;
+                    public string ClassName;
+                }
+
+                [StructLayout(LayoutKind.Sequential)]
+                private struct POINT
+                {
+                    public int X;
+                    public int Y;
+                }
+
+                [StructLayout(LayoutKind.Sequential)]
+                private struct MSG
+                {
+                    public IntPtr Hwnd;
+                    public uint Message;
+                    public IntPtr WParam;
+                    public IntPtr LParam;
+                    public uint Time;
+                    public POINT Point;
+                }
+
                 [DllImport("user32.dll")]
                 private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
                 [DllImport("user32.dll")]
@@ -121,8 +162,30 @@ jobs:
                 private static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
                 [DllImport("user32.dll", SetLastError = true)]
                 private static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+                [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+                private static extern ushort RegisterClass(ref WNDCLASS windowClass);
+                [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+                private static extern IntPtr CreateWindowEx(uint exStyle, string className, string windowName, uint style, int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr parameter);
+                [DllImport("user32.dll")]
+                private static extern bool ShowWindow(IntPtr hwnd, int command);
+                [DllImport("user32.dll")]
+                private static extern bool UpdateWindow(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool DestroyWindow(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern IntPtr DefWindowProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern int GetMessage(out MSG message, IntPtr hwnd, uint minMessage, uint maxMessage);
+                [DllImport("user32.dll")]
+                private static extern bool TranslateMessage(ref MSG message);
+                [DllImport("user32.dll")]
+                private static extern IntPtr DispatchMessage(ref MSG message);
+                [DllImport("user32.dll")]
+                private static extern void PostQuitMessage(int exitCode);
                 [DllImport("kernel32.dll", SetLastError = true)]
                 private static extern bool ProcessIdToSessionId(uint processId, out uint sessionId);
+                [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+                private static extern IntPtr GetModuleHandle(string moduleName);
                 [DllImport("kernel32.dll")]
                 private static extern uint WTSGetActiveConsoleSessionId();
                 [DllImport("user32.dll")]
@@ -144,6 +207,7 @@ jobs:
 
                 private static readonly ManualResetEvent WindowReady = new ManualResetEvent(false);
                 private static readonly ManualResetEvent WindowClosed = new ManualResetEvent(false);
+                private static readonly WindowProc ProbeWindowProcedure = HandleProbeWindowMessage;
                 private static IntPtr probeHandle = IntPtr.Zero;
 
                 public static int Main(string[] args)
@@ -285,29 +349,65 @@ jobs:
 
                 private static void RunWindow()
                 {
-                    var application = new Application();
-                    var window = new Window
+                    IntPtr instance = GetModuleHandle(null);
+                    var windowClass = new WNDCLASS
                     {
-                        Title = ProbeTitle,
-                        Width = 480,
-                        Height = 240,
-                        WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                        ShowInTaskbar = true,
-                        Content = new System.Windows.Controls.TextBlock
-                        {
-                            Text = "Interactive GUI runner readiness probe",
-                            HorizontalAlignment = HorizontalAlignment.Center,
-                            VerticalAlignment = VerticalAlignment.Center,
-                            FontSize = 18
-                        }
+                        Style = CS_HREDRAW | CS_VREDRAW,
+                        WindowProcedure = ProbeWindowProcedure,
+                        Instance = instance,
+                        Background = (IntPtr)(COLOR_WINDOW + 1),
+                        ClassName = ProbeWindowClass
                     };
-                    window.SourceInitialized += delegate
+
+                    ushort atom = RegisterClass(ref windowClass);
+                    if (atom == 0)
+                        throw new InvalidOperationException("RegisterClass failed: " + Marshal.GetLastWin32Error().ToString(CultureInfo.InvariantCulture));
+
+                    probeHandle = CreateWindowEx(
+                        0,
+                        ProbeWindowClass,
+                        ProbeTitle,
+                        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                        CW_USEDEFAULT,
+                        CW_USEDEFAULT,
+                        480,
+                        240,
+                        IntPtr.Zero,
+                        IntPtr.Zero,
+                        instance,
+                        IntPtr.Zero);
+
+                    if (probeHandle == IntPtr.Zero)
+                        throw new InvalidOperationException("CreateWindowEx failed: " + Marshal.GetLastWin32Error().ToString(CultureInfo.InvariantCulture));
+
+                    ShowWindow(probeHandle, SW_SHOWNORMAL);
+                    UpdateWindow(probeHandle);
+                    WindowReady.Set();
+
+                    MSG message;
+                    while (GetMessage(out message, IntPtr.Zero, 0, 0) > 0)
                     {
-                        probeHandle = new WindowInteropHelper(window).Handle;
-                        WindowReady.Set();
-                    };
-                    window.Closed += delegate { WindowClosed.Set(); };
-                    application.Run(window);
+                        TranslateMessage(ref message);
+                        DispatchMessage(ref message);
+                    }
+                }
+
+                private static IntPtr HandleProbeWindowMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam)
+                {
+                    if (message == WM_CLOSE)
+                    {
+                        DestroyWindow(hwnd);
+                        return IntPtr.Zero;
+                    }
+
+                    if (message == WM_DESTROY)
+                    {
+                        WindowClosed.Set();
+                        PostQuitMessage(0);
+                        return IntPtr.Zero;
+                    }
+
+                    return DefWindowProc(hwnd, message, wParam, lParam);
                 }
 
                 private static void WritePostSessionEvidence(string evidenceRoot, uint expectedSession)
@@ -468,21 +568,34 @@ jobs:
             $env:READINESS_PROBE_SOURCE,
             [Text.UTF8Encoding]::new($false)
           )
-          Add-Type -Path $env:READINESS_HELPER_SOURCE `
-            -ReferencedAssemblies @(
-              'System.dll',
-              'System.Core.dll',
-              'PresentationCore.dll',
-              'PresentationFramework.dll',
-              'WindowsBase.dll',
-              'System.Xaml.dll'
-            ) `
-            -OutputAssembly $env:READINESS_HELPER_EXE `
-            -OutputType ConsoleApplication
           $hash = (Get-FileHash -LiteralPath $env:READINESS_HELPER_SOURCE -Algorithm SHA256).Hash
           ('READINESS_PROBE_SOURCE_SHA256=' + $hash) | Set-Content `
             -LiteralPath (Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\runtime-helper.txt') `
             -Encoding ascii
+          try {
+            Add-Type -Path $env:READINESS_HELPER_SOURCE `
+              -ReferencedAssemblies @(
+                'System.dll',
+                'System.Core.dll'
+              ) `
+              -OutputAssembly $env:READINESS_HELPER_EXE `
+              -OutputType ConsoleApplication
+          } catch {
+            $diagnosticsPath = Join-Path $env:READINESS_EVIDENCE_ROOT 'provenance\compiler-diagnostics.txt'
+            @(
+              'ADD_TYPE_FAILED'
+              ('READINESS_HELPER_SOURCE=' + $env:READINESS_HELPER_SOURCE)
+              ('READINESS_HELPER_EXE=' + $env:READINESS_HELPER_EXE)
+              ('READINESS_PROBE_SOURCE_SHA256=' + $hash)
+              ''
+              'PRIMARY_ERROR'
+              ($_ | Out-String)
+              ''
+              'ERROR_RECORDS'
+              ($Error | Out-String)
+            ) | Set-Content -LiteralPath $diagnosticsPath -Encoding utf8
+            throw
+          }
 
       - name: Validate interactive session and non-VSP GUI window
         run: |
@@ -493,7 +606,7 @@ jobs:
         env:
           READINESS_JOB_STATUS: ${{ job.status }}
         run: |
-          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$summary=Join-Path $env:READINESS_EVIDENCE_ROOT 'READINESS_SUMMARY.md'; @('# VSP GUI Runner Readiness','',('- Readiness job status at summary: `' + $env:READINESS_JOB_STATUS + '`'),'- RC2 release result: `NOT_EVALUATED`','- RC2-001 authoritative run `32561743888` remains `FAIL`','- RC2-002 diagnostic run `32571209557` remains diagnostic-only',('- Readiness run ID: `' + $env:GITHUB_RUN_ID + '`'),('- Readiness run attempt: `' + $env:GITHUB_RUN_ATTEMPT + '`'),('- Runner name: `' + $env:RUNNER_NAME + '`'),'','PASS means only that the interactive GUI runner environment is ready. It does not mean RC2 passed and does not authorize Replacement Release Validation.') | Set-Content -LiteralPath $summary -Encoding utf8"
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$summary=Join-Path $env:READINESS_EVIDENCE_ROOT 'READINESS_SUMMARY.md'; @('# VSP GUI Runner Readiness','',('- Readiness job status at summary: `' + $env:READINESS_JOB_STATUS + '`'),'- RC2 release result: `NOT_EVALUATED`','- RC2-001 authoritative run `32561743888` remains `FAIL`','- RC2-002 diagnostic run `32571209557` remains diagnostic-only','- RC2-003 authoritative readiness run `32587312778` remains workflow-defect `FAIL`',('- Readiness run ID: `' + $env:GITHUB_RUN_ID + '`'),('- Readiness run attempt: `' + $env:GITHUB_RUN_ATTEMPT + '`'),('- Runner name: `' + $env:RUNNER_NAME + '`'),'','PASS means only that the interactive GUI runner environment is ready. It does not mean RC2 passed and does not authorize Replacement Release Validation.') | Set-Content -LiteralPath $summary -Encoding utf8"
 
       - name: Upload RC2-003 readiness evidence
         id: upload-readiness-evidence
