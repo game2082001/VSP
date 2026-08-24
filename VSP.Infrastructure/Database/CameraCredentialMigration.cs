@@ -434,7 +434,7 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
         if (ReadSchemaVersion(source) != DatabaseSchemaVersion.LegacyPlaintextCredentials
             || !HasExactColumns(source, "Camera", LegacyCameraColumns)
             || !HasExactColumns(source, "User", UserColumns)
-            || !HasExactApplicationTables(source, LegacyTables))
+            || !HasExactApplicationSchema(source, LegacySchemaObjects))
         {
             throw new InvalidDataException("The source database schema is not a supported legacy VSP schema.");
         }
@@ -446,7 +446,7 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
             || !HasExactColumns(connection, "Camera", ProtectedCameraColumns)
             || !HasExactColumns(connection, "User", UserColumns)
             || !HasExactColumns(connection, "CredentialMigrationMetadata", MigrationMetadataColumns)
-            || !HasExactApplicationTables(connection, ProtectedTables))
+            || !HasExactApplicationSchema(connection, ProtectedSchemaObjects))
         {
             throw new InvalidDataException("The staged database schema is not a supported protected VSP schema.");
         }
@@ -500,14 +500,15 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
         return actual.SequenceEqual(expected, StringComparer.Ordinal);
     }
 
-    private static bool HasExactApplicationTables(SqliteConnection connection, IReadOnlyList<string> expected)
+    private static bool HasExactApplicationSchema(SqliteConnection connection, IReadOnlyList<string> expected)
     {
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT name
+SELECT type || '|' || name || '|' || tbl_name
 FROM sqlite_schema
-WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
-ORDER BY name;";
+WHERE type IN ('table', 'index', 'view', 'trigger')
+  AND name NOT LIKE 'sqlite_%'
+ORDER BY type, name, tbl_name;";
         using var reader = command.ExecuteReader();
         var actual = new List<string>();
         while (reader.Read())
@@ -633,7 +634,18 @@ ORDER BY name;";
         "Id", "SourceSha256", "ProtectionProvider", "ProtectionScope", "ProtectionVersion"
     };
 
-    private static readonly string[] LegacyTables = { "Camera", "User" };
+    private static readonly string[] LegacySchemaObjects =
+    {
+        "index|IX_User_Username|User",
+        "table|Camera|Camera",
+        "table|User|User"
+    };
 
-    private static readonly string[] ProtectedTables = { "Camera", "CredentialMigrationMetadata", "User" };
+    private static readonly string[] ProtectedSchemaObjects =
+    {
+        "index|IX_User_Username|User",
+        "table|Camera|Camera",
+        "table|CredentialMigrationMetadata|CredentialMigrationMetadata",
+        "table|User|User"
+    };
 }

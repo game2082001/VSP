@@ -166,6 +166,22 @@ PRAGMA user_version = 77;";
     }
 
     [Fact]
+    public void Inspect_LegacyTablesWithUnexpectedViewOrTrigger_FailsClosed()
+    {
+        var (sourcePath, stagingPath) = CreateLegacyDatabase();
+        using (var connection = Open(sourcePath))
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = @"
+CREATE VIEW UnexpectedCameraView AS SELECT Id FROM Camera;
+CREATE TRIGGER UnexpectedCameraTrigger AFTER UPDATE ON Camera BEGIN SELECT 1; END;";
+            command.ExecuteNonQuery();
+        }
+
+        Assert.Equal(CameraCredentialMigrationState.UnsupportedSource, CreateMigration().Inspect(sourcePath, stagingPath));
+    }
+
+    [Fact]
     public void Inspect_NonEmptySourceWalOrJournal_FailsClosed()
     {
         var (sourcePath, stagingPath) = CreateLegacyDatabase();
