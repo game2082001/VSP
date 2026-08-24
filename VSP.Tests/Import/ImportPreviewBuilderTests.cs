@@ -47,6 +47,12 @@ public class ImportPreviewBuilderTests
         Assert.Equal("RTSP", row.Brand);
         Assert.Equal("Model 2", row.Model);
         Assert.Equal("192.168.1.2", row.IPAddress);
+        Assert.Equal("82", row.HttpPort);
+        Assert.Equal("552", row.RtspPort);
+        Assert.Equal("8002", row.SdkPort);
+        Assert.Equal("user2", row.Username);
+        Assert.Equal("RTSP", row.ConnectionType);
+        Assert.Equal("rtsp://camera-2", row.RtspUrl);
         Assert.Equal("Location 2", row.Location);
         Assert.True(row.IsValid);
         Assert.Equal("Valid", row.Status);
@@ -179,6 +185,12 @@ public class ImportPreviewBuilderTests
         Assert.Equal(string.Empty, previewRow.Brand);
         Assert.Equal(string.Empty, previewRow.Model);
         Assert.Equal(string.Empty, previewRow.IPAddress);
+        Assert.Equal(string.Empty, previewRow.HttpPort);
+        Assert.Equal(string.Empty, previewRow.RtspPort);
+        Assert.Equal(string.Empty, previewRow.SdkPort);
+        Assert.Equal(string.Empty, previewRow.Username);
+        Assert.Equal(string.Empty, previewRow.ConnectionType);
+        Assert.Equal(string.Empty, previewRow.RtspUrl);
         Assert.Equal(string.Empty, previewRow.Location);
     }
 
@@ -207,6 +219,12 @@ public class ImportPreviewBuilderTests
         row.Values["Brand"] = "RTSP";
         row.Values["Model"] = $"Model {rowNumber}";
         row.Values["IP Address"] = $"192.168.1.{rowNumber}";
+        row.Values["HTTP Port"] = $"8{rowNumber}";
+        row.Values["RTSP Port"] = $"55{rowNumber}";
+        row.Values["SDK Port"] = $"800{rowNumber}";
+        row.Values["Username"] = $"user{rowNumber}";
+        row.Values["Connection Type"] = "RTSP";
+        row.Values["RTSP URL"] = $"rtsp://camera-{rowNumber}";
         row.Values["Location"] = $"Location {rowNumber}";
 
         return new ImportValidationResult

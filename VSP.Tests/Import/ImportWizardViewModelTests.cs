@@ -39,9 +39,9 @@ public class ImportWizardViewModelTests : IDisposable
         var filePath = CreateTempFile(
             ".csv",
             """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://front,Gate
-            Lobby,RTSP,Model B,192.168.1.11,80,554,8000,admin,1234,RTSP,rtsp://lobby,Hall
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://front,Gate
+            Lobby,RTSP,Model B,192.168.1.11,80,554,8000,admin,RTSP,rtsp://lobby,Hall
             """);
         var viewModel = CreateViewModel(filePath, ".csv");
 
@@ -63,9 +63,9 @@ public class ImportWizardViewModelTests : IDisposable
         var filePath = CreateTempFile(
             ".csv",
             """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Camera A,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://shared,Gate
-            Camera A,RTSP,Model B,invalid-ip,80,554,8000,admin,1234,RTSP,rtsp://shared,Hall
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Camera A,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://shared,Gate
+            Camera A,RTSP,Model B,invalid-ip,80,554,8000,admin,RTSP,rtsp://shared,Hall
             """);
         var viewModel = CreateViewModel(filePath, ".csv");
 
@@ -87,8 +87,8 @@ public class ImportWizardViewModelTests : IDisposable
         var filePath = CreateTempFile(
             ".csv",
             """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://front,Gate
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://front,Gate
             """);
         var browseCount = 0;
         var viewModel = CreateViewModel(
@@ -105,9 +105,9 @@ public class ImportWizardViewModelTests : IDisposable
         File.WriteAllText(
             filePath,
             """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://front,Gate
-            Lobby,RTSP,Model B,192.168.1.11,80,554,8000,admin,1234,RTSP,rtsp://lobby,Hall
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://front,Gate
+            Lobby,RTSP,Model B,192.168.1.11,80,554,8000,admin,RTSP,rtsp://lobby,Hall
             """,
             Encoding.UTF8);
 
@@ -196,8 +196,8 @@ public class ImportWizardViewModelTests : IDisposable
         var invalidFilePath = CreateTempFile(
             ".csv",
             """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Camera A,RTSP,Model A,invalid-ip,80,554,8000,admin,1234,RTSP,rtsp://shared,Gate
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Camera A,RTSP,Model A,invalid-ip,80,554,8000,admin,RTSP,rtsp://shared,Gate
             """);
         var invalidViewModel = CreateViewModel(invalidFilePath, ".csv");
         invalidViewModel.BrowseFileCommand.Execute(null);
@@ -207,8 +207,8 @@ public class ImportWizardViewModelTests : IDisposable
         var validFilePath = CreateTempFile(
             ".csv",
             """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://front,Gate
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://front,Gate
             """);
         var validViewModel = CreateViewModel(validFilePath, ".csv");
         validViewModel.BrowseFileCommand.Execute(null);
@@ -222,8 +222,8 @@ public class ImportWizardViewModelTests : IDisposable
         var filePath = CreateTempFile(
             ".csv",
             """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://front,Gate
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://front,Gate
             """);
         var repository = new FakeCameraRepository();
         var viewModel = CreateViewModel(
@@ -245,8 +245,8 @@ public class ImportWizardViewModelTests : IDisposable
         var filePath = CreateTempFile(
             ".csv",
             """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://front,Gate
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://front,Gate
             """);
         var viewModel = CreateViewModel(filePath, ".csv");
         VSP.Device.Import.Execution.ImportResult? completedResult = null;

@@ -9,6 +9,12 @@ public class ImportPreviewRow
     public string Brand { get; init; } = string.Empty;
     public string Model { get; init; } = string.Empty;
     public string IPAddress { get; init; } = string.Empty;
+    public string HttpPort { get; init; } = string.Empty;
+    public string RtspPort { get; init; } = string.Empty;
+    public string SdkPort { get; init; } = string.Empty;
+    public string Username { get; init; } = string.Empty;
+    public string ConnectionType { get; init; } = string.Empty;
+    public string RtspUrl { get; init; } = string.Empty;
     public string Location { get; init; } = string.Empty;
     public bool IsValid { get; init; }
     public string Status { get; init; } = string.Empty;

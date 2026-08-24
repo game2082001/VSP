@@ -15,9 +15,14 @@ public class CameraImportMapper
             Name = row.Name,
             IpAddress = row.IPAddress,
             Brand = ParseBrand(row.Brand),
-            ConnectionType = ResolveConnectionType(row.Brand),
+            ConnectionType = ResolveConnectionType(row.ConnectionType, row.Brand),
             Model = row.Model,
-            Location = row.Location
+            Location = row.Location,
+            HttpPort = ParsePort(row.HttpPort, 80),
+            RtspPort = ParsePort(row.RtspPort, 554),
+            SdkPort = ParsePort(row.SdkPort, 8000),
+            Username = row.Username,
+            RtspUrl = row.RtspUrl
         };
     }
 
@@ -28,8 +33,13 @@ public class CameraImportMapper
             : CameraBrand.Unknown;
     }
 
-    private static DeviceConnectionType ResolveConnectionType(string brand)
+    private static DeviceConnectionType ResolveConnectionType(string connectionType, string brand)
     {
+        if (Enum.TryParse<DeviceConnectionType>(connectionType, ignoreCase: true, out var parsedConnectionType))
+        {
+            return parsedConnectionType;
+        }
+
         if (string.Equals(brand, CameraBrand.RTSP.ToString(), StringComparison.OrdinalIgnoreCase))
         {
             return DeviceConnectionType.RTSP;
@@ -41,5 +51,12 @@ public class CameraImportMapper
         }
 
         return DeviceConnectionType.Unknown;
+    }
+
+    private static int ParsePort(string value, int defaultValue)
+    {
+        return int.TryParse(value, out var port)
+            ? port
+            : defaultValue;
     }
 }

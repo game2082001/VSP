@@ -12,9 +12,9 @@ public class ImportPipelineServiceTests
     public void Process_UsesCsvPipeline_AndExecutesValidationAndDuplicateStages()
     {
         const string csv = """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://shared,Gate
-            Front Door,RTSP,Model B,invalid-ip,80,554,8000,admin,1234,RTSP,rtsp://shared,Lobby
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Front Door,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://shared,Gate
+            Front Door,RTSP,Model B,invalid-ip,80,554,8000,admin,RTSP,rtsp://shared,Lobby
             """;
 
         using var stream = CreateUtf8Stream(csv);
@@ -38,9 +38,9 @@ public class ImportPipelineServiceTests
     {
         using var stream = CreateWorkbook(
             [
-                ["Name", "Brand", "Model", "IP Address", "HTTP Port", "RTSP Port", "SDK Port", "Username", "Password", "Connection Type", "RTSP URL", "Location"],
-                ["Front Door", "RTSP", "Model A", "192.168.1.10", "80", "554", "8000", "admin", "1234", "RTSP", "rtsp://front", "Gate"],
-                ["Lobby", "RTSP", "Model B", "192.168.1.11", "80", "554", "8000", "admin", "1234", "RTSP", "rtsp://lobby", "Hall"]
+                ["Name", "Brand", "Model", "IP Address", "HTTP Port", "RTSP Port", "SDK Port", "Username", "Connection Type", "RTSP URL", "Location"],
+                ["Front Door", "RTSP", "Model A", "192.168.1.10", "80", "554", "8000", "admin", "RTSP", "rtsp://front", "Gate"],
+                ["Lobby", "RTSP", "Model B", "192.168.1.11", "80", "554", "8000", "admin", "RTSP", "rtsp://lobby", "Hall"]
             ]);
 
         var service = new ImportPipelineService();
@@ -57,8 +57,8 @@ public class ImportPipelineServiceTests
     public void Process_PreservesInvalidRows_FromValidationStage()
     {
         const string csv = """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            ,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://front,Gate
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            ,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://front,Gate
             """;
 
         using var stream = CreateUtf8Stream(csv);
@@ -78,9 +78,9 @@ public class ImportPipelineServiceTests
     public void Process_PreservesDuplicateMessages_FromDuplicateStage()
     {
         const string csv = """
-            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
-            Camera A,RTSP,Model A,192.168.1.10,80,554,8000,admin,1234,RTSP,rtsp://shared,Gate
-            Camera B,RTSP,Model B,192.168.1.11,80,554,8000,admin,1234,RTSP,rtsp://shared,Hall
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location
+            Camera A,RTSP,Model A,192.168.1.10,80,554,8000,admin,RTSP,rtsp://shared,Gate
+            Camera B,RTSP,Model B,192.168.1.11,80,554,8000,admin,RTSP,rtsp://shared,Hall
             """;
 
         using var stream = CreateUtf8Stream(csv);
@@ -136,6 +136,23 @@ public class ImportPipelineServiceTests
         var exception = Assert.Throws<NotSupportedException>(() => service.Process(stream, "json"));
 
         Assert.Contains("Unsupported import file type", exception.Message);
+    }
+
+    [Fact]
+    public void Process_RejectsPasswordHeader_WithoutLeakingSecretValue()
+    {
+        const string csv = """
+            Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location
+            Camera A,RTSP,Model A,192.168.1.10,80,554,8000,admin,super-secret,RTSP,rtsp://front,Gate
+            """;
+
+        using var stream = CreateUtf8Stream(csv);
+        var service = new ImportPipelineService();
+
+        var exception = Assert.Throws<InvalidDataException>(() => service.Process(stream, "csv"));
+
+        Assert.Equal("Import file contains a prohibited credential column.", exception.Message);
+        Assert.DoesNotContain("super-secret", exception.Message);
     }
 
     [Fact]

@@ -145,13 +145,25 @@ public class ImportExecutorTests
             Brand = "RTSP",
             Model = "Model A",
             IPAddress = "192.168.1.2",
+            HttpPort = "8080",
+            RtspPort = "8554",
+            SdkPort = "9000",
+            Username = "operator",
+            ConnectionType = "ONVIF",
+            RtspUrl = "rtsp://192.168.1.2/live",
             Location = "Gate",
             IsValid = true,
             Status = "Valid"
         });
 
         Assert.Equal(VSP.Domain.Enums.CameraBrand.RTSP, camera.Brand);
-        Assert.Equal(VSP.Domain.Enums.DeviceConnectionType.RTSP, camera.ConnectionType);
+        Assert.Equal(VSP.Domain.Enums.DeviceConnectionType.ONVIF, camera.ConnectionType);
+        Assert.Equal(8080, camera.HttpPort);
+        Assert.Equal(8554, camera.RtspPort);
+        Assert.Equal(9000, camera.SdkPort);
+        Assert.Equal("operator", camera.Username);
+        Assert.Equal(string.Empty, camera.Password);
+        Assert.Equal("rtsp://192.168.1.2/live", camera.RtspUrl);
     }
 
     private static ImportPreviewResult CreatePreviewResult(params ImportPreviewRow[] rows)

@@ -22,10 +22,10 @@ public class ExcelImportParserTests
     {
         using var stream = CreateWorkbook(
             [
-                ["name", "brand", "model", "ip address", "http port", "rtsp port", "sdk port", "username", "password", "connection type", "rtsp url", "location"],
-                ["Front Door", "Hikvision", "DS-2CD", "192.168.1.10", "80", "554", "8000", "admin", "1234", "HikvisionISAPI", "rtsp://front", "Gate"],
-                ["", "", "", "", "", "", "", "", "", "", "", ""],
-                ["Lobby", "RTSP", "Generic", "192.168.1.11", "81", "8554", "9000", "user", "pass", "RTSP", "rtsp://lobby", "Hall"]
+                ["name", "brand", "model", "ip address", "http port", "rtsp port", "sdk port", "username", "connection type", "rtsp url", "location"],
+                ["Front Door", "Hikvision", "DS-2CD", "192.168.1.10", "80", "554", "8000", "admin", "HikvisionISAPI", "rtsp://front", "Gate"],
+                ["", "", "", "", "", "", "", "", "", "", ""],
+                ["Lobby", "RTSP", "Generic", "192.168.1.11", "81", "8554", "9000", "user", "RTSP", "rtsp://lobby", "Hall"]
             ],
             [
                 ["Name", "Brand"],
@@ -49,15 +49,15 @@ public class ExcelImportParserTests
     {
         using var stream = CreateWorkbook(
             [
-                ["Name", "Brand", "Model", "IP Address", "HTTP Port", "RTSP Port", "SDK Port", "Username", "Password", "Connection Type", "RTSP URL", "Location"],
-                ["Camera A", "ONVIF", "", "10.0.0.5", "80", "554", "8000", "admin", "", "ONVIF", "", "Office"]
+                ["Name", "Brand", "Model", "IP Address", "HTTP Port", "RTSP Port", "SDK Port", "Username", "Connection Type", "RTSP URL", "Location"],
+                ["Camera A", "ONVIF", "", "10.0.0.5", "80", "554", "8000", "admin", "ONVIF", "", "Office"]
             ]);
 
         var row = Assert.Single(_parser.Parse(stream));
 
         Assert.Equal(string.Empty, row.Values["Model"]);
-        Assert.Equal(string.Empty, row.Values["Password"]);
         Assert.Equal(string.Empty, row.Values["RTSP URL"]);
+        Assert.False(row.Values.ContainsKey("Password"));
     }
 
     [Fact]
@@ -65,8 +65,8 @@ public class ExcelImportParserTests
     {
         using var stream = CreateWorkbook(
             [
-                ["NAME", "BRAND", "MODEL", "IP ADDRESS", "HTTP PORT", "RTSP PORT", "SDK PORT", "USERNAME", "PASSWORD", "CONNECTION TYPE", "RTSP URL", "LOCATION"],
-                ["Camera B", "Dahua", "Model B", "10.0.0.6", "80", "554", "8000", "admin", "1234", "DahuaNetSDK", "rtsp://camera-b", "Warehouse"]
+                ["NAME", "BRAND", "MODEL", "IP ADDRESS", "HTTP PORT", "RTSP PORT", "SDK PORT", "USERNAME", "CONNECTION TYPE", "RTSP URL", "LOCATION"],
+                ["Camera B", "Dahua", "Model B", "10.0.0.6", "80", "554", "8000", "admin", "DahuaNetSDK", "rtsp://camera-b", "Warehouse"]
             ]);
 
         var row = Assert.Single(_parser.Parse(stream));
@@ -92,6 +92,21 @@ public class ExcelImportParserTests
     public void Parse_Throws_WhenStreamIsNull()
     {
         Assert.Throws<ArgumentNullException>(() => _parser.Parse(null!));
+    }
+
+    [Fact]
+    public void Parse_RejectsEntireWorkbook_WhenPasswordHeaderIsPresent()
+    {
+        using var stream = CreateWorkbook(
+            [
+                ["Name", "Brand", "Model", "IP Address", "HTTP Port", "RTSP Port", "SDK Port", "Username", "Password", "Connection Type", "RTSP URL", "Location"],
+                ["Front Door", "Hikvision", "DS-2CD", "192.168.1.10", "80", "554", "8000", "admin", "secret", "HikvisionISAPI", "rtsp://front", "Gate"]
+            ]);
+
+        var exception = Assert.Throws<InvalidDataException>(() => _parser.Parse(stream).ToList());
+
+        Assert.Equal("Import file contains a prohibited credential column.", exception.Message);
+        Assert.DoesNotContain("secret", exception.Message);
     }
 
     private static MemoryStream CreateWorkbook(

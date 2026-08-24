@@ -15,7 +15,7 @@ public class CameraExportWriterTests
 
         var lines = SplitLines(csv);
         Assert.Single(lines);
-        Assert.Equal("Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Password,Connection Type,RTSP URL,Location", lines[0]);
+        Assert.Equal("Name,Brand,Model,IP Address,HTTP Port,RTSP Port,SDK Port,Username,Connection Type,RTSP URL,Location", lines[0]);
     }
 
     [Fact]
@@ -41,7 +41,8 @@ public class CameraExportWriterTests
 
         var lines = SplitLines(csv);
         Assert.Equal(2, lines.Count);
-        Assert.Equal("Front Door,Hikvision,DS-2CD,192.168.1.10,80,554,8000,admin,secret,ONVIF,,Entrance", lines[1]);
+        Assert.Equal("Front Door,Hikvision,DS-2CD,192.168.1.10,80,554,8000,admin,ONVIF,,Entrance", lines[1]);
+        Assert.DoesNotContain("secret", csv);
     }
 
     [Fact]
@@ -83,7 +84,13 @@ public class CameraExportWriterTests
         Assert.Equal("Roundtrip Cam", row.Values["Name"]);
         Assert.Equal("Dahua", row.Values["Brand"]);
         Assert.Equal("10.1.1.1", row.Values["IP Address"]);
+        Assert.Equal("user", row.Values["Username"]);
+        Assert.Equal("8080", row.Values["HTTP Port"]);
+        Assert.Equal("555", row.Values["RTSP Port"]);
+        Assert.Equal("8001", row.Values["SDK Port"]);
+        Assert.Equal("HikvisionSDK", row.Values["Connection Type"]);
         Assert.Equal("rtsp://10.1.1.1/live", row.Values["RTSP URL"]);
+        Assert.False(row.Values.ContainsKey("Password"));
     }
 
     private static List<string> SplitLines(string text)
