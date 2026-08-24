@@ -8,9 +8,15 @@ public interface ICameraRepository
 
     Camera? GetById(Guid id);
 
+    CameraCredentials GetCredentials(Guid id) => new("", "");
+
     void Add(Camera camera);
 
+    void Add(Camera camera, CameraCredentialMutation credentialMutation) => Add(camera);
+
     void Update(Camera camera);
+
+    void Update(Camera camera, CameraCredentialMutation credentialMutation) => Update(camera);
 
     void Delete(Guid id);
 }

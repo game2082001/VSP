@@ -10,7 +10,7 @@ public interface IDeviceDriver
 
     DeviceCapability Capability { get; }
 
-    bool TestConnection(Camera camera);
+    bool TestConnection(Camera camera, CameraCredentials credentials) => false;
 
-    DeviceInformation? GetDeviceInformation(Camera camera);
+    DeviceInformation? GetDeviceInformation(Camera camera, CameraCredentials credentials) => null;
 }

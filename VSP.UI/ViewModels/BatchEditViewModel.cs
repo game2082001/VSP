@@ -139,13 +139,13 @@ public class BatchEditViewModel : ObservableObject
                     camera.Username = Username.Trim();
                 }
 
-                if (ApplyPassword)
-                {
-                    camera.Password = Password;
-                }
-
                 camera.LastModifyTime = DateTime.Now;
-                _cameraRepository.Update(camera);
+                var credentialMutation = ApplyPassword
+                    ? string.IsNullOrEmpty(Password)
+                        ? CameraCredentialMutation.Clear()
+                        : CameraCredentialMutation.Replace(Password)
+                    : CameraCredentialMutation.Unchanged();
+                _cameraRepository.Update(camera, credentialMutation);
                 SuccessCount++;
             }
             catch

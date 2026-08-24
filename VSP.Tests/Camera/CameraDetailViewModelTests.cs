@@ -65,7 +65,7 @@ public class CameraDetailViewModelTests
         Assert.Equal("80", GetSetting(viewModel, DriverSettingKey.HttpPort).Value);
         Assert.Equal("8000", GetSetting(viewModel, DriverSettingKey.SdkPort).Value);
         Assert.Equal("admin", GetSetting(viewModel, DriverSettingKey.Username).Value);
-        Assert.Equal("********", GetSetting(viewModel, DriverSettingKey.Password).DisplayValue);
+        Assert.Equal("", GetSetting(viewModel, DriverSettingKey.Password).DisplayValue);
         Assert.Equal("Online", viewModel.Status);
         Assert.Equal("Yes", viewModel.Recording);
         Assert.Equal("Entrance", viewModel.Location);

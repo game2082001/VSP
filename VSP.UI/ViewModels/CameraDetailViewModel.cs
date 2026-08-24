@@ -301,7 +301,8 @@ public class CameraDetailViewModel : ObservableObject
         MapToCamera(testCamera);
 
         var driver = DriverFactory.CreateCameraDriver(testCamera.ConnectionType);
-        var isSuccess = driver.TestConnection(testCamera);
+        var credentials = BuildTestConnectionCredentials(testCamera);
+        var isSuccess = driver.TestConnection(testCamera, credentials);
 
         if (isSuccess)
         {
@@ -332,11 +333,14 @@ public class CameraDetailViewModel : ObservableObject
         try
         {
             MapToCamera(_camera);
+            var credentialMutation = BuildCredentialMutation();
 
             if (IsNewMode)
             {
-                _cameraRepository.Add(_camera);
+                _cameraRepository.Add(_camera, credentialMutation);
+                ApplyPostSaveCredentialState(credentialMutation);
                 SyncDisplayFieldsFromCamera();
+                RebuildDriverSettings(seedFromCamera: true);
                 UpdateSavedSnapshot();
                 WasSaved = true;
                 SavedCameraId = _camera.Id;
@@ -350,8 +354,10 @@ public class CameraDetailViewModel : ObservableObject
                 return true;
             }
 
-            _cameraRepository.Update(_camera);
+            _cameraRepository.Update(_camera, credentialMutation);
+            ApplyPostSaveCredentialState(credentialMutation);
             SyncDisplayFieldsFromCamera();
+            RebuildDriverSettings(seedFromCamera: true);
             UpdateSavedSnapshot();
             StatusMessage = "Camera saved successfully.";
 
@@ -459,7 +465,10 @@ public class CameraDetailViewModel : ObservableObject
     {
         var settingsSnapshot = string.Join(
             ";",
-            DriverSettings.Select(setting => $"{setting.Key}={setting.Value}"));
+            DriverSettings.Select(setting =>
+                setting.IsSensitive
+                    ? $"{setting.Key}:edited={setting.WasExplicitlyEdited}"
+                    : $"{setting.Key}={setting.Value}"));
 
         return string.Join("|",
             NormalizeSnapshotValue(Name),
@@ -604,7 +613,7 @@ public class CameraDetailViewModel : ObservableObject
             DriverSettingKey.RtspPort => camera.RtspPort.ToString(),
             DriverSettingKey.SdkPort => camera.SdkPort.ToString(),
             DriverSettingKey.Username => camera.Username,
-            DriverSettingKey.Password => camera.Password,
+            DriverSettingKey.Password => string.Empty,
             DriverSettingKey.RtspUrl => camera.RtspUrl,
             _ => string.Empty
         };
@@ -627,7 +636,6 @@ public class CameraDetailViewModel : ObservableObject
                 camera.Username = value.Trim();
                 break;
             case DriverSettingKey.Password:
-                camera.Password = value;
                 break;
             case DriverSettingKey.RtspUrl:
                 camera.RtspUrl = value.Trim();
@@ -638,6 +646,48 @@ public class CameraDetailViewModel : ObservableObject
     private static int ParsePortOrDefault(string value, int fallback)
     {
         return int.TryParse(value, out var port) ? port : fallback;
+    }
+
+    private CameraCredentials BuildTestConnectionCredentials(Camera testCamera)
+    {
+        var passwordSetting = DriverSettings.FirstOrDefault(setting => setting.Key == DriverSettingKey.Password);
+        if (passwordSetting is not null && passwordSetting.WasExplicitlyEdited)
+        {
+            return new CameraCredentials(testCamera.Username, passwordSetting.Value);
+        }
+
+        var stored = _cameraRepository.GetCredentials(_camera.Id);
+        return new CameraCredentials(testCamera.Username, stored.Password);
+    }
+
+    private CameraCredentialMutation BuildCredentialMutation()
+    {
+        var passwordSetting = DriverSettings.FirstOrDefault(setting => setting.Key == DriverSettingKey.Password);
+        if (passwordSetting is null)
+        {
+            return IsNewMode ? CameraCredentialMutation.Clear() : CameraCredentialMutation.Unchanged();
+        }
+
+        if (!passwordSetting.WasExplicitlyEdited)
+        {
+            return IsNewMode ? CameraCredentialMutation.Clear() : CameraCredentialMutation.Unchanged();
+        }
+
+        return string.IsNullOrEmpty(passwordSetting.Value)
+            ? CameraCredentialMutation.Clear()
+            : CameraCredentialMutation.Replace(passwordSetting.Value);
+    }
+
+    private void ApplyPostSaveCredentialState(CameraCredentialMutation credentialMutation)
+    {
+        _camera.Password = string.Empty;
+        _camera.HasStoredPassword = credentialMutation.Kind switch
+        {
+            CameraCredentialMutationKind.Unchanged => _camera.HasStoredPassword,
+            CameraCredentialMutationKind.Replace => !string.IsNullOrEmpty(credentialMutation.Password),
+            CameraCredentialMutationKind.Clear => false,
+            _ => _camera.HasStoredPassword
+        };
     }
 
     private void SyncDisplayFieldsFromCamera()

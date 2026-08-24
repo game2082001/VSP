@@ -5,8 +5,7 @@ using VSP.Infrastructure.Security;
 namespace VSP.Infrastructure.Database;
 
 /// <summary>
-/// Builds and verifies an encrypted database beside a legacy source. This component is dormant:
-/// it never replaces, renames, or writes to the source database and is not called by startup.
+/// Builds, verifies, and atomically activates a protected database from a legacy plaintext source.
 /// </summary>
 internal sealed class CameraCredentialMigration
 {
@@ -72,6 +71,30 @@ internal sealed class CameraCredentialMigration
         }
     }
 
+    public void Activate(string sourcePath, string stagingPath, string backupPath)
+    {
+        ValidatePaths(sourcePath, stagingPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(backupPath);
+
+        SqliteConnection.ClearAllPools();
+        PrepareSourceForAtomicMigration(sourcePath);
+        Stage(sourcePath, stagingPath);
+
+        var state = Inspect(sourcePath, stagingPath);
+        if (state != CameraCredentialMigrationState.ReadyForActivation)
+        {
+            throw new InvalidOperationException($"Credential migration cannot activate from state '{state}'.");
+        }
+
+        TryDelete(backupPath);
+        SqliteConnection.ClearAllPools();
+        File.Replace(stagingPath, sourcePath, backupPath);
+
+        using var activated = OpenReadOnly(sourcePath);
+        ValidateCurrentSchema(activated);
+        VerifyIntegrity(activated, "activated");
+    }
+
     public CameraCredentialMigrationState Inspect(string sourcePath, string stagingPath)
     {
         ValidatePaths(sourcePath, stagingPath);
@@ -89,7 +112,9 @@ internal sealed class CameraCredentialMigration
         var sourceVersion = TryReadSchemaVersion(sourcePath);
         if (sourceVersion == DatabaseSchemaVersion.CurrentUserProtectedCredentials)
         {
-            return CameraCredentialMigrationState.SourceAlreadyProtected;
+            return IsCurrentProtectedSchema(sourcePath)
+                ? CameraCredentialMigrationState.SourceAlreadyProtected
+                : CameraCredentialMigrationState.UnsupportedSource;
         }
 
         if (sourceVersion != DatabaseSchemaVersion.LegacyPlaintextCredentials || !IsLegacySourceSchema(sourcePath))
@@ -217,14 +242,7 @@ VALUES
         using var staging = OpenReadOnly(stagingPath);
         ValidateCurrentSchema(staging);
 
-        using (var integrity = staging.CreateCommand())
-        {
-            integrity.CommandText = "PRAGMA integrity_check;";
-            if (!string.Equals(integrity.ExecuteScalar() as string, "ok", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidDataException("The staged database failed its integrity check.");
-            }
-        }
+        VerifyIntegrity(staging, "staged");
 
         var recordedFingerprint = ReadStagedSourceFingerprint(staging);
         if (!CryptographicOperations.FixedTimeEquals(expectedSourceFingerprint, recordedFingerprint))
@@ -429,6 +447,38 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
         command.ExecuteNonQuery();
     }
 
+    private static void PrepareSourceForAtomicMigration(string sourcePath)
+    {
+        EnsureNoSourceSidecars(sourcePath);
+
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = sourcePath,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false
+        }.ToString());
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+PRAGMA locking_mode = EXCLUSIVE;
+PRAGMA wal_checkpoint(TRUNCATE);
+PRAGMA journal_mode = DELETE;";
+        command.ExecuteNonQuery();
+
+        EnsureNoSourceSidecars(sourcePath);
+    }
+
+    private static void VerifyIntegrity(SqliteConnection connection, string databaseName)
+    {
+        using var integrity = connection.CreateCommand();
+        integrity.CommandText = "PRAGMA integrity_check;";
+        if (!string.Equals(integrity.ExecuteScalar() as string, "ok", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException($"The {databaseName} database failed its integrity check.");
+        }
+    }
+
     private static void ValidateLegacySource(SqliteConnection source)
     {
         if (ReadSchemaVersion(source) != DatabaseSchemaVersion.LegacyPlaintextCredentials
@@ -458,6 +508,20 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
         {
             using var connection = OpenReadOnly(path);
             ValidateLegacySource(connection);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsCurrentProtectedSchema(string path)
+    {
+        try
+        {
+            using var connection = OpenReadOnly(path);
+            ValidateCurrentSchema(connection);
             return true;
         }
         catch

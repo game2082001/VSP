@@ -6,6 +6,16 @@ using CameraEntity = VSP.Domain.Entities.Camera;
 
 namespace VSP.Tests.Drivers.RTSP;
 
+internal static class RtspCameraDriverTestExtensions
+{
+    public static bool TestConnection(this RtspCameraDriver driver, CameraEntity camera)
+    {
+        return driver.TestConnection(
+            camera,
+            new VSP.Domain.Entities.CameraCredentials(camera.Username, camera.Password));
+    }
+}
+
 [Collection("AppLog")]
 public class RtspCameraDriverTests
 {

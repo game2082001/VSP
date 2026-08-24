@@ -25,7 +25,7 @@ public sealed class OnvifStreamUriResolver : IOnvifStreamUriResolver
     private static readonly OnvifMediaServiceRequestFactory RequestFactory = new();
     private static readonly OnvifMediaServiceResponseParser ResponseParser = new();
 
-    public OnvifStreamUriResolution Resolve(Camera camera)
+    public OnvifStreamUriResolution Resolve(Camera camera, CameraCredentials credentials)
     {
         ArgumentNullException.ThrowIfNull(camera);
 
@@ -49,7 +49,7 @@ public sealed class OnvifStreamUriResolver : IOnvifStreamUriResolver
 
         var capabilitiesResult = SendRequest(
             BuildDeviceServiceEndpoint(camera),
-            RequestFactory.BuildGetCapabilitiesRequest(camera.Username, camera.Password),
+            RequestFactory.BuildGetCapabilitiesRequest(credentials.Username, credentials.Password),
             camera,
             "GetCapabilities");
 
@@ -98,7 +98,7 @@ public sealed class OnvifStreamUriResolver : IOnvifStreamUriResolver
 
         var profilesResult = SendRequest(
             mediaServiceUri,
-            RequestFactory.BuildGetProfilesRequest(camera.Username, camera.Password),
+            RequestFactory.BuildGetProfilesRequest(credentials.Username, credentials.Password),
             camera,
             "GetProfiles");
 
@@ -148,7 +148,7 @@ public sealed class OnvifStreamUriResolver : IOnvifStreamUriResolver
 
         var streamUriResult = SendRequest(
             mediaServiceUri,
-            RequestFactory.BuildGetStreamUriRequest(selectedProfileToken, camera.Username, camera.Password),
+            RequestFactory.BuildGetStreamUriRequest(selectedProfileToken, credentials.Username, credentials.Password),
             camera,
             "GetStreamUri");
 

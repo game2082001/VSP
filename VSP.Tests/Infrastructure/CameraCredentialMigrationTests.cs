@@ -105,7 +105,7 @@ public class CameraCredentialMigrationTests : IDisposable
     }
 
     [Fact]
-    public void DatabaseInitializer_RemainsLegacyAndIsNotConnectedToCredentialMigration()
+    public void DatabaseInitializer_CreatesProtectedCredentialSchema()
     {
         Directory.CreateDirectory(_tempDirectory);
         var databaseService = new DatabaseService(_tempDirectory);
@@ -117,7 +117,7 @@ public class CameraCredentialMigrationTests : IDisposable
         connection.Open();
         using var version = connection.CreateCommand();
         version.CommandText = "PRAGMA user_version;";
-        Assert.Equal(DatabaseSchemaVersion.LegacyPlaintextCredentials, Convert.ToInt32(version.ExecuteScalar()));
+        Assert.Equal(DatabaseSchemaVersion.CurrentUserProtectedCredentials, Convert.ToInt32(version.ExecuteScalar()));
 
         using var columns = connection.CreateCommand();
         columns.CommandText = "PRAGMA table_info(Camera);";
@@ -128,8 +128,8 @@ public class CameraCredentialMigrationTests : IDisposable
             names.Add(reader.GetString(1));
         }
 
-        Assert.Contains("Password", names);
-        Assert.DoesNotContain("PasswordProtected", names);
+        Assert.DoesNotContain("Password", names);
+        Assert.Contains("PasswordProtected", names);
     }
 
     [Fact]
@@ -215,16 +215,92 @@ UPDATE User SET Role = 99;";
     {
         Directory.CreateDirectory(_tempDirectory);
         var databaseService = new DatabaseService(_tempDirectory);
-        var initialization = new DatabaseInitializer(databaseService).Initialize();
-        Assert.True(initialization.Success);
 
-        var repository = new SQLiteCameraRepository(databaseService);
-        repository.Add(CreateCamera("First", FirstSecret));
-        repository.Add(CreateCamera("Second", SecondSecret));
-        repository.Add(CreateCamera("No password", string.Empty));
+        using (var connection = databaseService.CreateConnection())
+        {
+            connection.Open();
+            CreateLegacySchema(connection);
+            InsertLegacyCamera(connection, CreateCamera("First", FirstSecret));
+            InsertLegacyCamera(connection, CreateCamera("Second", SecondSecret));
+            InsertLegacyCamera(connection, CreateCamera("No password", string.Empty));
+        }
+
         SqliteConnection.ClearAllPools();
 
         return (databaseService.GetDatabaseFilePath(), Path.Combine(_tempDirectory, "vsp.credential-migration.db"));
+    }
+
+    private static void CreateLegacySchema(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+CREATE TABLE Camera
+(
+    Id TEXT PRIMARY KEY,
+    Name TEXT NOT NULL,
+    IpAddress TEXT NOT NULL,
+    Brand INTEGER NOT NULL,
+    ConnectionType INTEGER NOT NULL,
+    Model TEXT,
+    Location TEXT,
+    HttpPort INTEGER,
+    RtspPort INTEGER,
+    SdkPort INTEGER,
+    Username TEXT,
+    Password TEXT,
+    RtspUrl TEXT,
+    Status INTEGER,
+    Recording INTEGER,
+    CreateTime TEXT,
+    LastModifyTime TEXT
+);
+
+CREATE TABLE User
+(
+    Id TEXT PRIMARY KEY,
+    Username TEXT NOT NULL,
+    PasswordHash TEXT NOT NULL,
+    PasswordSalt TEXT NOT NULL,
+    PasswordIterations INTEGER NOT NULL,
+    Role INTEGER NOT NULL,
+    MustChangePassword INTEGER NOT NULL DEFAULT 0,
+    CreateTime TEXT,
+    LastModifyTime TEXT
+);
+CREATE UNIQUE INDEX IX_User_Username ON User (Username);";
+        command.ExecuteNonQuery();
+    }
+
+    private static void InsertLegacyCamera(SqliteConnection connection, VSP.Domain.Entities.Camera camera)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO Camera
+(Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+ HttpPort, RtspPort, SdkPort, Username, Password, RtspUrl,
+ Status, Recording, CreateTime, LastModifyTime)
+VALUES
+($Id, $Name, $IpAddress, $Brand, $ConnectionType, $Model, $Location,
+ $HttpPort, $RtspPort, $SdkPort, $Username, $Password, $RtspUrl,
+ $Status, $Recording, $CreateTime, $LastModifyTime);";
+        command.Parameters.AddWithValue("$Id", camera.Id.ToString());
+        command.Parameters.AddWithValue("$Name", camera.Name);
+        command.Parameters.AddWithValue("$IpAddress", camera.IpAddress);
+        command.Parameters.AddWithValue("$Brand", (int)camera.Brand);
+        command.Parameters.AddWithValue("$ConnectionType", (int)camera.ConnectionType);
+        command.Parameters.AddWithValue("$Model", camera.Model);
+        command.Parameters.AddWithValue("$Location", camera.Location);
+        command.Parameters.AddWithValue("$HttpPort", camera.HttpPort);
+        command.Parameters.AddWithValue("$RtspPort", camera.RtspPort);
+        command.Parameters.AddWithValue("$SdkPort", camera.SdkPort);
+        command.Parameters.AddWithValue("$Username", camera.Username);
+        command.Parameters.AddWithValue("$Password", camera.Password);
+        command.Parameters.AddWithValue("$RtspUrl", camera.RtspUrl);
+        command.Parameters.AddWithValue("$Status", (int)camera.Status);
+        command.Parameters.AddWithValue("$Recording", camera.Recording ? 1 : 0);
+        command.Parameters.AddWithValue("$CreateTime", camera.CreateTime.ToString("O"));
+        command.Parameters.AddWithValue("$LastModifyTime", camera.LastModifyTime.ToString("O"));
+        command.ExecuteNonQuery();
     }
 
     private static VSP.Domain.Entities.Camera CreateCamera(string name, string password)

@@ -20,12 +20,12 @@ public class HikvisionIsapiCameraDriver : ICameraDriver
         SupportsDiscovery = true
     };
 
-    public bool TestConnection(Camera camera)
+    public bool TestConnection(Camera camera, CameraCredentials credentials)
     {
         return false;
     }
 
-    public DeviceInformation? GetDeviceInformation(Camera camera)
+    public DeviceInformation? GetDeviceInformation(Camera camera, CameraCredentials credentials)
     {
         return null;
     }
