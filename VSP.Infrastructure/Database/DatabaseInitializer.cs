@@ -50,9 +50,14 @@ public class DatabaseInitializer
         var migration = new CameraCredentialMigration(new DpapiCurrentUserCameraCredentialProtector());
         var state = migration.Inspect(databasePath, stagingPath);
 
-        if (state == CameraCredentialMigrationState.SourceMissing
-            || state == CameraCredentialMigrationState.SourceAlreadyProtected)
+        if (state == CameraCredentialMigrationState.SourceMissing)
         {
+            return;
+        }
+
+        if (state == CameraCredentialMigrationState.SourceAlreadyProtected)
+        {
+            CameraCredentialMigration.DeleteRequired(legacyBackupPath);
             return;
         }
 

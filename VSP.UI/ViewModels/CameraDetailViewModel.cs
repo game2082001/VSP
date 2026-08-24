@@ -552,6 +552,7 @@ public class CameraDetailViewModel : ObservableObject
         try
         {
             var previousValues = DriverSettings.ToDictionary(setting => setting.Key, setting => setting.Value);
+            var previousExplicitEdits = DriverSettings.ToDictionary(setting => setting.Key, setting => setting.WasExplicitlyEdited);
 
             foreach (var setting in DriverSettings)
             {
@@ -575,6 +576,11 @@ public class CameraDetailViewModel : ObservableObject
                         : definition.DefaultValue?.ToString() ?? string.Empty;
 
                 var settingViewModel = new DriverSettingEditorViewModel(definition, initialValue);
+                if (previousExplicitEdits.TryGetValue(definition.Key, out var wasExplicitlyEdited) && wasExplicitlyEdited)
+                {
+                    settingViewModel.PreserveExplicitEdit();
+                }
+
                 settingViewModel.PropertyChanged += HandleDriverSettingPropertyChanged;
                 DriverSettings.Add(settingViewModel);
             }

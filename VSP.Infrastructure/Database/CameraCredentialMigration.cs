@@ -93,6 +93,7 @@ internal sealed class CameraCredentialMigration
         using var activated = OpenReadOnly(sourcePath);
         ValidateCurrentSchema(activated);
         VerifyIntegrity(activated, "activated");
+        DeleteRequired(backupPath);
     }
 
     public CameraCredentialMigrationState Inspect(string sourcePath, string stagingPath)
@@ -670,6 +671,14 @@ ORDER BY type, name, tbl_name;";
         catch
         {
             // The original exception remains authoritative; cleanup is best effort.
+        }
+    }
+
+    internal static void DeleteRequired(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
         }
     }
 
