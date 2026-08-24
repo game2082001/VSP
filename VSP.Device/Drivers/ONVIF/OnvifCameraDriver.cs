@@ -27,7 +27,7 @@ public class OnvifCameraDriver : ICameraDriver
         SupportsDeviceInformation = true
     };
 
-    public bool TestConnection(Camera camera)
+    public bool TestConnection(Camera camera, CameraCredentials credentials)
     {
         if (string.IsNullOrWhiteSpace(camera.IpAddress))
         {
@@ -53,7 +53,7 @@ public class OnvifCameraDriver : ICameraDriver
         }
     }
 
-    public DeviceInformation? GetDeviceInformation(Camera camera)
+    public DeviceInformation? GetDeviceInformation(Camera camera, CameraCredentials credentials)
     {
         if (string.IsNullOrWhiteSpace(camera.IpAddress))
         {
@@ -66,7 +66,7 @@ public class OnvifCameraDriver : ICameraDriver
             {
                 Endpoint = BuildDeviceServiceEndpoint(camera),
                 ContentType = "application/soap+xml",
-                Body = RequestFactory.BuildGetDeviceInformationRequest(camera.Username, camera.Password),
+                Body = RequestFactory.BuildGetDeviceInformationRequest(credentials.Username, credentials.Password),
                 Timeout = RequestTimeout
             });
 

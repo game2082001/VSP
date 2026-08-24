@@ -78,12 +78,10 @@ public class DatabaseRestoreServiceTests : IDisposable
         {
             Name = OriginalCameraName,
             IpAddress = "192.168.1.10",
-            Username = "restore-user",
-            Password = ProtectedCameraSecret
-        });
+            Username = "restore-user"
+        }, VSP.Domain.Entities.CameraCredentialMutation.Replace(ProtectedCameraSecret));
 
-        var backupResult = new DatabaseBackupService(databaseService).Backup(backupPath);
-        Assert.True(backupResult.Success);
+        WriteLegacyBackup(backupPath, OriginalCameraName);
 
         repository.Add(new CameraEntity { Name = ChangedAfterBackupCameraName, IpAddress = "192.168.1.11" });
 
@@ -91,6 +89,77 @@ public class DatabaseRestoreServiceTests : IDisposable
     }
 
     private static void WriteNonSqliteFile(string path) => File.WriteAllText(path, "not a database");
+
+    private static void WriteLegacyBackup(string path, string cameraName)
+    {
+        using var connection = new SqliteConnection($"Data Source={path}");
+        connection.Open();
+        CreateLegacySchema(connection);
+        InsertLegacyCamera(connection, cameraName, ProtectedCameraSecret);
+        SqliteConnection.ClearAllPools();
+    }
+
+    private static void CreateLegacySchema(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+CREATE TABLE Camera
+(
+    Id TEXT PRIMARY KEY,
+    Name TEXT NOT NULL,
+    IpAddress TEXT NOT NULL,
+    Brand INTEGER NOT NULL,
+    ConnectionType INTEGER NOT NULL,
+    Model TEXT,
+    Location TEXT,
+    HttpPort INTEGER,
+    RtspPort INTEGER,
+    SdkPort INTEGER,
+    Username TEXT,
+    Password TEXT,
+    RtspUrl TEXT,
+    Status INTEGER,
+    Recording INTEGER,
+    CreateTime TEXT,
+    LastModifyTime TEXT
+);
+
+CREATE TABLE User
+(
+    Id TEXT PRIMARY KEY,
+    Username TEXT NOT NULL,
+    PasswordHash TEXT NOT NULL,
+    PasswordSalt TEXT NOT NULL,
+    PasswordIterations INTEGER NOT NULL,
+    Role INTEGER NOT NULL,
+    MustChangePassword INTEGER NOT NULL DEFAULT 0,
+    CreateTime TEXT,
+    LastModifyTime TEXT
+);
+CREATE UNIQUE INDEX IX_User_Username ON User (Username);";
+        command.ExecuteNonQuery();
+    }
+
+    private static void InsertLegacyCamera(SqliteConnection connection, string cameraName, string password)
+    {
+        var now = DateTime.UtcNow.ToString("O");
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO Camera
+(Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+ HttpPort, RtspPort, SdkPort, Username, Password, RtspUrl,
+ Status, Recording, CreateTime, LastModifyTime)
+VALUES
+($Id, $Name, '192.168.1.10', 1, 1, '', '',
+ 80, 554, 8000, 'restore-user', $Password, 'rtsp://192.168.1.10/stream',
+ 0, 0, $CreateTime, $LastModifyTime);";
+        command.Parameters.AddWithValue("$Id", Guid.NewGuid().ToString());
+        command.Parameters.AddWithValue("$Name", cameraName);
+        command.Parameters.AddWithValue("$Password", password);
+        command.Parameters.AddWithValue("$CreateTime", now);
+        command.Parameters.AddWithValue("$LastModifyTime", now);
+        command.ExecuteNonQuery();
+    }
 
     private static void WriteSqliteFileWithoutCameraTable(string path)
     {
@@ -406,8 +475,7 @@ LIMIT 1;";
 
         // The backup was taken while only OriginalCameraName existed, before ChangedAfterBackup
         // was added -- so a correct restore must show OriginalCameraName only.
-        var repository = new SQLiteCameraRepository(databaseService);
-        Assert.Equal(new[] { OriginalCameraName }, repository.GetAll().ConvertAll(c => c.Name));
+        Assert.Equal(new[] { OriginalCameraName }, ReadAllCameraNames(databaseService.GetDatabaseFilePath()));
 
         var preRestoreFiles = Directory.GetFiles(LiveDirectory, "vsp.pre-restore.*.db");
         var preRestoreFile = Assert.Single(preRestoreFiles);

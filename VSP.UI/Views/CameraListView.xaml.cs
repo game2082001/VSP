@@ -125,7 +125,7 @@ public partial class CameraListView : UserControl
     {
         var connectionTestViewModel = new BatchConnectionTestViewModel(
             selectedCameras,
-            new CameraConnectionTester(),
+            new CameraConnectionTester(_cameraRepository),
             _cameraRepository);
         var connectionTestWindow = new BatchConnectionTestWindow(connectionTestViewModel)
         {

@@ -114,7 +114,8 @@ public class LiveViewViewModelTests
                 capturedUrl = url;
                 return controller;
             },
-            onvifStreamUriResolver: resolver);
+            onvifStreamUriResolver: resolver,
+            credentialProvider: _ => new VSP.Domain.Entities.CameraCredentials("admin", "secret"));
 
         var camera = new EntityCamera { Name = "Onvif Cam", RtspUrl = "", ConnectionType = DeviceConnectionType.ONVIF, HttpPort = 1025, Username = "admin", Password = "secret" };
         viewModel.LoadCamera(camera);
@@ -131,7 +132,7 @@ public class LiveViewViewModelTests
         {
             capturedUrl = url;
             return controller;
-        });
+        }, credentialProvider: _ => new VSP.Domain.Entities.CameraCredentials("admin", "secret"));
 
         var camera = new EntityCamera { Name = "Front Door", RtspUrl = "rtsp://192.168.1.10/stream", ConnectionType = DeviceConnectionType.RTSP, Username = "admin", Password = "secret" };
         viewModel.LoadCamera(camera);
@@ -144,7 +145,11 @@ public class LiveViewViewModelTests
     {
         var controller = new FakeMediaController();
         var resolver = new FakeOnvifStreamUriResolver(OnvifStreamUriResolution.Success("rtsp://192.168.0.89:1025/Streaming/Channels/101"));
-        var viewModel = new LiveViewViewModel(Dispatcher.CurrentDispatcher, (_, _, _) => controller, onvifStreamUriResolver: resolver);
+        var viewModel = new LiveViewViewModel(
+            Dispatcher.CurrentDispatcher,
+            (_, _, _) => controller,
+            onvifStreamUriResolver: resolver,
+            credentialProvider: _ => new VSP.Domain.Entities.CameraCredentials("admin", "secret"));
 
         var camera = new EntityCamera { Name = "Onvif Cam", RtspUrl = "", ConnectionType = DeviceConnectionType.ONVIF, HttpPort = 1025, Username = "admin", Password = "secret" };
         viewModel.LoadCamera(camera);
@@ -157,7 +162,10 @@ public class LiveViewViewModelTests
     public void LoadCamera_RtspCameraWithCredentials_DoesNotPersistAuthenticatedUriOntoCamera()
     {
         var controller = new FakeMediaController();
-        var viewModel = new LiveViewViewModel(Dispatcher.CurrentDispatcher, (_, _, _) => controller);
+        var viewModel = new LiveViewViewModel(
+            Dispatcher.CurrentDispatcher,
+            (_, _, _) => controller,
+            credentialProvider: _ => new VSP.Domain.Entities.CameraCredentials("admin", "secret"));
 
         var camera = new EntityCamera { Name = "Front Door", RtspUrl = "rtsp://192.168.1.10/stream", ConnectionType = DeviceConnectionType.RTSP, Username = "admin", Password = "secret" };
         viewModel.LoadCamera(camera);
@@ -174,7 +182,7 @@ public class LiveViewViewModelTests
         {
             capturedUrl = url;
             return controller;
-        });
+        }, credentialProvider: _ => new VSP.Domain.Entities.CameraCredentials("admin", "secret"));
 
         var camera = new EntityCamera { Name = "Front Door", RtspUrl = "rtsp://olduser:oldpass@192.168.1.10/stream", ConnectionType = DeviceConnectionType.RTSP, Username = "admin", Password = "secret" };
         viewModel.LoadCamera(camera);
@@ -203,7 +211,10 @@ public class LiveViewViewModelTests
     public void LoadCamera_WithCredentials_StatusMessageNeverContainsRawCredentials()
     {
         var controller = new FakeMediaController();
-        var viewModel = new LiveViewViewModel(Dispatcher.CurrentDispatcher, (_, _, _) => controller);
+        var viewModel = new LiveViewViewModel(
+            Dispatcher.CurrentDispatcher,
+            (_, _, _) => controller,
+            credentialProvider: _ => new VSP.Domain.Entities.CameraCredentials("admin", "secret"));
 
         var camera = new EntityCamera { Name = "Front Door", RtspUrl = "rtsp://192.168.1.10/stream", ConnectionType = DeviceConnectionType.RTSP, Username = "admin", Password = "super-secret-value" };
         viewModel.LoadCamera(camera);
@@ -220,7 +231,11 @@ public class LiveViewViewModelTests
         AppLog.Initialize(recorder);
         var controller = new FakeMediaController();
         var resolver = new FakeOnvifStreamUriResolver(OnvifStreamUriResolution.Success("rtsp://192.168.0.89:1025/Streaming/Channels/101"));
-        var viewModel = new LiveViewViewModel(Dispatcher.CurrentDispatcher, (_, _, _) => controller, onvifStreamUriResolver: resolver);
+        var viewModel = new LiveViewViewModel(
+            Dispatcher.CurrentDispatcher,
+            (_, _, _) => controller,
+            onvifStreamUriResolver: resolver,
+            credentialProvider: _ => new VSP.Domain.Entities.CameraCredentials("admin", "secret"));
 
         var camera = new EntityCamera
         {
@@ -875,12 +890,16 @@ public class LiveViewViewModelTests
 
     private sealed class FakeOnvifStreamUriResolver(OnvifStreamUriResolution result) : IOnvifStreamUriResolver
     {
-        public OnvifStreamUriResolution Resolve(EntityCamera camera) => result;
+        public OnvifStreamUriResolution Resolve(
+            EntityCamera camera,
+            VSP.Domain.Entities.CameraCredentials credentials) => result;
     }
 
     private sealed class ThrowingOnvifStreamUriResolver : IOnvifStreamUriResolver
     {
-        public OnvifStreamUriResolution Resolve(EntityCamera camera) =>
+        public OnvifStreamUriResolution Resolve(
+            EntityCamera camera,
+            VSP.Domain.Entities.CameraCredentials credentials) =>
             throw new InvalidOperationException("ONVIF resolver must not be invoked for a non-ONVIF camera.");
     }
 }

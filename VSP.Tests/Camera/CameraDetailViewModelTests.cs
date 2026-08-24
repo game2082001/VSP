@@ -65,7 +65,7 @@ public class CameraDetailViewModelTests
         Assert.Equal("80", GetSetting(viewModel, DriverSettingKey.HttpPort).Value);
         Assert.Equal("8000", GetSetting(viewModel, DriverSettingKey.SdkPort).Value);
         Assert.Equal("admin", GetSetting(viewModel, DriverSettingKey.Username).Value);
-        Assert.Equal("********", GetSetting(viewModel, DriverSettingKey.Password).DisplayValue);
+        Assert.Equal("", GetSetting(viewModel, DriverSettingKey.Password).DisplayValue);
         Assert.Equal("Online", viewModel.Status);
         Assert.Equal("Yes", viewModel.Recording);
         Assert.Equal("Entrance", viewModel.Location);
@@ -786,12 +786,10 @@ public class CameraDetailViewModelTests
     }
 
     [Fact]
-    public void ChangingConnectionType_RebuiltSetting_ValueSurvivesButExplicitEditFlagResets()
+    public void ChangingConnectionType_RebuiltSetting_PreservesValueAndExplicitEditFlag()
     {
-        // Documented, accepted limitation: rebuilding DriverSettings (e.g. a ConnectionType
-        // switch) always goes through the constructor, so edit-intent tracking resets even
-        // for a key (Username) whose typed value does carry over via the "preserve values
-        // across rebuild" mechanism (RTSP and ONVIF both define Username).
+        // Credential mutation depends on edit intent. A connection-type rebuild must preserve
+        // both the typed value and the fact that the user typed it.
         var camera = CreateCamera();
         camera.ConnectionType = DeviceConnectionType.RTSP;
         var viewModel = new CameraDetailViewModel(camera, new FakeCameraRepository());
@@ -802,7 +800,7 @@ public class CameraDetailViewModelTests
         viewModel.ConnectionType = nameof(DeviceConnectionType.RTSP);
 
         Assert.Equal("edited-user", GetSetting(viewModel, DriverSettingKey.Username).Value);
-        Assert.False(GetSetting(viewModel, DriverSettingKey.Username).WasExplicitlyEdited);
+        Assert.True(GetSetting(viewModel, DriverSettingKey.Username).WasExplicitlyEdited);
     }
 
     private static DriverSettingEditorViewModel GetSetting(CameraDetailViewModel viewModel, DriverSettingKey key)

@@ -6,6 +6,16 @@ using EntityCamera = VSP.Domain.Entities.Camera;
 
 namespace VSP.Tests.Drivers.ONVIF;
 
+internal static class OnvifStreamUriResolverTestExtensions
+{
+    public static OnvifStreamUriResolution Resolve(this OnvifStreamUriResolver resolver, EntityCamera camera)
+    {
+        return resolver.Resolve(
+            camera,
+            new VSP.Domain.Entities.CameraCredentials(camera.Username, camera.Password));
+    }
+}
+
 [Collection("AppLog")]
 public class OnvifStreamUriResolverTests
 {

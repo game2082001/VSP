@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS Camera
     SdkPort INTEGER,
 
     Username TEXT,
-    Password TEXT,
+    PasswordProtected BLOB,
+    PasswordProtectionVersion INTEGER,
     RtspUrl TEXT,
 
     Status INTEGER,

@@ -66,12 +66,11 @@ public class DeviceViewModel : ObservableObject
                 RtspPort = window.RtspPort,
                 SdkPort = window.SdkPort,
                 Username = window.Username,
-                Password = window.Password,
                 RtspUrl = window.RtspUrl,
                 Status = CameraStatus.Offline
             };
 
-            _deviceService.AddCamera(camera);
+            _deviceService.AddCamera(camera, CameraCredentialMutation.Replace(window.Password));
 
             LoadDevices();
         }
@@ -98,10 +97,12 @@ public class DeviceViewModel : ObservableObject
             SelectedDevice.RtspPort = window.RtspPort;
             SelectedDevice.SdkPort = window.SdkPort;
             SelectedDevice.Username = window.Username;
-            SelectedDevice.Password = window.Password;
             SelectedDevice.RtspUrl = window.RtspUrl;
 
-            _deviceService.UpdateCamera(SelectedDevice);
+            var mutation = string.IsNullOrEmpty(window.Password)
+                ? CameraCredentialMutation.Unchanged()
+                : CameraCredentialMutation.Replace(window.Password);
+            _deviceService.UpdateCamera(SelectedDevice, mutation);
 
             LoadDevices();
         }

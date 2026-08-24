@@ -23,6 +23,7 @@ public class LiveViewViewModel : ObservableObject, IDisposable
 {
     private readonly Dispatcher _uiDispatcher;
     private readonly Func<string, Dispatcher, Guid, IMediaController> _controllerFactory;
+    private readonly Func<Guid, CameraCredentials> _credentialProvider;
     private readonly IOnvifStreamUriResolver _onvifStreamUriResolver;
     private IMediaController? _controller;
 
@@ -65,8 +66,15 @@ public class LiveViewViewModel : ObservableObject, IDisposable
     // Role defaults to Admin -- preserves every pre-Epic-018 call site/test's existing
     // full-featured behavior unchanged; MainWindowViewModel (the one real production call site)
     // always passes the authenticated user's actual role explicitly.
-    public LiveViewViewModel(Dispatcher uiDispatcher, Role role = Role.Admin)
-        : this(uiDispatcher, static (rtspUrl, dispatcher, cameraId) => new MediaController(rtspUrl, dispatcher, cameraId: cameraId), role)
+    public LiveViewViewModel(
+        Dispatcher uiDispatcher,
+        Role role = Role.Admin,
+        Func<Guid, CameraCredentials>? credentialProvider = null)
+        : this(
+            uiDispatcher,
+            static (rtspUrl, dispatcher, cameraId) => new MediaController(rtspUrl, dispatcher, cameraId: cameraId),
+            role,
+            credentialProvider: credentialProvider)
     {
     }
 
@@ -74,10 +82,12 @@ public class LiveViewViewModel : ObservableObject, IDisposable
         Dispatcher uiDispatcher,
         Func<string, Dispatcher, Guid, IMediaController> controllerFactory,
         Role role = Role.Admin,
-        IOnvifStreamUriResolver? onvifStreamUriResolver = null)
+        IOnvifStreamUriResolver? onvifStreamUriResolver = null,
+        Func<Guid, CameraCredentials>? credentialProvider = null)
     {
         _uiDispatcher = uiDispatcher;
         _controllerFactory = controllerFactory;
+        _credentialProvider = credentialProvider ?? (_ => new CameraCredentials("", ""));
         _onvifStreamUriResolver = onvifStreamUriResolver ?? new OnvifStreamUriResolver();
 
         // Item F (Stop/Restart control-state defect): Play/Start Live is only ever offered once
@@ -139,7 +149,8 @@ public class LiveViewViewModel : ObservableObject, IDisposable
     {
         StatusMessage = $"Resolving ONVIF stream for {camera.Name}...";
 
-        var resolution = _onvifStreamUriResolver.Resolve(camera);
+        var credentials = _credentialProvider(camera.Id);
+        var resolution = _onvifStreamUriResolver.Resolve(camera, credentials);
 
         // Deliberately no fallback to camera.RtspUrl on failure -- a broken ONVIF resolution
         // must stay visible as an ONVIF failure, not be silently masked by a manually-entered
@@ -157,7 +168,7 @@ public class LiveViewViewModel : ObservableObject, IDisposable
             return;
         }
 
-        StartAuthenticatedController(camera, streamUri);
+        StartAuthenticatedController(camera, streamUri, credentials);
     }
 
     /// <summary>
@@ -168,8 +179,13 @@ public class LiveViewViewModel : ObservableObject, IDisposable
     /// </summary>
     private void StartAuthenticatedController(Camera camera, Uri effectiveUri)
     {
-        var authenticatedUri = RtspCredentialUriBuilder.Build(effectiveUri, camera.Username, camera.Password);
-        LogCredentialBoundaryDiagnostics(camera, effectiveUri, authenticatedUri);
+        StartAuthenticatedController(camera, effectiveUri, _credentialProvider(camera.Id));
+    }
+
+    private void StartAuthenticatedController(Camera camera, Uri effectiveUri, CameraCredentials credentials)
+    {
+        var authenticatedUri = RtspCredentialUriBuilder.Build(effectiveUri, credentials.Username, credentials.Password);
+        LogCredentialBoundaryDiagnostics(camera, credentials, effectiveUri, authenticatedUri);
         StartControllerWithUrl(camera, authenticatedUri.AbsoluteUri);
     }
 
@@ -178,13 +194,13 @@ public class LiveViewViewModel : ObservableObject, IDisposable
     /// injection changed only the URI's userinfo component. Never logs either <see cref="Uri"/>,
     /// their UserInfo, or any path/query value -- only booleans/enum names derived from them.
     /// </summary>
-    private static void LogCredentialBoundaryDiagnostics(Camera camera, Uri preInjectionUri, Uri runtimeUri)
+    private static void LogCredentialBoundaryDiagnostics(Camera camera, CameraCredentials credentials, Uri preInjectionUri, Uri runtimeUri)
     {
         AppLog.Info(
             "Live View credential boundary: " +
             $"cameraConnectionType={camera.ConnectionType}, " +
-            $"usernamePresent={!string.IsNullOrWhiteSpace(camera.Username)}, " +
-            $"passwordPresent={!string.IsNullOrWhiteSpace(camera.Password)}, " +
+            $"usernamePresent={!string.IsNullOrWhiteSpace(credentials.Username)}, " +
+            $"passwordPresent={!string.IsNullOrWhiteSpace(credentials.Password)}, " +
             $"preUriHasUserInfo={!string.IsNullOrEmpty(preInjectionUri.UserInfo)}, " +
             $"runtimeUriHasUserInfo={!string.IsNullOrEmpty(runtimeUri.UserInfo)}, " +
             $"runtimeUriSchemeMatchesPreUri={runtimeUri.Scheme == preInjectionUri.Scheme}, " +

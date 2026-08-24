@@ -47,7 +47,7 @@ public partial class AddDeviceWindow : Window
         RtspPortTextBox.Text = camera.RtspPort.ToString();
         SdkPortTextBox.Text = camera.SdkPort.ToString();
         UsernameTextBox.Text = camera.Username;
-        PasswordBox.Password = camera.Password;
+        PasswordBox.Password = string.Empty;
         RtspTextBox.Text = camera.RtspUrl;
 
         foreach (ComboBoxItem item in BrandComboBox.Items)

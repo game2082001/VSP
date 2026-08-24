@@ -10,5 +10,8 @@ namespace VSP.Device.Drivers.ONVIF;
 /// </summary>
 public interface IOnvifStreamUriResolver
 {
-    OnvifStreamUriResolution Resolve(Camera camera);
+    OnvifStreamUriResolution Resolve(Camera camera, CameraCredentials credentials) =>
+        OnvifStreamUriResolution.Failure(
+            OnvifStreamUriFailureReason.GetStreamUriFailed,
+            "ONVIF stream URI resolution is not implemented.");
 }

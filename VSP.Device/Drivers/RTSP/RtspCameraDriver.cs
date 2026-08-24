@@ -25,7 +25,7 @@ public class RtspCameraDriver : ICameraDriver
         SupportsDiscovery = false
     };
 
-    public bool TestConnection(Camera camera)
+    public bool TestConnection(Camera camera, CameraCredentials credentials)
     {
         try
         {
@@ -56,7 +56,7 @@ public class RtspCameraDriver : ICameraDriver
             var observedChallenges = RtspWwwAuthenticateParser.ParseAll(response.WwwAuthenticateValues);
             const int selectedChallengeIndex = 0;
 
-            if (string.IsNullOrEmpty(camera.Username))
+            if (string.IsNullOrEmpty(credentials.Username))
             {
                 AppLog.Info(RtspAuthChallengeDiagnostics.BuildSummary(observedChallenges, selectedChallengeIndex, secondResponseStatus: null));
                 return false;
@@ -71,8 +71,8 @@ public class RtspCameraDriver : ICameraDriver
 
             var authorizationHeaderValue = RtspAuthorizationHeaderBuilder.Build(
                 challenge,
-                camera.Username,
-                camera.Password,
+                credentials.Username,
+                credentials.Password,
                 "DESCRIBE",
                 effectiveRtspUrl);
 
@@ -118,7 +118,7 @@ public class RtspCameraDriver : ICameraDriver
         return statusCode is >= 200 and < 300;
     }
 
-    public DeviceInformation? GetDeviceInformation(Camera camera)
+    public DeviceInformation? GetDeviceInformation(Camera camera, CameraCredentials credentials)
     {
         return null;
     }

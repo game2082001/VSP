@@ -6,6 +6,25 @@ using EntityCamera = VSP.Domain.Entities.Camera;
 
 namespace VSP.Tests.Drivers.ONVIF;
 
+internal static class OnvifCameraDriverTestExtensions
+{
+    public static bool TestConnection(this OnvifCameraDriver driver, EntityCamera camera)
+    {
+        return driver.TestConnection(
+            camera,
+            new VSP.Domain.Entities.CameraCredentials(camera.Username, camera.Password));
+    }
+
+    public static VSP.Device.Drivers.Abstractions.DeviceInformation? GetDeviceInformation(
+        this OnvifCameraDriver driver,
+        EntityCamera camera)
+    {
+        return driver.GetDeviceInformation(
+            camera,
+            new VSP.Domain.Entities.CameraCredentials(camera.Username, camera.Password));
+    }
+}
+
 [Collection("AppLog")]
 public class OnvifCameraDriverTests
 {

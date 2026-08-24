@@ -26,7 +26,10 @@ public class Camera
 
     public string Username { get; set; } = "";
 
+    /// <summary>Transient password input only; repositories never hydrate this from protected storage.</summary>
     public string Password { get; set; } = "";
+
+    public bool HasStoredPassword { get; set; }
 
     public string RtspUrl { get; set; } = "";
 

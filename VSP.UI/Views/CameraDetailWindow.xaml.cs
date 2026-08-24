@@ -63,9 +63,9 @@ public partial class CameraDetailWindow : Window
 
     private void HandleSettingPasswordBoxLoaded(object sender, RoutedEventArgs e)
     {
-        if (sender is PasswordBox { DataContext: DriverSettingEditorViewModel setting } passwordBox)
+        if (sender is PasswordBox passwordBox)
         {
-            passwordBox.Password = setting.Value;
+            passwordBox.Password = string.Empty;
         }
     }
 

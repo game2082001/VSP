@@ -1,4 +1,6 @@
-﻿using VSP.Infrastructure.SQLite;
+using Microsoft.Data.Sqlite;
+using VSP.Infrastructure.Security;
+using VSP.Infrastructure.SQLite;
 
 namespace VSP.Infrastructure.Database;
 
@@ -21,12 +23,15 @@ public class DatabaseInitializer
     {
         try
         {
+            ActivateCredentialSchemaIfRequired();
+
             using var connection = _databaseService.CreateConnection();
 
             connection.Open();
 
             CameraTable.Create(connection);
             UserTable.Create(connection);
+            EnsureProtectedMetadata(connection);
             DefaultAdminSeeder.SeedIfEmpty(connection);
 
             return DatabaseInitializationResult.Ok();
@@ -35,5 +40,55 @@ public class DatabaseInitializer
         {
             return DatabaseInitializationResult.Failed(ex);
         }
+    }
+
+    private void ActivateCredentialSchemaIfRequired()
+    {
+        var databasePath = _databaseService.GetDatabaseFilePath();
+        var stagingPath = Path.Combine(_databaseService.GetDatabaseDirectory(), "vsp.db.pd001d-staging");
+        var legacyBackupPath = Path.Combine(_databaseService.GetDatabaseDirectory(), "vsp.db.pd001d-legacy");
+        var migration = new CameraCredentialMigration(new DpapiCurrentUserCameraCredentialProtector());
+        var state = migration.Inspect(databasePath, stagingPath);
+
+        if (state == CameraCredentialMigrationState.SourceMissing)
+        {
+            return;
+        }
+
+        if (state == CameraCredentialMigrationState.SourceAlreadyProtected)
+        {
+            CameraCredentialMigration.DeleteRequired(legacyBackupPath);
+            return;
+        }
+
+        if (state is CameraCredentialMigrationState.NotStarted
+            or CameraCredentialMigrationState.InvalidStaging
+            or CameraCredentialMigrationState.SourceChangedSinceStaging
+            or CameraCredentialMigrationState.ReadyForActivation)
+        {
+            migration.Activate(databasePath, stagingPath, legacyBackupPath);
+            return;
+        }
+
+        throw new InvalidDataException($"The database credential schema is not supported for startup migration: {state}.");
+    }
+
+    private static void EnsureProtectedMetadata(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $@"
+CREATE TABLE IF NOT EXISTS CredentialMigrationMetadata
+(
+    Id INTEGER PRIMARY KEY CHECK (Id = 1),
+    SourceSha256 BLOB NOT NULL,
+    ProtectionProvider TEXT NOT NULL CHECK (ProtectionProvider = 'DPAPI'),
+    ProtectionScope TEXT NOT NULL CHECK (ProtectionScope = 'CurrentUser'),
+    ProtectionVersion INTEGER NOT NULL CHECK (ProtectionVersion = 1)
+);
+INSERT OR IGNORE INTO CredentialMigrationMetadata
+(Id, SourceSha256, ProtectionProvider, ProtectionScope, ProtectionVersion)
+VALUES (1, zeroblob(32), 'DPAPI', 'CurrentUser', 1);
+PRAGMA user_version = {DatabaseSchemaVersion.CurrentUserProtectedCredentials};";
+        command.ExecuteNonQuery();
     }
 }

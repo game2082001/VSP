@@ -35,6 +35,51 @@ public class SettingsViewModelTests : IDisposable
         return databaseService;
     }
 
+    private static void WriteLegacyBackup(string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var connection = new SqliteConnection($"Data Source={path}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+CREATE TABLE Camera
+(
+    Id TEXT PRIMARY KEY,
+    Name TEXT NOT NULL,
+    IpAddress TEXT NOT NULL,
+    Brand INTEGER NOT NULL,
+    ConnectionType INTEGER NOT NULL,
+    Model TEXT,
+    Location TEXT,
+    HttpPort INTEGER,
+    RtspPort INTEGER,
+    SdkPort INTEGER,
+    Username TEXT,
+    Password TEXT,
+    RtspUrl TEXT,
+    Status INTEGER,
+    Recording INTEGER,
+    CreateTime TEXT,
+    LastModifyTime TEXT
+);
+
+CREATE TABLE User
+(
+    Id TEXT PRIMARY KEY,
+    Username TEXT NOT NULL,
+    PasswordHash TEXT NOT NULL,
+    PasswordSalt TEXT NOT NULL,
+    PasswordIterations INTEGER NOT NULL,
+    Role INTEGER NOT NULL,
+    MustChangePassword INTEGER NOT NULL DEFAULT 0,
+    CreateTime TEXT,
+    LastModifyTime TEXT
+);
+CREATE UNIQUE INDEX IX_User_Username ON User (Username);";
+        command.ExecuteNonQuery();
+        SqliteConnection.ClearAllPools();
+    }
+
     private SettingsViewModel CreateViewModel(
         AppSettingsProvider? provider = null,
         Func<bool>? isRecordingActive = null,
@@ -267,7 +312,7 @@ public class SettingsViewModelTests : IDisposable
     public void Restore_ValidSourceFile_UserDeclinesConfirmation_AbortsWithoutInstalling()
     {
         var backupPath = Path.Combine(_databaseDirectory, "valid-backup.db");
-        new DatabaseBackupService(CreateDatabaseService()).Backup(backupPath);
+        WriteLegacyBackup(backupPath);
         var viewModel = CreateViewModel(
             chooseRestoreSource: () => backupPath,
             confirmRestore: () => false);
@@ -281,7 +326,7 @@ public class SettingsViewModelTests : IDisposable
     public void Restore_ValidSourceFile_ConfirmedButRecordingActive_BlocksWithoutInstalling()
     {
         var backupPath = Path.Combine(_databaseDirectory, "valid-backup.db");
-        new DatabaseBackupService(CreateDatabaseService()).Backup(backupPath);
+        WriteLegacyBackup(backupPath);
         var viewModel = CreateViewModel(
             isRecordingActive: () => true,
             chooseRestoreSource: () => backupPath,
@@ -296,7 +341,7 @@ public class SettingsViewModelTests : IDisposable
     public void Restore_ValidSourceFile_ConfirmedAndNotRecording_InstallsAndTriggersRestartCallback()
     {
         var backupPath = Path.Combine(_databaseDirectory, "valid-backup.db");
-        new DatabaseBackupService(CreateDatabaseService()).Backup(backupPath);
+        WriteLegacyBackup(backupPath);
         var restartTriggered = false;
         var viewModel = CreateViewModel(
             chooseRestoreSource: () => backupPath,
@@ -313,7 +358,7 @@ public class SettingsViewModelTests : IDisposable
     {
         var backupPath = Path.Combine(_databaseDirectory, "valid-backup.db");
         var databaseService = CreateDatabaseService();
-        new DatabaseBackupService(databaseService).Backup(backupPath);
+        WriteLegacyBackup(backupPath);
         var restartTriggered = false;
         var viewModel = CreateViewModel(
             chooseRestoreSource: () => backupPath,

@@ -74,6 +74,11 @@ public class DriverSettingEditorViewModel : ObservableObject
         Validate();
     }
 
+    public void PreserveExplicitEdit()
+    {
+        WasExplicitlyEdited = true;
+    }
+
     private void Validate()
     {
         if (IsRequired && string.IsNullOrWhiteSpace(Value))

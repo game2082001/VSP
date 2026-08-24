@@ -207,12 +207,11 @@ public class DeviceCenterViewModel : ObservableObject
             RtspPort = window.RtspPort,
             SdkPort = window.SdkPort,
             Username = window.Username,
-            Password = window.Password,
             RtspUrl = window.RtspUrl,
             Status = CameraStatus.Offline
         };
 
-        _deviceService.AddCamera(camera);
+        _deviceService.AddCamera(camera, CameraCredentialMutation.Replace(window.Password));
         LoadDevices();
         SelectedDevice = Devices.FirstOrDefault(x => x.Id == camera.Id) ?? SelectedDevice;
     }
@@ -243,10 +242,12 @@ public class DeviceCenterViewModel : ObservableObject
         SelectedDevice.RtspPort = window.RtspPort;
         SelectedDevice.SdkPort = window.SdkPort;
         SelectedDevice.Username = window.Username;
-        SelectedDevice.Password = window.Password;
         SelectedDevice.RtspUrl = window.RtspUrl;
 
-        _deviceService.UpdateCamera(SelectedDevice);
+        var mutation = string.IsNullOrEmpty(window.Password)
+            ? CameraCredentialMutation.Unchanged()
+            : CameraCredentialMutation.Replace(window.Password);
+        _deviceService.UpdateCamera(SelectedDevice, mutation);
         LoadDevices();
         SelectedDevice = Devices.FirstOrDefault(x => x.Id == deviceId) ?? SelectedDevice;
     }
@@ -284,7 +285,7 @@ public class DeviceCenterViewModel : ObservableObject
         }
 
         var driver = DriverFactory.CreateCameraDriver(SelectedDevice.ConnectionType);
-        var result = driver.TestConnection(SelectedDevice);
+        var result = driver.TestConnection(SelectedDevice, _deviceService.GetCredentials(SelectedDevice.Id));
 
         if (result)
         {

@@ -6,6 +6,7 @@ using VSP.Core.Commands;
 using VSP.Core.MVVM;
 using VSP.Domain.Entities;
 using VSP.Domain.Enums;
+using VSP.Device.Repositories;
 using VSP.Infrastructure.Database;
 using VSP.Infrastructure.Settings;
 using VSP.UI.Services;
@@ -70,7 +71,11 @@ public class MainWindowViewModel : ObservableObject
 
         LogoutCommand = new RelayCommand(Logout);
 
-        _liveViewViewModel = new LiveViewViewModel(Dispatcher.CurrentDispatcher, currentUser.Role);
+        var cameraRepository = new CameraRepository();
+        _liveViewViewModel = new LiveViewViewModel(
+            Dispatcher.CurrentDispatcher,
+            currentUser.Role,
+            cameraRepository.GetCredentials);
         _liveView = new LiveView(_liveViewViewModel);
 
         Navigation.Add(new NavigationItem
