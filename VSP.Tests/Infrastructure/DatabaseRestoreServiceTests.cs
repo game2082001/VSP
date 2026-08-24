@@ -389,6 +389,7 @@ LIMIT 1;";
 
         Assert.Equal(sourceBytesBeforeInstall, File.ReadAllBytes(backupPath));
         Assert.False(File.Exists(Path.Combine(LiveDirectory, "vsp.db.restoring.tmp")));
+        Assert.Empty(Directory.GetFiles(LiveDirectory, "vsp.restore-preflight.*.db"));
     }
 
     [Fact]

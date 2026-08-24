@@ -10,7 +10,7 @@ namespace VSP.Infrastructure.Database;
 /// </summary>
 internal sealed class CameraCredentialMigration
 {
-    private const int ProtectionVersion = 1;
+    internal const int ProtectionVersion = 1;
     private readonly ICameraCredentialProtector _protector;
 
     public CameraCredentialMigration(ICameraCredentialProtector protector)
@@ -609,39 +609,39 @@ ORDER BY type, name, tbl_name;";
         }
     }
 
-    private static readonly string[] LegacyCameraColumns =
+    internal static readonly string[] LegacyCameraColumns =
     {
         "Id", "Name", "IpAddress", "Brand", "ConnectionType", "Model", "Location",
         "HttpPort", "RtspPort", "SdkPort", "Username", "Password", "RtspUrl",
         "Status", "Recording", "CreateTime", "LastModifyTime"
     };
 
-    private static readonly string[] ProtectedCameraColumns =
+    internal static readonly string[] ProtectedCameraColumns =
     {
         "Id", "Name", "IpAddress", "Brand", "ConnectionType", "Model", "Location",
         "HttpPort", "RtspPort", "SdkPort", "Username", "PasswordProtected",
         "PasswordProtectionVersion", "RtspUrl", "Status", "Recording", "CreateTime", "LastModifyTime"
     };
 
-    private static readonly string[] UserColumns =
+    internal static readonly string[] UserColumns =
     {
         "Id", "Username", "PasswordHash", "PasswordSalt", "PasswordIterations",
         "Role", "MustChangePassword", "CreateTime", "LastModifyTime"
     };
 
-    private static readonly string[] MigrationMetadataColumns =
+    internal static readonly string[] MigrationMetadataColumns =
     {
         "Id", "SourceSha256", "ProtectionProvider", "ProtectionScope", "ProtectionVersion"
     };
 
-    private static readonly string[] LegacySchemaObjects =
+    internal static readonly string[] LegacySchemaObjects =
     {
         "index|IX_User_Username|User",
         "table|Camera|Camera",
         "table|User|User"
     };
 
-    private static readonly string[] ProtectedSchemaObjects =
+    internal static readonly string[] ProtectedSchemaObjects =
     {
         "index|IX_User_Username|User",
         "table|Camera|Camera",

@@ -111,7 +111,10 @@ public class DatabaseRestoreService
             File.Move(tempInstallPath, databaseFilePath, overwrite: true);
 
             // Step 7: re-validate the file now actually sitting at the live path.
-            var postInstallValidation = ToValidationResult(_preflight.Check(databaseFilePath, liveDatabasePath: null));
+            var postInstallValidation = ToValidationResult(_preflight.Check(
+                databaseFilePath,
+                liveDatabasePath: null,
+                verifyLegacyConvertibility: false));
             if (!postInstallValidation.Success)
             {
                 throw new InvalidOperationException(

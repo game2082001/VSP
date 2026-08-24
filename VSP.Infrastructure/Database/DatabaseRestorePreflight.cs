@@ -1,11 +1,11 @@
 using Microsoft.Data.Sqlite;
+using VSP.Core.Logging;
 using VSP.Infrastructure.Security;
 
 namespace VSP.Infrastructure.Database;
 
 internal sealed class DatabaseRestorePreflight
 {
-    private const int ProtectionVersion = 1;
     private readonly ICameraCredentialProtector _protector;
 
     public DatabaseRestorePreflight(ICameraCredentialProtector protector)
@@ -13,7 +13,10 @@ internal sealed class DatabaseRestorePreflight
         _protector = protector ?? throw new ArgumentNullException(nameof(protector));
     }
 
-    public DatabaseRestorePreflightResult Check(string sourceFilePath, string? liveDatabasePath)
+    public DatabaseRestorePreflightResult Check(
+        string sourceFilePath,
+        string? liveDatabasePath,
+        bool verifyLegacyConvertibility = true)
     {
         if (!File.Exists(sourceFilePath))
         {
@@ -51,33 +54,43 @@ internal sealed class DatabaseRestorePreflight
             var schemaVersion = ReadSchemaVersion(connection);
             return schemaVersion switch
             {
-                DatabaseSchemaVersion.LegacyPlaintextCredentials => CheckLegacyPlaintext(sourceFilePath, connection),
+                DatabaseSchemaVersion.LegacyPlaintextCredentials => CheckLegacyPlaintext(
+                    sourceFilePath,
+                    connection,
+                    verifyLegacyConvertibility),
                 DatabaseSchemaVersion.CurrentUserProtectedCredentials => CheckCurrentUserProtected(connection),
                 _ => DatabaseRestorePreflightResult.ValidationFailed(
                     "The selected file uses an unsupported VSP database schema version.")
             };
         }
-        catch (SqliteException)
+        catch (SqliteException ex)
         {
+            AppLog.Warning("Restore preflight could not open the selected file as SQLite.", ex);
             return DatabaseRestorePreflightResult.ValidationFailed(
                 "The selected file could not be opened as a SQLite database.");
         }
         catch (InvalidDataException ex)
         {
+            AppLog.Warning("Restore preflight rejected the selected file because its data is unsupported.", ex);
             return DatabaseRestorePreflightResult.ValidationFailed(ex.Message);
         }
         catch (InvalidOperationException ex)
         {
+            AppLog.Warning("Restore preflight rejected the selected file because the staged conversion could not be completed.", ex);
             return DatabaseRestorePreflightResult.ValidationFailed(ex.Message);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            AppLog.Warning("Restore preflight rejected the selected file after an unexpected validation failure.", ex);
             return DatabaseRestorePreflightResult.ValidationFailed(
                 "The selected file could not be opened as a SQLite database.");
         }
     }
 
-    private DatabaseRestorePreflightResult CheckLegacyPlaintext(string sourceFilePath, SqliteConnection connection)
+    private DatabaseRestorePreflightResult CheckLegacyPlaintext(
+        string sourceFilePath,
+        SqliteConnection connection,
+        bool verifyConvertibility)
     {
         if (!HasTable(connection, "Camera"))
         {
@@ -85,12 +98,17 @@ internal sealed class DatabaseRestorePreflight
                 "The selected file is not a valid VSP database backup (missing the Camera table).");
         }
 
-        if (!HasExactColumns(connection, "Camera", LegacyCameraColumns)
-            || !HasExactColumns(connection, "User", UserColumns)
-            || !HasExactApplicationSchema(connection, LegacySchemaObjects))
+        if (!HasExactColumns(connection, "Camera", CameraCredentialMigration.LegacyCameraColumns)
+            || !HasExactColumns(connection, "User", CameraCredentialMigration.UserColumns)
+            || !HasExactApplicationSchema(connection, CameraCredentialMigration.LegacySchemaObjects))
         {
             return DatabaseRestorePreflightResult.ValidationFailed(
                 "The selected file is not a valid VSP database backup.");
+        }
+
+        if (!verifyConvertibility)
+        {
+            return DatabaseRestorePreflightResult.LegacyPlaintext();
         }
 
         var stagingPath = Path.Combine(
@@ -110,10 +128,10 @@ internal sealed class DatabaseRestorePreflight
 
     private DatabaseRestorePreflightResult CheckCurrentUserProtected(SqliteConnection connection)
     {
-        if (!HasExactColumns(connection, "Camera", ProtectedCameraColumns)
-            || !HasExactColumns(connection, "User", UserColumns)
-            || !HasExactColumns(connection, "CredentialMigrationMetadata", MigrationMetadataColumns)
-            || !HasExactApplicationSchema(connection, ProtectedSchemaObjects))
+        if (!HasExactColumns(connection, "Camera", CameraCredentialMigration.ProtectedCameraColumns)
+            || !HasExactColumns(connection, "User", CameraCredentialMigration.UserColumns)
+            || !HasExactColumns(connection, "CredentialMigrationMetadata", CameraCredentialMigration.MigrationMetadataColumns)
+            || !HasExactApplicationSchema(connection, CameraCredentialMigration.ProtectedSchemaObjects))
         {
             return DatabaseRestorePreflightResult.ValidationFailed(
                 "The selected file is not a supported protected VSP database backup.");
@@ -129,7 +147,7 @@ ORDER BY Id;";
 
         while (reader.Read())
         {
-            if (reader.IsDBNull(0) || reader.IsDBNull(1) || reader.GetInt32(1) != ProtectionVersion)
+            if (reader.IsDBNull(0) || reader.IsDBNull(1) || reader.GetInt32(1) != CameraCredentialMigration.ProtectionVersion)
             {
                 return DatabaseRestorePreflightResult.ValidationFailed(
                     "The selected protected backup contains unsupported credential metadata.");
@@ -139,8 +157,9 @@ ORDER BY Id;";
             {
                 _protector.Unprotect((byte[])reader.GetValue(0));
             }
-            catch
+            catch (Exception ex)
             {
+                AppLog.Warning("Restore preflight rejected protected credentials that cannot be decrypted by this Windows user.", ex);
                 return DatabaseRestorePreflightResult.ValidationFailed(
                     "The selected protected backup contains camera credentials that cannot be decrypted by this Windows user.");
             }
@@ -231,49 +250,9 @@ ORDER BY type, name, tbl_name;";
                 File.Delete(path);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Best-effort cleanup only; the preflight verdict remains based on the source file.
+            AppLog.Warning("Restore preflight could not delete a temporary staging file.", ex);
         }
     }
-
-    private static readonly string[] LegacyCameraColumns =
-    {
-        "Id", "Name", "IpAddress", "Brand", "ConnectionType", "Model", "Location",
-        "HttpPort", "RtspPort", "SdkPort", "Username", "Password", "RtspUrl",
-        "Status", "Recording", "CreateTime", "LastModifyTime"
-    };
-
-    private static readonly string[] ProtectedCameraColumns =
-    {
-        "Id", "Name", "IpAddress", "Brand", "ConnectionType", "Model", "Location",
-        "HttpPort", "RtspPort", "SdkPort", "Username", "PasswordProtected",
-        "PasswordProtectionVersion", "RtspUrl", "Status", "Recording", "CreateTime", "LastModifyTime"
-    };
-
-    private static readonly string[] UserColumns =
-    {
-        "Id", "Username", "PasswordHash", "PasswordSalt", "PasswordIterations",
-        "Role", "MustChangePassword", "CreateTime", "LastModifyTime"
-    };
-
-    private static readonly string[] MigrationMetadataColumns =
-    {
-        "Id", "SourceSha256", "ProtectionProvider", "ProtectionScope", "ProtectionVersion"
-    };
-
-    private static readonly string[] LegacySchemaObjects =
-    {
-        "index|IX_User_Username|User",
-        "table|Camera|Camera",
-        "table|User|User"
-    };
-
-    private static readonly string[] ProtectedSchemaObjects =
-    {
-        "index|IX_User_Username|User",
-        "table|Camera|Camera",
-        "table|CredentialMigrationMetadata|CredentialMigrationMetadata",
-        "table|User|User"
-    };
 }
