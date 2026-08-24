@@ -32,6 +32,7 @@ public class SettingsViewModel : ObservableObject
     private readonly Func<string?> _chooseBackupDestination;
     private readonly Func<string?> _chooseRestoreSource;
     private readonly Func<bool> _confirmRestore;
+    private readonly Func<bool> _confirmConfigOnlyRestore;
     private readonly Action _showRestartRequiredAndExit;
 
     private AppSettings _lastSaved;
@@ -89,6 +90,7 @@ public class SettingsViewModel : ObservableObject
         Func<string?> chooseBackupDestination,
         Func<string?> chooseRestoreSource,
         Func<bool> confirmRestore,
+        Func<bool> confirmConfigOnlyRestore,
         Action showRestartRequiredAndExit)
     {
         ArgumentNullException.ThrowIfNull(appSettingsProvider);
@@ -99,6 +101,7 @@ public class SettingsViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(chooseBackupDestination);
         ArgumentNullException.ThrowIfNull(chooseRestoreSource);
         ArgumentNullException.ThrowIfNull(confirmRestore);
+        ArgumentNullException.ThrowIfNull(confirmConfigOnlyRestore);
         ArgumentNullException.ThrowIfNull(showRestartRequiredAndExit);
 
         _appSettingsProvider = appSettingsProvider;
@@ -109,6 +112,7 @@ public class SettingsViewModel : ObservableObject
         _chooseBackupDestination = chooseBackupDestination;
         _chooseRestoreSource = chooseRestoreSource;
         _confirmRestore = confirmRestore;
+        _confirmConfigOnlyRestore = confirmConfigOnlyRestore;
         _showRestartRequiredAndExit = showRestartRequiredAndExit;
 
         _lastSaved = _appSettingsProvider.Load();
@@ -248,11 +252,24 @@ public class SettingsViewModel : ObservableObject
             return;
         }
 
-        var validation = _databaseRestoreService.ValidateBackupFile(sourcePath);
+        var validation = DatabaseRestoreResultFromPreflight(_databaseRestoreService.PreflightBackupFile(sourcePath));
+        var configOnlyRestore = false;
         if (!validation.Success)
         {
-            StatusMessage = validation.FailureMessage ?? "The selected file is not a valid backup.";
-            return;
+            var configOnlyPreflight = _databaseRestoreService.PreflightBackupFileForConfigOnlyRestore(sourcePath);
+            if (!configOnlyPreflight.Success || !configOnlyPreflight.RequiresConfigOnlyRestore)
+            {
+                StatusMessage = validation.FailureMessage ?? "The selected file is not a valid backup.";
+                return;
+            }
+
+            if (!_confirmConfigOnlyRestore())
+            {
+                StatusMessage = "Restore cancelled.";
+                return;
+            }
+
+            configOnlyRestore = true;
         }
 
         if (!_confirmRestore())
@@ -267,7 +284,7 @@ public class SettingsViewModel : ObservableObject
             return;
         }
 
-        var installResult = _databaseRestoreService.Install(sourcePath);
+        var installResult = _databaseRestoreService.Install(sourcePath, configOnlyRestore);
         if (!installResult.Success)
         {
             StatusMessage = installResult.FailureMessage ?? "Restore failed.";
@@ -275,6 +292,17 @@ public class SettingsViewModel : ObservableObject
         }
 
         _showRestartRequiredAndExit();
+    }
+
+    private static DatabaseRestoreResult DatabaseRestoreResultFromPreflight(DatabaseRestorePreflightResult preflight)
+    {
+        if (!preflight.Success)
+        {
+            return DatabaseRestoreResult.ValidationFailed(
+                preflight.FailureMessage ?? "The selected file is not a valid backup.");
+        }
+
+        return DatabaseRestoreResult.Ok();
     }
 
     private void ApplySnapshot(AppSettings settings)

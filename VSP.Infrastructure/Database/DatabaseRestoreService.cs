@@ -15,6 +15,7 @@ public class DatabaseRestoreService
 {
     private readonly DatabaseService _databaseService;
     private readonly DatabaseRestorePreflight _preflight;
+    private readonly ICameraCredentialProtector _protector;
 
     public DatabaseRestoreService(DatabaseService databaseService)
         : this(databaseService, new DpapiCurrentUserCameraCredentialProtector())
@@ -24,6 +25,7 @@ public class DatabaseRestoreService
     internal DatabaseRestoreService(DatabaseService databaseService, ICameraCredentialProtector protector)
     {
         _databaseService = databaseService;
+        _protector = protector;
         _preflight = new DatabaseRestorePreflight(protector);
     }
 
@@ -48,6 +50,12 @@ public class DatabaseRestoreService
     public DatabaseRestorePreflightResult PreflightBackupFile(string sourceFilePath) =>
         _preflight.Check(sourceFilePath, _databaseService.GetDatabaseFilePath());
 
+    public DatabaseRestorePreflightResult PreflightBackupFileForConfigOnlyRestore(string sourceFilePath) =>
+        _preflight.Check(
+            sourceFilePath,
+            _databaseService.GetDatabaseFilePath(),
+            allowConfigOnlyProtectedCredentials: true);
+
     /// <summary>
     /// Steps 4-7 and the step-9 rollback of §3.4. Re-validates <paramref name="sourceFilePath"/>
     /// itself first (defense in depth -- this method never trusts a prior
@@ -57,16 +65,26 @@ public class DatabaseRestoreService
     /// installed file, and rolls back to the pre-restore copy on any failure from the install
     /// step onward.
     /// </summary>
-    public DatabaseRestoreResult Install(string sourceFilePath)
+    public DatabaseRestoreResult Install(string sourceFilePath) => Install(sourceFilePath, configOnlyRestore: false);
+
+    public DatabaseRestoreResult Install(string sourceFilePath, bool configOnlyRestore)
     {
         var databaseFilePath = _databaseService.GetDatabaseFilePath();
 
-        var preflight = PreflightBackupFile(sourceFilePath);
+        var preflight = configOnlyRestore
+            ? PreflightBackupFileForConfigOnlyRestore(sourceFilePath)
+            : PreflightBackupFile(sourceFilePath);
         var validation = ToValidationResult(preflight);
         if (!validation.Success)
         {
             AppLog.Warning($"Rejected restore source '{sourceFilePath}': {validation.FailureMessage}");
             return validation;
+        }
+
+        if (configOnlyRestore && !preflight.RequiresConfigOnlyRestore)
+        {
+            return DatabaseRestoreResult.ValidationFailed(
+                "The selected backup does not require a configuration-only restore.");
         }
 
         var databaseDirectory = _databaseService.GetDatabaseDirectory();
@@ -80,6 +98,20 @@ public class DatabaseRestoreService
         // restores is not a real requirement, and a fixed name is easier to reason about if a
         // leftover temp file is ever found on disk after a crash.
         var tempInstallPath = Path.Combine(databaseDirectory, "vsp.db.restoring.tmp");
+        var preparedInstallPath = Path.Combine(databaseDirectory, "vsp.db.restore-prepared.tmp");
+
+        try
+        {
+            PrepareInstallDatabase(sourceFilePath, preparedInstallPath, preflight, configOnlyRestore);
+            EnsureLiveDatabaseCanBePreserved(databaseFilePath);
+        }
+        catch (Exception ex)
+        {
+            TryDelete(preparedInstallPath);
+            AppLog.Warning("Restore preparation failed before the live database was touched.", ex);
+            return DatabaseRestoreResult.ValidationFailed(
+                "The selected backup could not be prepared for restore. The current database is unchanged.");
+        }
 
         // Release any pooled native handle against the live file before renaming it away.
         SqliteConnection.ClearAllPools();
@@ -104,17 +136,18 @@ public class DatabaseRestoreService
 
         try
         {
-            // Step 5: copy, never move -- the validated source file itself is untouched.
-            File.Copy(sourceFilePath, tempInstallPath, overwrite: true);
+            // Step 5: move only the prepared protected database. The source backup itself is untouched.
+            File.Move(preparedInstallPath, tempInstallPath, overwrite: true);
 
             // Step 6: atomic same-volume rename into the live path.
             File.Move(tempInstallPath, databaseFilePath, overwrite: true);
 
             // Step 7: re-validate the file now actually sitting at the live path.
-            var postInstallValidation = ToValidationResult(_preflight.Check(
+            var postInstallPreflight = _preflight.Check(
                 databaseFilePath,
                 liveDatabasePath: null,
-                verifyLegacyConvertibility: false));
+                verifyLegacyConvertibility: false);
+            var postInstallValidation = ToValidationResult(postInstallPreflight);
             if (!postInstallValidation.Success)
             {
                 throw new InvalidOperationException(
@@ -125,6 +158,7 @@ public class DatabaseRestoreService
         }
         catch (Exception ex)
         {
+            TryDelete(preparedInstallPath);
             RollbackFailedInstall(databaseFilePath, tempInstallPath, originalRenamedAside ? preRestorePath : null);
 
             AppLog.Error("Database restore failed. The original database has been restored.", ex);
@@ -132,6 +166,62 @@ public class DatabaseRestoreService
             return DatabaseRestoreResult.Failed(
                 "Restore failed. The original database has been kept and remains usable.",
                 ex);
+        }
+    }
+
+    private void PrepareInstallDatabase(
+        string sourceFilePath,
+        string preparedInstallPath,
+        DatabaseRestorePreflightResult preflight,
+        bool configOnlyRestore)
+    {
+        TryDelete(preparedInstallPath);
+
+        if (configOnlyRestore)
+        {
+            new CameraCredentialMigration(_protector).StageConfigOnlyFromProtected(sourceFilePath, preparedInstallPath);
+        }
+        else if (preflight.Kind == DatabaseRestorePreflightKind.LegacyPlaintext)
+        {
+            new CameraCredentialMigration(_protector).Stage(sourceFilePath, preparedInstallPath);
+        }
+        else if (preflight.Kind == DatabaseRestorePreflightKind.CurrentUserProtectedCredentials)
+        {
+            File.Copy(sourceFilePath, preparedInstallPath, overwrite: true);
+        }
+        else
+        {
+            throw new InvalidOperationException("Unsupported restore preflight kind.");
+        }
+
+        var preparedValidation = ToValidationResult(_preflight.Check(
+            preparedInstallPath,
+            liveDatabasePath: null,
+            verifyLegacyConvertibility: false));
+        if (!preparedValidation.Success)
+        {
+            throw new InvalidOperationException(
+                $"The prepared restore database failed validation: {preparedValidation.FailureMessage}");
+        }
+    }
+
+    private void EnsureLiveDatabaseCanBePreserved(string databaseFilePath)
+    {
+        if (!File.Exists(databaseFilePath))
+        {
+            return;
+        }
+
+        var livePreflight = _preflight.Check(
+            databaseFilePath,
+            liveDatabasePath: null,
+            verifyLegacyConvertibility: false);
+        if (!livePreflight.Success ||
+            livePreflight.Kind != DatabaseRestorePreflightKind.CurrentUserProtectedCredentials ||
+            livePreflight.RequiresConfigOnlyRestore)
+        {
+            throw new InvalidOperationException(
+                "Restore rollback requires the current live database to be a compatible protected database.");
         }
     }
 
@@ -188,7 +278,7 @@ public class DatabaseRestoreService
         if (!preflight.CanInstall)
         {
             return DatabaseRestoreResult.ValidationFailed(
-                "The selected protected backup is compatible with this Windows user, but encrypted backup restore is not activated yet. Restore configuration only and re-enter camera passwords.");
+                "The selected backup cannot be installed.");
         }
 
         return DatabaseRestoreResult.Ok();

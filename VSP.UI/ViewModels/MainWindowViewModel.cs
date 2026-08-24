@@ -124,6 +124,7 @@ public class MainWindowViewModel : ObservableObject
                 SettingsView.ChooseBackupDestination,
                 SettingsView.ChooseRestoreSource,
                 ConfirmRestore,
+                ConfirmConfigOnlyRestore,
                 ShowRestartRequiredAndExit);
 
             Navigation.Add(new NavigationItem
@@ -195,6 +196,17 @@ public class MainWindowViewModel : ObservableObject
             Environment.NewLine + Environment.NewLine +
             "Are you sure you want to restore the database?",
             "Restore Database",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning) == MessageBoxResult.Yes;
+    }
+
+    private static bool ConfirmConfigOnlyRestore()
+    {
+        return MessageBox.Show(
+            "This backup contains camera passwords that cannot be decrypted by this Windows user." +
+            Environment.NewLine + Environment.NewLine +
+            "Restore configuration only? Camera passwords from the backup will be marked missing and must be re-entered after restart.",
+            "Restore Configuration Only",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning) == MessageBoxResult.Yes;
     }

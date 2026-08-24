@@ -37,7 +37,15 @@ public sealed class DatabaseRestorePreflightResult
     public static DatabaseRestorePreflightResult CurrentUserProtectedCredentials() =>
         new(
             success: true,
-            canInstall: false,
+            canInstall: true,
+            requiresConfigOnlyRestore: false,
+            kind: DatabaseRestorePreflightKind.CurrentUserProtectedCredentials,
+            failureMessage: null);
+
+    public static DatabaseRestorePreflightResult ConfigOnlyProtectedCredentials() =>
+        new(
+            success: true,
+            canInstall: true,
             requiresConfigOnlyRestore: true,
             kind: DatabaseRestorePreflightKind.CurrentUserProtectedCredentials,
             failureMessage: null);

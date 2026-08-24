@@ -89,6 +89,7 @@ CREATE UNIQUE INDEX IX_User_Username ON User (Username);";
         Func<string?>? chooseBackupDestination = null,
         Func<string?>? chooseRestoreSource = null,
         Func<bool>? confirmRestore = null,
+        Func<bool>? confirmConfigOnlyRestore = null,
         Action? showRestartRequiredAndExit = null)
     {
         var databaseService = CreateDatabaseService();
@@ -102,6 +103,7 @@ CREATE UNIQUE INDEX IX_User_Username ON User (Username);";
             chooseBackupDestination ?? (() => null),
             chooseRestoreSource ?? (() => null),
             confirmRestore ?? (() => true),
+            confirmConfigOnlyRestore ?? (() => true),
             showRestartRequiredAndExit ?? (() => { }));
     }
 
