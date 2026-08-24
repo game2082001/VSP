@@ -16,7 +16,8 @@ internal sealed class DatabaseRestorePreflight
     public DatabaseRestorePreflightResult Check(
         string sourceFilePath,
         string? liveDatabasePath,
-        bool verifyLegacyConvertibility = true)
+        bool verifyLegacyConvertibility = true,
+        bool allowConfigOnlyProtectedCredentials = false)
     {
         if (!File.Exists(sourceFilePath))
         {
@@ -58,7 +59,9 @@ internal sealed class DatabaseRestorePreflight
                     sourceFilePath,
                     connection,
                     verifyLegacyConvertibility),
-                DatabaseSchemaVersion.CurrentUserProtectedCredentials => CheckCurrentUserProtected(connection),
+                DatabaseSchemaVersion.CurrentUserProtectedCredentials => CheckCurrentUserProtected(
+                    connection,
+                    allowConfigOnlyProtectedCredentials),
                 _ => DatabaseRestorePreflightResult.ValidationFailed(
                     "The selected file uses an unsupported VSP database schema version.")
             };
@@ -126,7 +129,9 @@ internal sealed class DatabaseRestorePreflight
         }
     }
 
-    private DatabaseRestorePreflightResult CheckCurrentUserProtected(SqliteConnection connection)
+    private DatabaseRestorePreflightResult CheckCurrentUserProtected(
+        SqliteConnection connection,
+        bool allowConfigOnlyProtectedCredentials)
     {
         if (!HasExactColumns(connection, "Camera", CameraCredentialMigration.ProtectedCameraColumns)
             || !HasExactColumns(connection, "User", CameraCredentialMigration.UserColumns)
@@ -161,6 +166,11 @@ ORDER BY Id;";
             catch (Exception ex)
             {
                 AppLog.Warning("Restore preflight rejected protected credentials that cannot be decrypted by this Windows user.", ex);
+                if (allowConfigOnlyProtectedCredentials)
+                {
+                    return DatabaseRestorePreflightResult.ConfigOnlyProtectedCredentials();
+                }
+
                 return DatabaseRestorePreflightResult.ValidationFailed(
                     "The selected protected backup contains camera credentials that cannot be decrypted by this Windows user.");
             }

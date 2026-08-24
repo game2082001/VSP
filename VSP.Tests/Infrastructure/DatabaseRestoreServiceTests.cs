@@ -56,6 +56,24 @@ public class DatabaseRestoreServiceTests : IDisposable
         return names;
     }
 
+    private static int ReadUserVersion(string databasePath)
+    {
+        using var connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadOnly");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA user_version;";
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    private static int CountProtectedCredentialRows(string databasePath)
+    {
+        using var connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadOnly");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM Camera WHERE PasswordProtected IS NOT NULL;";
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
     private static byte[] ReadBytes(string path)
     {
         SqliteConnection.ClearAllPools();
@@ -287,7 +305,7 @@ LIMIT 1;";
     }
 
     [Fact]
-    public void PreflightBackupFile_CurrentUserProtectedBackupIsCompatibleButNotInstallableYet()
+    public void PreflightBackupFile_CurrentUserProtectedBackupIsInstallable()
     {
         var legacyPath = Path.Combine(_tempDirectory, "legacy-source.db");
         var databaseService = SetUpDivergedLiveDatabaseAndBackup(legacyPath);
@@ -298,11 +316,10 @@ LIMIT 1;";
         var validation = new DatabaseRestoreService(databaseService).ValidateBackupFile(protectedPath);
 
         Assert.True(preflight.Success);
-        Assert.False(preflight.CanInstall);
-        Assert.True(preflight.RequiresConfigOnlyRestore);
+        Assert.True(preflight.CanInstall);
+        Assert.False(preflight.RequiresConfigOnlyRestore);
         Assert.Equal(DatabaseRestorePreflightKind.CurrentUserProtectedCredentials, preflight.Kind);
-        Assert.False(validation.Success);
-        Assert.Contains("not activated yet", validation.FailureMessage);
+        Assert.True(validation.Success);
         Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
     }
 
@@ -482,7 +499,10 @@ LIMIT 1;";
         Assert.Equal(new[] { OriginalCameraName, ChangedAfterBackupCameraName }, ReadAllCameraNames(preRestoreFile));
 
         Assert.Equal(sourceBytesBeforeInstall, File.ReadAllBytes(backupPath));
+        Assert.Equal(DatabaseSchemaVersion.CurrentUserProtectedCredentials, ReadUserVersion(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(1, CountProtectedCredentialRows(databaseService.GetDatabaseFilePath()));
         Assert.False(File.Exists(Path.Combine(LiveDirectory, "vsp.db.restoring.tmp")));
+        Assert.False(File.Exists(Path.Combine(LiveDirectory, "vsp.db.restore-prepared.tmp")));
         Assert.Empty(Directory.GetFiles(LiveDirectory, "vsp.restore-preflight.*.db"));
     }
 
@@ -506,20 +526,41 @@ LIMIT 1;";
     }
 
     [Fact]
-    public void Install_ProtectedBackupIsRejectedBeforeTouchingLiveDatabase()
+    public void Install_CurrentUserProtectedBackupReplacesLiveDatabase()
     {
         var legacyPath = Path.Combine(_tempDirectory, "legacy-source.db");
         var databaseService = SetUpDivergedLiveDatabaseAndBackup(legacyPath);
         var protectedPath = CreateProtectedBackupFromLegacySource(legacyPath, Path.Combine(_tempDirectory, "protected-backup.db"));
-        var liveBytesBefore = ReadBytes(databaseService.GetDatabaseFilePath());
+        var sourceBytesBeforeInstall = ReadBytes(protectedPath);
 
         var result = new DatabaseRestoreService(databaseService).Install(protectedPath);
 
-        Assert.False(result.Success);
-        Assert.Null(result.Exception);
-        Assert.Contains("not activated yet", result.FailureMessage);
-        Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
-        Assert.Empty(Directory.GetFiles(LiveDirectory, "vsp.pre-restore.*.db"));
+        Assert.True(result.Success);
+        Assert.Equal(new[] { OriginalCameraName }, ReadAllCameraNames(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(DatabaseSchemaVersion.CurrentUserProtectedCredentials, ReadUserVersion(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(sourceBytesBeforeInstall, ReadBytes(protectedPath));
+        Assert.Single(Directory.GetFiles(LiveDirectory, "vsp.pre-restore.*.db"));
+    }
+
+    [Fact]
+    public void Install_ProtectedBackupConfigOnlyClearsCredentialsAndLeavesSourceUntouched()
+    {
+        var legacyPath = Path.Combine(_tempDirectory, "legacy-source.db");
+        var databaseService = SetUpDivergedLiveDatabaseAndBackup(legacyPath);
+        var protectedPath = CreateProtectedBackupFromLegacySource(legacyPath, Path.Combine(_tempDirectory, "protected-backup.db"));
+        TamperFirstProtectedCredential(protectedPath);
+        var sourceBytesBeforeInstall = ReadBytes(protectedPath);
+
+        var defaultResult = new DatabaseRestoreService(databaseService).Install(protectedPath);
+        Assert.False(defaultResult.Success);
+
+        var result = new DatabaseRestoreService(databaseService).Install(protectedPath, configOnlyRestore: true);
+
+        Assert.True(result.Success);
+        Assert.Equal(new[] { OriginalCameraName }, ReadAllCameraNames(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(DatabaseSchemaVersion.CurrentUserProtectedCredentials, ReadUserVersion(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(0, CountProtectedCredentialRows(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(sourceBytesBeforeInstall, File.ReadAllBytes(protectedPath));
     }
 
     [Fact]
@@ -546,8 +587,8 @@ LIMIT 1;";
         }
 
         Assert.False(result.Success);
-        Assert.NotNull(result.Exception);
-        Assert.Contains(recorder.Calls, c => c.Level == LogLevel.Error);
+        Assert.Null(result.Exception);
+        Assert.Contains(recorder.Calls, c => c.Level == LogLevel.Warning);
 
         // repository.GetAll() orders by Name ascending, so "ChangedAfterBackup" sorts before "Original".
         var repository = new SQLiteCameraRepository(databaseService);

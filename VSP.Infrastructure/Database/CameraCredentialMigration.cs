@@ -71,6 +71,46 @@ internal sealed class CameraCredentialMigration
         }
     }
 
+    public void StageConfigOnlyFromProtected(string sourcePath, string stagingPath)
+    {
+        ValidatePaths(sourcePath, stagingPath);
+
+        TryDelete(stagingPath);
+        EnsureNoSourceSidecars(sourcePath);
+        var sourceFingerprint = ComputeSha256(sourcePath);
+
+        try
+        {
+            using (var source = OpenReadOnly(sourcePath))
+            using (var staging = OpenReadWriteCreate(stagingPath))
+            {
+                ValidateCurrentSchema(source);
+                InitializeStaging(staging);
+
+                using var transaction = staging.BeginTransaction();
+                CopyUsers(source, staging, transaction);
+                CopyProtectedCamerasAsConfigOnly(source, staging, transaction);
+                WriteMigrationMetadata(staging, transaction, sourceFingerprint);
+                SetSchemaVersion(staging, transaction);
+                transaction.Commit();
+            }
+
+            EnsureNoSourceSidecars(sourcePath);
+            if (!CryptographicOperations.FixedTimeEquals(sourceFingerprint, ComputeSha256(sourcePath)))
+            {
+                throw new IOException("The source database changed while config-only restore was being staged.");
+            }
+
+            VerifyConfigOnlyDatabase(sourcePath, stagingPath, sourceFingerprint);
+        }
+        catch
+        {
+            SqliteConnection.ClearAllPools();
+            TryDelete(stagingPath);
+            throw;
+        }
+    }
+
     public void Activate(string sourcePath, string stagingPath, string backupPath)
     {
         ValidatePaths(sourcePath, stagingPath);
@@ -238,6 +278,48 @@ VALUES
         }
     }
 
+    private static void CopyProtectedCamerasAsConfigOnly(
+        SqliteConnection source,
+        SqliteConnection staging,
+        SqliteTransaction transaction)
+    {
+        using var read = source.CreateCommand();
+        read.CommandText = @"
+SELECT Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+       HttpPort, RtspPort, SdkPort, Username, RtspUrl,
+       Status, Recording, CreateTime, LastModifyTime
+FROM Camera
+ORDER BY Id;";
+
+        using var reader = read.ExecuteReader();
+        while (reader.Read())
+        {
+            using var insert = staging.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = @"
+INSERT INTO Camera
+(Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+ HttpPort, RtspPort, SdkPort, Username, PasswordProtected, PasswordProtectionVersion,
+ RtspUrl, Status, Recording, CreateTime, LastModifyTime)
+VALUES
+($Id, $Name, $IpAddress, $Brand, $ConnectionType, $Model, $Location,
+ $HttpPort, $RtspPort, $SdkPort, $Username, NULL, NULL,
+ $RtspUrl, $Status, $Recording, $CreateTime, $LastModifyTime);";
+
+            for (var index = 0; index <= 10; index++)
+            {
+                AddValue(insert, "$" + reader.GetName(index), reader, index);
+            }
+
+            AddValue(insert, "$RtspUrl", reader, 11);
+            AddValue(insert, "$Status", reader, 12);
+            AddValue(insert, "$Recording", reader, 13);
+            AddValue(insert, "$CreateTime", reader, 14);
+            AddValue(insert, "$LastModifyTime", reader, 15);
+            insert.ExecuteNonQuery();
+        }
+    }
+
     private void VerifyStagingDatabase(string sourcePath, string stagingPath, byte[] expectedSourceFingerprint)
     {
         using var staging = OpenReadOnly(stagingPath);
@@ -352,6 +434,72 @@ ORDER BY Id;";
         if (stagedReader.Read())
         {
             throw new InvalidDataException("The staged database contains an unexpected user row.");
+        }
+    }
+
+    private static void VerifyConfigOnlyDatabase(string sourcePath, string stagingPath, byte[] expectedSourceFingerprint)
+    {
+        using var staging = OpenReadOnly(stagingPath);
+        ValidateCurrentSchema(staging);
+        VerifyIntegrity(staging, "config-only staged");
+
+        var recordedFingerprint = ReadStagedSourceFingerprint(staging);
+        if (!CryptographicOperations.FixedTimeEquals(expectedSourceFingerprint, recordedFingerprint))
+        {
+            throw new InvalidDataException("The config-only staged database does not match the source database fingerprint.");
+        }
+
+        using var source = OpenReadOnly(sourcePath);
+        VerifyConfigOnlyCameraRows(source, staging);
+        VerifyUserRows(source, staging);
+    }
+
+    private static void VerifyConfigOnlyCameraRows(SqliteConnection source, SqliteConnection staging)
+    {
+        using var sourceCommand = source.CreateCommand();
+        sourceCommand.CommandText = @"
+SELECT Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+       HttpPort, RtspPort, SdkPort, Username, RtspUrl,
+       Status, Recording, CreateTime, LastModifyTime
+FROM Camera
+ORDER BY Id;";
+        using var sourceReader = sourceCommand.ExecuteReader();
+
+        using var stagedCommand = staging.CreateCommand();
+        stagedCommand.CommandText = @"
+SELECT Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+       HttpPort, RtspPort, SdkPort, Username, PasswordProtected, PasswordProtectionVersion,
+       RtspUrl, Status, Recording, CreateTime, LastModifyTime
+FROM Camera
+ORDER BY Id;";
+        using var stagedReader = stagedCommand.ExecuteReader();
+
+        while (sourceReader.Read())
+        {
+            if (!stagedReader.Read())
+            {
+                throw new InvalidDataException("The config-only staged camera set does not match the source database.");
+            }
+
+            for (var index = 0; index <= 10; index++)
+            {
+                EnsureValuesMatch(sourceReader, index, stagedReader, index, "camera");
+            }
+
+            if (!stagedReader.IsDBNull(11) || !stagedReader.IsDBNull(12))
+            {
+                throw new InvalidDataException("A config-only staged credential was not cleared.");
+            }
+
+            for (var sourceIndex = 11; sourceIndex <= 15; sourceIndex++)
+            {
+                EnsureValuesMatch(sourceReader, sourceIndex, stagedReader, sourceIndex + 2, "camera");
+            }
+        }
+
+        if (stagedReader.Read())
+        {
+            throw new InvalidDataException("The config-only staged database contains an unexpected camera row.");
         }
     }
 
