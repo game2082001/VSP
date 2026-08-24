@@ -176,6 +176,25 @@ PRAGMA user_version = 77;";
         Assert.False(File.Exists(stagingPath));
     }
 
+    [Fact]
+    public void Inspect_WhenNonCredentialStagedDataWasChanged_FailsClosed()
+    {
+        var (sourcePath, stagingPath) = CreateLegacyDatabase();
+        var migration = CreateMigration();
+        migration.Stage(sourcePath, stagingPath);
+
+        using (var connection = Open(stagingPath))
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = @"
+UPDATE Camera SET IpAddress = '203.0.113.99' WHERE Name = 'First';
+UPDATE User SET Role = 99;";
+            command.ExecuteNonQuery();
+        }
+
+        Assert.Equal(CameraCredentialMigrationState.InvalidStaging, migration.Inspect(sourcePath, stagingPath));
+    }
+
     private (string SourcePath, string StagingPath) CreateLegacyDatabase()
     {
         Directory.CreateDirectory(_tempDirectory);

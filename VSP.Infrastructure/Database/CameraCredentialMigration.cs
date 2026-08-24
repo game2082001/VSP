@@ -233,50 +233,122 @@ VALUES
         }
 
         using var source = OpenReadOnly(sourcePath);
+        VerifyCameraRows(source, staging);
+        VerifyUserRows(source, staging);
+    }
+
+    private void VerifyCameraRows(SqliteConnection source, SqliteConnection staging)
+    {
         using var sourceCommand = source.CreateCommand();
-        sourceCommand.CommandText = "SELECT Id, COALESCE(Password, '') FROM Camera ORDER BY Id;";
+        sourceCommand.CommandText = @"
+SELECT Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+       HttpPort, RtspPort, SdkPort, Username, Password, RtspUrl,
+       Status, Recording, CreateTime, LastModifyTime
+FROM Camera
+ORDER BY Id;";
         using var sourceReader = sourceCommand.ExecuteReader();
 
         using var stagedCommand = staging.CreateCommand();
         stagedCommand.CommandText = @"
-SELECT Id, PasswordProtected, PasswordProtectionVersion
+SELECT Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+       HttpPort, RtspPort, SdkPort, Username, PasswordProtected, PasswordProtectionVersion,
+       RtspUrl, Status, Recording, CreateTime, LastModifyTime
 FROM Camera
 ORDER BY Id;";
         using var stagedReader = stagedCommand.ExecuteReader();
 
         while (sourceReader.Read())
         {
-            if (!stagedReader.Read() || sourceReader.GetString(0) != stagedReader.GetString(0))
+            if (!stagedReader.Read())
             {
                 throw new InvalidDataException("The staged camera set does not match the source database.");
             }
 
-            var plaintext = sourceReader.GetString(1);
+            for (var index = 0; index <= 10; index++)
+            {
+                EnsureValuesMatch(sourceReader, index, stagedReader, index, "camera");
+            }
+
+            var plaintext = sourceReader.IsDBNull(11) ? string.Empty : sourceReader.GetString(11);
             if (plaintext.Length == 0)
             {
-                if (!stagedReader.IsDBNull(1) || !stagedReader.IsDBNull(2))
+                if (!stagedReader.IsDBNull(11) || !stagedReader.IsDBNull(12))
                 {
                     throw new InvalidDataException("An empty legacy credential was not represented as empty.");
                 }
+            }
+            else
+            {
+                if (stagedReader.IsDBNull(11) || stagedReader.GetInt32(12) != ProtectionVersion)
+                {
+                    throw new InvalidDataException("A staged credential is missing protection metadata.");
+                }
 
-                continue;
+                var protectedEnvelope = (byte[])stagedReader.GetValue(11);
+                if (!string.Equals(plaintext, _protector.Unprotect(protectedEnvelope), StringComparison.Ordinal))
+                {
+                    throw new CryptographicException("A staged credential failed round-trip verification.");
+                }
             }
 
-            if (stagedReader.IsDBNull(1) || stagedReader.GetInt32(2) != ProtectionVersion)
+            for (var sourceIndex = 12; sourceIndex <= 16; sourceIndex++)
             {
-                throw new InvalidDataException("A staged credential is missing protection metadata.");
-            }
-
-            var protectedEnvelope = (byte[])stagedReader.GetValue(1);
-            if (!string.Equals(plaintext, _protector.Unprotect(protectedEnvelope), StringComparison.Ordinal))
-            {
-                throw new CryptographicException("A staged credential failed round-trip verification.");
+                EnsureValuesMatch(sourceReader, sourceIndex, stagedReader, sourceIndex + 1, "camera");
             }
         }
 
         if (stagedReader.Read())
         {
             throw new InvalidDataException("The staged database contains an unexpected camera row.");
+        }
+    }
+
+    private static void VerifyUserRows(SqliteConnection source, SqliteConnection staging)
+    {
+        using var sourceCommand = source.CreateCommand();
+        sourceCommand.CommandText = @"
+SELECT Id, Username, PasswordHash, PasswordSalt, PasswordIterations,
+       Role, MustChangePassword, CreateTime, LastModifyTime
+FROM User
+ORDER BY Id;";
+        using var sourceReader = sourceCommand.ExecuteReader();
+
+        using var stagedCommand = staging.CreateCommand();
+        stagedCommand.CommandText = sourceCommand.CommandText;
+        using var stagedReader = stagedCommand.ExecuteReader();
+
+        while (sourceReader.Read())
+        {
+            if (!stagedReader.Read())
+            {
+                throw new InvalidDataException("The staged user set does not match the source database.");
+            }
+
+            for (var index = 0; index < sourceReader.FieldCount; index++)
+            {
+                EnsureValuesMatch(sourceReader, index, stagedReader, index, "user");
+            }
+        }
+
+        if (stagedReader.Read())
+        {
+            throw new InvalidDataException("The staged database contains an unexpected user row.");
+        }
+    }
+
+    private static void EnsureValuesMatch(
+        SqliteDataReader source,
+        int sourceOrdinal,
+        SqliteDataReader staging,
+        int stagingOrdinal,
+        string entityName)
+    {
+        var sourceIsNull = source.IsDBNull(sourceOrdinal);
+        var stagingIsNull = staging.IsDBNull(stagingOrdinal);
+        if (sourceIsNull != stagingIsNull
+            || (!sourceIsNull && !Equals(source.GetValue(sourceOrdinal), staging.GetValue(stagingOrdinal))))
+        {
+            throw new InvalidDataException($"A staged {entityName} value does not match the source database.");
         }
     }
 
