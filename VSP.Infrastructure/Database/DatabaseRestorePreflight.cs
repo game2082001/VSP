@@ -131,7 +131,8 @@ internal sealed class DatabaseRestorePreflight
         if (!HasExactColumns(connection, "Camera", CameraCredentialMigration.ProtectedCameraColumns)
             || !HasExactColumns(connection, "User", CameraCredentialMigration.UserColumns)
             || !HasExactColumns(connection, "CredentialMigrationMetadata", CameraCredentialMigration.MigrationMetadataColumns)
-            || !HasExactApplicationSchema(connection, CameraCredentialMigration.ProtectedSchemaObjects))
+            || !HasExactApplicationSchema(connection, CameraCredentialMigration.ProtectedSchemaObjects)
+            || !HasValidCredentialMigrationMetadata(connection))
         {
             return DatabaseRestorePreflightResult.ValidationFailed(
                 "The selected file is not a supported protected VSP database backup.");
@@ -206,6 +207,27 @@ ORDER BY Id;";
         }
 
         return actual.SequenceEqual(expected, StringComparer.Ordinal);
+    }
+
+    private static bool HasValidCredentialMigrationMetadata(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT COUNT(*)
+FROM CredentialMigrationMetadata
+WHERE Id = 1
+  AND ProtectionProvider = 'DPAPI'
+  AND ProtectionScope = 'CurrentUser'
+  AND ProtectionVersion = 1
+  AND SourceSha256 IS NOT NULL
+  AND length(SourceSha256) = 32;";
+        var matchingRows = Convert.ToInt32(command.ExecuteScalar());
+
+        using var totalCommand = connection.CreateCommand();
+        totalCommand.CommandText = "SELECT COUNT(*) FROM CredentialMigrationMetadata;";
+        var totalRows = Convert.ToInt32(totalCommand.ExecuteScalar());
+
+        return matchingRows == 1 && totalRows == 1;
     }
 
     private static bool HasTable(SqliteConnection connection, string table)

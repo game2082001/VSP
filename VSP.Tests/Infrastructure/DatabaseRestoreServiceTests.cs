@@ -173,6 +173,15 @@ LIMIT 1;";
         command.ExecuteNonQuery();
     }
 
+    private static void DeleteProtectedCredentialMetadata(string databasePath)
+    {
+        using var connection = new SqliteConnection($"Data Source={databasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM CredentialMigrationMetadata;";
+        command.ExecuteNonQuery();
+    }
+
     // ---------------------------------------------------------------------------------------
     // ValidateBackupFile -- §3.7
     // ---------------------------------------------------------------------------------------
@@ -242,6 +251,23 @@ LIMIT 1;";
         Assert.False(result.Success);
         Assert.False(result.CanInstall);
         Assert.Contains("cannot be decrypted", result.FailureMessage);
+        Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
+    }
+
+    [Fact]
+    public void PreflightBackupFile_ProtectedBackupWithoutMigrationMetadataFailsClosed()
+    {
+        var legacyPath = Path.Combine(_tempDirectory, "legacy-source.db");
+        var databaseService = SetUpDivergedLiveDatabaseAndBackup(legacyPath);
+        var protectedPath = CreateProtectedBackupFromLegacySource(legacyPath, Path.Combine(_tempDirectory, "protected-backup.db"));
+        DeleteProtectedCredentialMetadata(protectedPath);
+        var liveBytesBefore = ReadBytes(databaseService.GetDatabaseFilePath());
+
+        var result = new DatabaseRestoreService(databaseService).PreflightBackupFile(protectedPath);
+
+        Assert.False(result.Success);
+        Assert.False(result.CanInstall);
+        Assert.Contains("protected VSP database", result.FailureMessage);
         Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
     }
 
