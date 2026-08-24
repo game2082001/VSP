@@ -1,32 +1,17 @@
 using System.Text;
+using VSP.Device.Import;
 using VSP.Domain.Entities;
 
 namespace VSP.Device.Export;
 
 public static class CameraExportWriter
 {
-    private static readonly string[] Headers =
-    {
-        "Name",
-        "Brand",
-        "Model",
-        "IP Address",
-        "HTTP Port",
-        "RTSP Port",
-        "SDK Port",
-        "Username",
-        "Password",
-        "Connection Type",
-        "RTSP URL",
-        "Location"
-    };
-
     public static string Write(IReadOnlyList<Camera> cameras)
     {
         ArgumentNullException.ThrowIfNull(cameras);
 
         var builder = new StringBuilder();
-        builder.AppendLine(string.Join(',', Headers));
+        builder.AppendLine(string.Join(',', CameraImportHeaders.AllowedHeaders));
 
         foreach (var camera in cameras)
         {
@@ -40,7 +25,6 @@ public static class CameraExportWriter
                 camera.RtspPort.ToString(),
                 camera.SdkPort.ToString(),
                 camera.Username,
-                camera.Password,
                 camera.ConnectionType.ToString(),
                 camera.RtspUrl,
                 camera.Location

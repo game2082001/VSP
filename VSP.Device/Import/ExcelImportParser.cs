@@ -5,22 +5,6 @@ namespace VSP.Device.Import;
 
 public class ExcelImportParser : IImportParser
 {
-    private static readonly string[] RequiredHeaders =
-    {
-        "Name",
-        "Brand",
-        "Model",
-        "IP Address",
-        "HTTP Port",
-        "RTSP Port",
-        "SDK Port",
-        "Username",
-        "Password",
-        "Connection Type",
-        "RTSP URL",
-        "Location"
-    };
-
     public string ParserName => "Excel";
 
     public bool CanParse(string fileType)
@@ -59,7 +43,9 @@ public class ExcelImportParser : IImportParser
         }
 
         var headerRow = usedRange.FirstRowUsed();
-        var headers = NormalizeHeaders(ReadRowValues(headerRow));
+        var headerValues = ReadRowValues(headerRow);
+        CameraImportHeaders.RejectSecretHeaders(headerValues);
+        var headers = NormalizeHeaders(headerValues);
 
         if (headers.Count == 0)
         {
@@ -116,11 +102,7 @@ public class ExcelImportParser : IImportParser
 
         foreach (var header in headers)
         {
-            var trimmedHeader = header.Trim();
-            var matchedHeader = RequiredHeaders.FirstOrDefault(x =>
-                string.Equals(x, trimmedHeader, StringComparison.OrdinalIgnoreCase));
-
-            normalized.Add(matchedHeader ?? trimmedHeader);
+            normalized.Add(CameraImportHeaders.Normalize(header));
         }
 
         return normalized;

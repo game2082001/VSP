@@ -5,22 +5,6 @@ namespace VSP.Device.Import;
 
 public class CsvImportParser : IImportParser
 {
-    private static readonly string[] RequiredHeaders =
-    {
-        "Name",
-        "Brand",
-        "Model",
-        "IP Address",
-        "HTTP Port",
-        "RTSP Port",
-        "SDK Port",
-        "Username",
-        "Password",
-        "Connection Type",
-        "RTSP URL",
-        "Location"
-    };
-
     public string ParserName => "CSV";
 
     public bool CanParse(string fileType)
@@ -54,6 +38,7 @@ public class CsvImportParser : IImportParser
             return Array.Empty<ImportRow>();
         }
 
+        CameraImportHeaders.RejectSecretHeaders(records[0]);
         var headers = NormalizeHeaders(records[0]);
         var rows = new List<ImportRow>();
 
@@ -227,11 +212,7 @@ public class CsvImportParser : IImportParser
 
         foreach (var header in headers)
         {
-            var trimmedHeader = header.Trim();
-            var matchedHeader = RequiredHeaders.FirstOrDefault(x =>
-                string.Equals(x, trimmedHeader, StringComparison.OrdinalIgnoreCase));
-
-            normalized.Add(matchedHeader ?? trimmedHeader);
+            normalized.Add(CameraImportHeaders.Normalize(header));
         }
 
         return normalized;
