@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using VSP.Core.Logging;
+using VSP.Infrastructure.Security;
 
 namespace VSP.Infrastructure.Database;
 
@@ -13,10 +14,17 @@ namespace VSP.Infrastructure.Database;
 public class DatabaseRestoreService
 {
     private readonly DatabaseService _databaseService;
+    private readonly DatabaseRestorePreflight _preflight;
 
     public DatabaseRestoreService(DatabaseService databaseService)
+        : this(databaseService, new DpapiCurrentUserCameraCredentialProtector())
+    {
+    }
+
+    internal DatabaseRestoreService(DatabaseService databaseService, ICameraCredentialProtector protector)
     {
         _databaseService = databaseService;
+        _preflight = new DatabaseRestorePreflight(protector);
     }
 
     /// <summary>
@@ -26,7 +34,8 @@ public class DatabaseRestoreService
     /// </summary>
     public DatabaseRestoreResult ValidateBackupFile(string sourceFilePath)
     {
-        var result = ValidateFile(sourceFilePath, _databaseService.GetDatabaseFilePath());
+        var preflight = PreflightBackupFile(sourceFilePath);
+        var result = ToValidationResult(preflight);
 
         if (!result.Success)
         {
@@ -35,6 +44,9 @@ public class DatabaseRestoreService
 
         return result;
     }
+
+    public DatabaseRestorePreflightResult PreflightBackupFile(string sourceFilePath) =>
+        _preflight.Check(sourceFilePath, _databaseService.GetDatabaseFilePath());
 
     /// <summary>
     /// Steps 4-7 and the step-9 rollback of §3.4. Re-validates <paramref name="sourceFilePath"/>
@@ -49,7 +61,8 @@ public class DatabaseRestoreService
     {
         var databaseFilePath = _databaseService.GetDatabaseFilePath();
 
-        var validation = ValidateFile(sourceFilePath, databaseFilePath);
+        var preflight = PreflightBackupFile(sourceFilePath);
+        var validation = ToValidationResult(preflight);
         if (!validation.Success)
         {
             AppLog.Warning($"Rejected restore source '{sourceFilePath}': {validation.FailureMessage}");
@@ -98,7 +111,10 @@ public class DatabaseRestoreService
             File.Move(tempInstallPath, databaseFilePath, overwrite: true);
 
             // Step 7: re-validate the file now actually sitting at the live path.
-            var postInstallValidation = ValidateFile(databaseFilePath, liveDatabasePath: null);
+            var postInstallValidation = ToValidationResult(_preflight.Check(
+                databaseFilePath,
+                liveDatabasePath: null,
+                verifyLegacyConvertibility: false));
             if (!postInstallValidation.Success)
             {
                 throw new InvalidOperationException(
@@ -161,62 +177,21 @@ public class DatabaseRestoreService
         }
     }
 
-    /// <summary>
-    /// The §3.7 checklist, applied to <paramref name="path"/>. When <paramref name="liveDatabasePath"/>
-    /// is non-null, also rejects <paramref name="path"/> if it is the currently active database
-    /// file (check 3) -- omitted when re-validating the freshly installed file itself (step 7),
-    /// which by definition now is the live file.
-    /// </summary>
-    private static DatabaseRestoreResult ValidateFile(string path, string? liveDatabasePath)
+    private static DatabaseRestoreResult ToValidationResult(DatabaseRestorePreflightResult preflight)
     {
-        if (!File.Exists(path))
-        {
-            return DatabaseRestoreResult.ValidationFailed("The selected file does not exist.");
-        }
-
-        if (new FileInfo(path).Length == 0)
-        {
-            return DatabaseRestoreResult.ValidationFailed("The selected file is empty.");
-        }
-
-        if (liveDatabasePath is not null &&
-            string.Equals(Path.GetFullPath(path), Path.GetFullPath(liveDatabasePath), StringComparison.OrdinalIgnoreCase))
+        if (!preflight.Success)
         {
             return DatabaseRestoreResult.ValidationFailed(
-                "The selected file is the active database. Choose a different backup file to restore from.");
+                preflight.FailureMessage ?? "The selected file is not a valid backup.");
         }
 
-        try
-        {
-            using var connection = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
-            connection.Open();
-
-            using var integrityCommand = connection.CreateCommand();
-            integrityCommand.CommandText = "PRAGMA integrity_check;";
-            var integrityResult = integrityCommand.ExecuteScalar() as string;
-
-            if (!string.Equals(integrityResult, "ok", StringComparison.OrdinalIgnoreCase))
-            {
-                return DatabaseRestoreResult.ValidationFailed(
-                    "The selected file failed a database integrity check and cannot be used to restore.");
-            }
-
-            using var tableCommand = connection.CreateCommand();
-            tableCommand.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'Camera';";
-            var tableName = tableCommand.ExecuteScalar() as string;
-
-            if (!string.Equals(tableName, "Camera", StringComparison.Ordinal))
-            {
-                return DatabaseRestoreResult.ValidationFailed(
-                    "The selected file is not a valid VSP database backup (missing the Camera table).");
-            }
-        }
-        catch (Exception)
+        if (!preflight.CanInstall)
         {
             return DatabaseRestoreResult.ValidationFailed(
-                "The selected file could not be opened as a SQLite database.");
+                "The selected protected backup is compatible with this Windows user, but encrypted backup restore is not activated yet. Restore configuration only and re-enter camera passwords.");
         }
 
         return DatabaseRestoreResult.Ok();
     }
+
 }

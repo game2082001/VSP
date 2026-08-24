@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using VSP.Core.Logging;
 using VSP.Infrastructure.Database;
 using VSP.Infrastructure.Repositories;
+using VSP.Infrastructure.Security;
 using VSP.Tests.Logging;
 using Xunit;
 using CameraEntity = VSP.Domain.Entities.Camera;
@@ -28,6 +29,7 @@ public class DatabaseRestoreServiceTests : IDisposable
 {
     private const string OriginalCameraName = "Original";
     private const string ChangedAfterBackupCameraName = "ChangedAfterBackup";
+    private const string ProtectedCameraSecret = "restore-preflight-camera-secret";
 
     private readonly string _tempDirectory =
         Path.Combine(Path.GetTempPath(), $"vsp-db-restore-test-{Guid.NewGuid():N}");
@@ -54,6 +56,12 @@ public class DatabaseRestoreServiceTests : IDisposable
         return names;
     }
 
+    private static byte[] ReadBytes(string path)
+    {
+        SqliteConnection.ClearAllPools();
+        return File.ReadAllBytes(path);
+    }
+
     /// <summary>
     /// Sets up a live database containing <see cref="OriginalCameraName"/>, snapshots it as a
     /// genuine backup (via the real <see cref="DatabaseBackupService"/>) at
@@ -66,7 +74,13 @@ public class DatabaseRestoreServiceTests : IDisposable
         var databaseService = CreateLiveDatabaseService();
         new DatabaseInitializer(databaseService).Initialize();
         var repository = new SQLiteCameraRepository(databaseService);
-        repository.Add(new CameraEntity { Name = OriginalCameraName, IpAddress = "192.168.1.10" });
+        repository.Add(new CameraEntity
+        {
+            Name = OriginalCameraName,
+            IpAddress = "192.168.1.10",
+            Username = "restore-user",
+            Password = ProtectedCameraSecret
+        });
 
         var backupResult = new DatabaseBackupService(databaseService).Backup(backupPath);
         Assert.True(backupResult.Success);
@@ -118,6 +132,56 @@ public class DatabaseRestoreServiceTests : IDisposable
         stream.SetLength(originalLength * 2 / 3);
     }
 
+    private static string CreateProtectedBackupFromLegacySource(string sourcePath, string targetPath)
+    {
+        var stagingPath = targetPath;
+        new CameraCredentialMigration(new DpapiCurrentUserCameraCredentialProtector()).Stage(sourcePath, stagingPath);
+        return stagingPath;
+    }
+
+    private static void TamperFirstProtectedCredential(string databasePath)
+    {
+        using var connection = new SqliteConnection($"Data Source={databasePath}");
+        connection.Open();
+        using var select = connection.CreateCommand();
+        select.CommandText = @"
+SELECT Id, PasswordProtected
+FROM Camera
+WHERE PasswordProtected IS NOT NULL
+ORDER BY Id
+LIMIT 1;";
+        using var reader = select.ExecuteReader();
+        Assert.True(reader.Read());
+        var id = reader.GetString(0);
+        var envelope = (byte[])reader.GetValue(1);
+        envelope[^1] ^= 0x5A;
+        reader.Dispose();
+
+        using var update = connection.CreateCommand();
+        update.CommandText = "UPDATE Camera SET PasswordProtected = $PasswordProtected WHERE Id = $Id;";
+        update.Parameters.AddWithValue("$PasswordProtected", envelope);
+        update.Parameters.AddWithValue("$Id", id);
+        update.ExecuteNonQuery();
+    }
+
+    private static void SetUserVersion(string databasePath, int version)
+    {
+        using var connection = new SqliteConnection($"Data Source={databasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA user_version = {version};";
+        command.ExecuteNonQuery();
+    }
+
+    private static void DeleteProtectedCredentialMetadata(string databasePath)
+    {
+        using var connection = new SqliteConnection($"Data Source={databasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM CredentialMigrationMetadata;";
+        command.ExecuteNonQuery();
+    }
+
     // ---------------------------------------------------------------------------------------
     // ValidateBackupFile -- §3.7
     // ---------------------------------------------------------------------------------------
@@ -132,6 +196,95 @@ public class DatabaseRestoreServiceTests : IDisposable
 
         Assert.True(result.Success);
         Assert.Null(result.FailureMessage);
+    }
+
+    [Fact]
+    public void PreflightBackupFile_LegacyBackupStagesCredentialConversionWithoutChangingLiveOrSource()
+    {
+        var backupPath = Path.Combine(_tempDirectory, "genuine-backup.db");
+        var databaseService = SetUpDivergedLiveDatabaseAndBackup(backupPath);
+        var liveBytesBefore = ReadBytes(databaseService.GetDatabaseFilePath());
+        var sourceBytesBefore = ReadBytes(backupPath);
+
+        var result = new DatabaseRestoreService(databaseService).PreflightBackupFile(backupPath);
+
+        Assert.True(result.Success);
+        Assert.True(result.CanInstall);
+        Assert.False(result.RequiresConfigOnlyRestore);
+        Assert.Equal(DatabaseRestorePreflightKind.LegacyPlaintext, result.Kind);
+        Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(sourceBytesBefore, ReadBytes(backupPath));
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(backupPath)!, "vsp.restore-preflight.*.db"));
+    }
+
+    [Fact]
+    public void PreflightBackupFile_CurrentUserProtectedBackupIsCompatibleButNotInstallableYet()
+    {
+        var legacyPath = Path.Combine(_tempDirectory, "legacy-source.db");
+        var databaseService = SetUpDivergedLiveDatabaseAndBackup(legacyPath);
+        var protectedPath = CreateProtectedBackupFromLegacySource(legacyPath, Path.Combine(_tempDirectory, "protected-backup.db"));
+        var liveBytesBefore = ReadBytes(databaseService.GetDatabaseFilePath());
+
+        var preflight = new DatabaseRestoreService(databaseService).PreflightBackupFile(protectedPath);
+        var validation = new DatabaseRestoreService(databaseService).ValidateBackupFile(protectedPath);
+
+        Assert.True(preflight.Success);
+        Assert.False(preflight.CanInstall);
+        Assert.True(preflight.RequiresConfigOnlyRestore);
+        Assert.Equal(DatabaseRestorePreflightKind.CurrentUserProtectedCredentials, preflight.Kind);
+        Assert.False(validation.Success);
+        Assert.Contains("not activated yet", validation.FailureMessage);
+        Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
+    }
+
+    [Fact]
+    public void PreflightBackupFile_ProtectedBackupWithUndecryptableCredentialFailsClosed()
+    {
+        var legacyPath = Path.Combine(_tempDirectory, "legacy-source.db");
+        var databaseService = SetUpDivergedLiveDatabaseAndBackup(legacyPath);
+        var protectedPath = CreateProtectedBackupFromLegacySource(legacyPath, Path.Combine(_tempDirectory, "protected-backup.db"));
+        TamperFirstProtectedCredential(protectedPath);
+        var liveBytesBefore = ReadBytes(databaseService.GetDatabaseFilePath());
+
+        var result = new DatabaseRestoreService(databaseService).PreflightBackupFile(protectedPath);
+
+        Assert.False(result.Success);
+        Assert.False(result.CanInstall);
+        Assert.Contains("cannot be decrypted", result.FailureMessage);
+        Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
+    }
+
+    [Fact]
+    public void PreflightBackupFile_ProtectedBackupWithoutMigrationMetadataFailsClosed()
+    {
+        var legacyPath = Path.Combine(_tempDirectory, "legacy-source.db");
+        var databaseService = SetUpDivergedLiveDatabaseAndBackup(legacyPath);
+        var protectedPath = CreateProtectedBackupFromLegacySource(legacyPath, Path.Combine(_tempDirectory, "protected-backup.db"));
+        DeleteProtectedCredentialMetadata(protectedPath);
+        var liveBytesBefore = ReadBytes(databaseService.GetDatabaseFilePath());
+
+        var result = new DatabaseRestoreService(databaseService).PreflightBackupFile(protectedPath);
+
+        Assert.False(result.Success);
+        Assert.False(result.CanInstall);
+        Assert.Contains("protected VSP database", result.FailureMessage);
+        Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
+    }
+
+    [Fact]
+    public void PreflightBackupFile_UnknownOrMixedSchemaFailsClosedBeforeInstall()
+    {
+        var backupPath = Path.Combine(_tempDirectory, "mixed-schema.db");
+        var databaseService = SetUpDivergedLiveDatabaseAndBackup(backupPath);
+        var liveBytesBefore = ReadBytes(databaseService.GetDatabaseFilePath());
+        SetUserVersion(backupPath, 77);
+
+        var result = new DatabaseRestoreService(databaseService).PreflightBackupFile(backupPath);
+
+        Assert.False(result.Success);
+        Assert.False(result.CanInstall);
+        Assert.Contains("unsupported", result.FailureMessage);
+        Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
     }
 
     [Fact]
@@ -262,6 +415,7 @@ public class DatabaseRestoreServiceTests : IDisposable
 
         Assert.Equal(sourceBytesBeforeInstall, File.ReadAllBytes(backupPath));
         Assert.False(File.Exists(Path.Combine(LiveDirectory, "vsp.db.restoring.tmp")));
+        Assert.Empty(Directory.GetFiles(LiveDirectory, "vsp.restore-preflight.*.db"));
     }
 
     [Fact]
@@ -280,6 +434,23 @@ public class DatabaseRestoreServiceTests : IDisposable
         Assert.False(result.Success);
         Assert.Null(result.Exception);
         Assert.Equal(new[] { OriginalCameraName }, repository.GetAll().ConvertAll(c => c.Name));
+        Assert.Empty(Directory.GetFiles(LiveDirectory, "vsp.pre-restore.*.db"));
+    }
+
+    [Fact]
+    public void Install_ProtectedBackupIsRejectedBeforeTouchingLiveDatabase()
+    {
+        var legacyPath = Path.Combine(_tempDirectory, "legacy-source.db");
+        var databaseService = SetUpDivergedLiveDatabaseAndBackup(legacyPath);
+        var protectedPath = CreateProtectedBackupFromLegacySource(legacyPath, Path.Combine(_tempDirectory, "protected-backup.db"));
+        var liveBytesBefore = ReadBytes(databaseService.GetDatabaseFilePath());
+
+        var result = new DatabaseRestoreService(databaseService).Install(protectedPath);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Exception);
+        Assert.Contains("not activated yet", result.FailureMessage);
+        Assert.Equal(liveBytesBefore, ReadBytes(databaseService.GetDatabaseFilePath()));
         Assert.Empty(Directory.GetFiles(LiveDirectory, "vsp.pre-restore.*.db"));
     }
 
