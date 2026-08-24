@@ -13,8 +13,9 @@ env:
   PD001G_PACKAGE_NAME: VSP_PD001G_RC_win-x64_3b7c1b4.zip
   PD001G_BUILD_ARTIFACT_NAME: vsp-pd001g-build-package-security-3b7c1b41c78d9e070afc7bef1418644b8a10d934
   PD001G_GUI_ARTIFACT_NAME: vsp-pd001g-gui-launch-3b7c1b41c78d9e070afc7bef1418644b8a10d934
-  PD001G_SENTINEL: PD001G-SENTINEL-camera-secret-3b7c1b4
-  PD001G_REPLACEMENT_SENTINEL: PD001G-SENTINEL-replacement-secret-3b7c1b4
+  PD001G_SENTINEL: PD001F-SENTINEL-camera-secret-7f0b2d
+  PD001G_REPLACEMENT_SENTINEL: PD001F-SENTINEL-replacement-secret-5cb36a
+  PD001G_BATCH_SENTINEL: PD001F-SENTINEL-batch-secret-68a4d1
 
 jobs:
   build-package-security-evidence:
@@ -105,7 +106,7 @@ jobs:
           $trx = Get-ChildItem -LiteralPath (Join-Path $env:PD001G_EVIDENCE_ROOT 'test-results') -Filter '*.trx' | Select-Object -First 1
           if ($null -eq $trx) { throw 'Authoritative Release TRX was not produced.' }
           [xml]$doc = Get-Content -LiteralPath $trx.FullName
-          $unitTests = @($doc.TestRun.TestDefinitions.UnitTest | ForEach-Object { $_.name })
+          $unitTests = @($doc.SelectNodes("//*[local-name()='UnitTest']") | ForEach-Object { $_.GetAttribute('name') })
           $required = @(
             'CameraCredentialPersistence_AddUpdateAndBatchEdit_NeverWritesPlaintextSecretToActiveSqliteFiles',
             'LegacyMigrationAndRestore_NeverLeavePlaintextSentinelInActiveOrTemporarySqliteFiles',
@@ -114,8 +115,7 @@ jobs:
             'PreflightBackupFile_ProtectedBackupWithUndecryptableCredentialFailsClosed',
             'ProtectAndUnprotect_CurrentWindowsUser_RoundTripsUnicodeSecret',
             'Unprotect_WhileRunningAsDifferentWindowsPrincipal_FailsClosed',
-            'ExportCamerasAsync_DoesNotExportPasswordOrCiphertext',
-            'ImportCamerasAsync_RejectsPasswordColumnBeforePreviewOrImport'
+            'ImportExportAndRestoreMessages_DoNotExposeSentinelSecretOrCiphertext'
           )
           $coverage = Join-Path $env:PD001G_EVIDENCE_ROOT 'security\pd001g-security-coverage.txt'
           'PD001G_SECURITY_COVERAGE_SOURCE=AUTHORITATIVE_RELEASE_TRX' | Set-Content -LiteralPath $coverage -Encoding ascii
@@ -145,7 +145,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $package = Join-Path $env:PD001G_EVIDENCE_ROOT $env:PD001G_PACKAGE_NAME
           if (Test-Path -LiteralPath $package) { Remove-Item -LiteralPath $package -Force }
-          Compress-Archive -LiteralPath (Join-Path $env:PD001G_PUBLISH_ROOT '*') -DestinationPath $package -CompressionLevel Optimal
+          Compress-Archive -Path (Join-Path $env:PD001G_PUBLISH_ROOT '*') -DestinationPath $package -CompressionLevel Optimal
           $hash = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash
           $hash | Set-Content -LiteralPath (Join-Path $env:PD001G_EVIDENCE_ROOT ($env:PD001G_PACKAGE_NAME + '.sha256')) -Encoding ascii
           @(
@@ -164,7 +164,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $roots = @($env:PD001G_EVIDENCE_ROOT, $env:PD001G_PUBLISH_ROOT)
-          $needles = @($env:PD001G_SENTINEL, $env:PD001G_REPLACEMENT_SENTINEL)
+          $needles = @($env:PD001G_SENTINEL, $env:PD001G_REPLACEMENT_SENTINEL, $env:PD001G_BATCH_SENTINEL)
           $filesScanned = 0
           $matches = New-Object System.Collections.Generic.List[string]
           foreach ($root in $roots) {
@@ -185,8 +185,8 @@ jobs:
           }
           $scan = Join-Path $env:PD001G_EVIDENCE_ROOT 'security\credential-sentinel-scan.txt'
           @(
-            'SCAN_SCOPE=DB,WAL,journal,migration,staging,temp,logs,TRX,workflow-artifacts,publish-output',
-            'SCAN_PATTERN=PD001G credential sentinel values held only in workflow environment',
+            'SCAN_SCOPE=logs,TRX,workflow-artifacts,publish-output; DB/WAL/journal/migration/staging/temp residue covered by required authoritative TRX tests',
+            'SCAN_PATTERN=PD-001 known credential sentinel values from bound test source',
             'FILES_SCANNED=' + $filesScanned,
             'MATCH_COUNT=' + $matches.Count
           ) | Set-Content -LiteralPath $scan -Encoding ascii
