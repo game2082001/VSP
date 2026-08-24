@@ -151,6 +151,31 @@ PRAGMA user_version = 77;";
         Assert.Throws<InvalidOperationException>(() => CreateMigration().Stage(sourcePath, stagingPath));
     }
 
+    [Fact]
+    public void Inspect_LegacyColumnsWithUnexpectedApplicationTable_FailsClosed()
+    {
+        var (sourcePath, stagingPath) = CreateLegacyDatabase();
+        using (var connection = Open(sourcePath))
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "CREATE TABLE UnexpectedCredentialState (Value TEXT);";
+            command.ExecuteNonQuery();
+        }
+
+        Assert.Equal(CameraCredentialMigrationState.UnsupportedSource, CreateMigration().Inspect(sourcePath, stagingPath));
+    }
+
+    [Fact]
+    public void Inspect_NonEmptySourceWalOrJournal_FailsClosed()
+    {
+        var (sourcePath, stagingPath) = CreateLegacyDatabase();
+        File.WriteAllText(sourcePath + "-wal", "uncheckpointed database state");
+
+        Assert.Equal(CameraCredentialMigrationState.UnsupportedSource, CreateMigration().Inspect(sourcePath, stagingPath));
+        Assert.Throws<InvalidOperationException>(() => CreateMigration().Stage(sourcePath, stagingPath));
+        Assert.False(File.Exists(stagingPath));
+    }
+
     private (string SourcePath, string StagingPath) CreateLegacyDatabase()
     {
         Directory.CreateDirectory(_tempDirectory);

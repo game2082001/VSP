@@ -36,6 +36,7 @@ internal sealed class CameraCredentialMigration
         }
 
         TryDelete(stagingPath);
+        EnsureNoSourceSidecars(sourcePath);
         var sourceFingerprint = ComputeSha256(sourcePath);
 
         try
@@ -54,6 +55,7 @@ internal sealed class CameraCredentialMigration
                 transaction.Commit();
             }
 
+            EnsureNoSourceSidecars(sourcePath);
             if (!CryptographicOperations.FixedTimeEquals(sourceFingerprint, ComputeSha256(sourcePath)))
             {
                 throw new IOException("The source database changed while credential migration was being staged.");
@@ -77,6 +79,11 @@ internal sealed class CameraCredentialMigration
         if (!File.Exists(sourcePath))
         {
             return CameraCredentialMigrationState.SourceMissing;
+        }
+
+        if (HasNonEmptySourceSidecar(sourcePath))
+        {
+            return CameraCredentialMigrationState.UnsupportedSource;
         }
 
         var sourceVersion = TryReadSchemaVersion(sourcePath);
@@ -354,7 +361,8 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
     {
         if (ReadSchemaVersion(source) != DatabaseSchemaVersion.LegacyPlaintextCredentials
             || !HasExactColumns(source, "Camera", LegacyCameraColumns)
-            || !HasExactColumns(source, "User", UserColumns))
+            || !HasExactColumns(source, "User", UserColumns)
+            || !HasExactApplicationTables(source, LegacyTables))
         {
             throw new InvalidDataException("The source database schema is not a supported legacy VSP schema.");
         }
@@ -365,7 +373,8 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
         if (ReadSchemaVersion(connection) != DatabaseSchemaVersion.CurrentUserProtectedCredentials
             || !HasExactColumns(connection, "Camera", ProtectedCameraColumns)
             || !HasExactColumns(connection, "User", UserColumns)
-            || !HasExactColumns(connection, "CredentialMigrationMetadata", MigrationMetadataColumns))
+            || !HasExactColumns(connection, "CredentialMigrationMetadata", MigrationMetadataColumns)
+            || !HasExactApplicationTables(connection, ProtectedTables))
         {
             throw new InvalidDataException("The staged database schema is not a supported protected VSP schema.");
         }
@@ -414,6 +423,24 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
         while (reader.Read())
         {
             actual.Add(reader.GetString(1));
+        }
+
+        return actual.SequenceEqual(expected, StringComparer.Ordinal);
+    }
+
+    private static bool HasExactApplicationTables(SqliteConnection connection, IReadOnlyList<string> expected)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT name
+FROM sqlite_schema
+WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+ORDER BY name;";
+        using var reader = command.ExecuteReader();
+        var actual = new List<string>();
+        while (reader.Read())
+        {
+            actual.Add(reader.GetString(0));
         }
 
         return actual.SequenceEqual(expected, StringComparer.Ordinal);
@@ -479,6 +506,21 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
         }
     }
 
+    private static void EnsureNoSourceSidecars(string sourcePath)
+    {
+        if (HasNonEmptySourceSidecar(sourcePath))
+        {
+            throw new InvalidOperationException(
+                "The source database has an active WAL or journal sidecar and cannot be staged safely.");
+        }
+    }
+
+    private static bool HasNonEmptySourceSidecar(string sourcePath)
+    {
+        return new[] { sourcePath + "-wal", sourcePath + "-journal" }
+            .Any(path => File.Exists(path) && new FileInfo(path).Length > 0);
+    }
+
     private static void TryDelete(string path)
     {
         try
@@ -518,4 +560,8 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
     {
         "Id", "SourceSha256", "ProtectionProvider", "ProtectionScope", "ProtectionVersion"
     };
+
+    private static readonly string[] LegacyTables = { "Camera", "User" };
+
+    private static readonly string[] ProtectedTables = { "Camera", "CredentialMigrationMetadata", "User" };
 }
