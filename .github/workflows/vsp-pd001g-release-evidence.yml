@@ -1,0 +1,672 @@
+name: VSP PD-001G Release Evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  PD001G_SOURCE_SHA: 3b7c1b41c78d9e070afc7bef1418644b8a10d934
+  PD001G_SHORT_SHA: 3b7c1b4
+  PD001G_PACKAGE_NAME: VSP_PD001G_RC_win-x64_3b7c1b4.zip
+  PD001G_BUILD_ARTIFACT_NAME: vsp-pd001g-build-package-security-3b7c1b41c78d9e070afc7bef1418644b8a10d934
+  PD001G_GUI_ARTIFACT_NAME: vsp-pd001g-gui-launch-3b7c1b41c78d9e070afc7bef1418644b8a10d934
+  PD001G_SENTINEL: PD001F-SENTINEL-camera-secret-7f0b2d
+  PD001G_REPLACEMENT_SENTINEL: PD001F-SENTINEL-replacement-secret-5cb36a
+  PD001G_BATCH_SENTINEL: PD001F-SENTINEL-batch-secret-68a4d1
+
+jobs:
+  build-package-security-evidence:
+    name: Build, Test, Package, Security Evidence
+    runs-on: [self-hosted, Windows, X64, vsp-server]
+    timeout-minutes: 90
+    outputs:
+      artifact-id: ${{ steps.upload-build-evidence.outputs.artifact-id }}
+      artifact-digest: ${{ steps.upload-build-evidence.outputs.artifact-digest }}
+      package-sha256: ${{ steps.package.outputs.package_sha256 }}
+
+    steps:
+      - name: Initialize evidence directories and authoritative guards
+        shell: cmd
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+        run: |
+          setlocal EnableExtensions
+          set "PD001G_EVIDENCE_ROOT=%RUNNER_TEMP%\vsp-pd001g-evidence-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "PD001G_PUBLISH_ROOT=%RUNNER_TEMP%\vsp-pd001g-publish-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          >>"%GITHUB_ENV%" echo PD001G_EVIDENCE_ROOT=%PD001G_EVIDENCE_ROOT%
+          >>"%GITHUB_ENV%" echo PD001G_PUBLISH_ROOT=%PD001G_PUBLISH_ROOT%
+          mkdir "%PD001G_EVIDENCE_ROOT%\logs" "%PD001G_EVIDENCE_ROOT%\provenance" "%PD001G_EVIDENCE_ROOT%\test-results" "%PD001G_EVIDENCE_ROOT%\security" "%PD001G_PUBLISH_ROOT%"
+          >"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo PD001G_SOURCE_SHA=%PD001G_SOURCE_SHA%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo PD001G_PACKAGE_NAME=%PD001G_PACKAGE_NAME%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_SHA=%GITHUB_SHA%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_REF=%GITHUB_REF%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_EVENT_NAME=%GITHUB_EVENT_NAME%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_RUN_ID=%GITHUB_RUN_ID%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_RUN_NUMBER=%GITHUB_RUN_NUMBER%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_RUN_ATTEMPT=%GITHUB_RUN_ATTEMPT%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo GITHUB_ACTOR=%GITHUB_ACTOR%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo RUNNER_NAME=%RUNNER_NAME%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo RUNNER_OS=%RUNNER_OS%
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo RUNNER_ARCH=%RUNNER_ARCH%
+          if not "%GITHUB_EVENT_NAME%"=="workflow_dispatch" exit /b 1
+          if not "%GITHUB_REF%"=="refs/heads/main" exit /b 1
+          if not "%GITHUB_RUN_ATTEMPT%"=="1" (
+            >"%PD001G_EVIDENCE_ROOT%\failure.txt" echo Re-run attempts cannot be authoritative PD-001G release evidence.
+            exit /b 1
+          )
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $headers=@{ Accept='application/vnd.github+json'; Authorization=('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version'='2022-11-28' }; $uri=('https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/workflows/vsp-pd001g-release-evidence.yml/runs?event=workflow_dispatch&per_page=100'); $response=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers; $current=[long]$env:GITHUB_RUN_NUMBER; $earlier=@($response.workflow_runs | Where-Object { [long]$_.run_number -lt $current }); ('EARLIER_PD001G_DISPATCH_COUNT=' + $earlier.Count) | Add-Content -LiteralPath (Join-Path $env:PD001G_EVIDENCE_ROOT 'provenance\run.txt') -Encoding ascii; if ($earlier.Count -gt 0) { 'An earlier PD-001G workflow_dispatch run already exists; this dispatch is non-authoritative.' | Set-Content -LiteralPath (Join-Path $env:PD001G_EVIDENCE_ROOT 'failure.txt') -Encoding ascii; throw 'Subsequent PD-001G dispatch rejected before source checkout and test execution' }"
+
+      - name: Checkout exact authoritative product source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PD001G_SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact source binding
+        shell: cmd
+        run: |
+          setlocal EnableExtensions
+          for /f %%i in ('git rev-parse HEAD') do set "CHECKED_OUT_SHA=%%i"
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo CHECKED_OUT_SHA=%CHECKED_OUT_SHA%
+          if /i not "%CHECKED_OUT_SHA%"=="%PD001G_SOURCE_SHA%" (
+            >"%PD001G_EVIDENCE_ROOT%\failure.txt" echo Checked-out HEAD does not equal PD001G_SOURCE_SHA.
+            exit /b 1
+          )
+
+      - name: Restore Release dependencies
+        shell: cmd
+        run: |
+          dotnet --info > "%PD001G_EVIDENCE_ROOT%\logs\dotnet-info.log" 2>&1
+          dotnet clean VSP.slnx -c Release > "%PD001G_EVIDENCE_ROOT%\logs\dotnet-clean.log" 2>&1
+          dotnet restore VSP.slnx > "%PD001G_EVIDENCE_ROOT%\logs\dotnet-restore.log" 2>&1
+
+      - name: Build Release
+        shell: cmd
+        run: |
+          dotnet build VSP.slnx -c Release --no-restore > "%PD001G_EVIDENCE_ROOT%\logs\dotnet-build.log" 2>&1
+
+      - name: Authoritative full-suite Release test exactly once
+        shell: cmd
+        run: |
+          dotnet test VSP.Tests\VSP.Tests.csproj -c Release --no-build --logger "trx;LogFileName=VSP.Tests.Release.trx" --results-directory "%PD001G_EVIDENCE_ROOT%\test-results" > "%PD001G_EVIDENCE_ROOT%\logs\dotnet-test-release.log" 2>&1
+          if errorlevel 1 (
+            >>"%PD001G_EVIDENCE_ROOT%\failure.txt" echo AUTHORITATIVE_TEST_EXIT=1
+            exit /b 1
+          )
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo AUTHORITATIVE_TEST_EXIT=0
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo AUTHORITATIVE_TEST_RERUN_TO_GREEN=FALSE
+
+      - name: Record PD-001G security coverage from authoritative TRX
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $trx = Get-ChildItem -LiteralPath (Join-Path $env:PD001G_EVIDENCE_ROOT 'test-results') -Filter '*.trx' | Select-Object -First 1
+          if ($null -eq $trx) { throw 'Authoritative Release TRX was not produced.' }
+          [xml]$doc = Get-Content -LiteralPath $trx.FullName
+          $unitTests = @($doc.SelectNodes("//*[local-name()='UnitTest']") | ForEach-Object { $_.GetAttribute('name') })
+          $required = @(
+            'CameraCredentialPersistence_AddUpdateAndBatchEdit_NeverWritesPlaintextSecretToActiveSqliteFiles',
+            'LegacyMigrationAndRestore_NeverLeavePlaintextSentinelInActiveOrTemporarySqliteFiles',
+            'Install_CurrentUserProtectedBackupReplacesLiveDatabase',
+            'Install_ProtectedBackupConfigOnlyClearsCredentialsAndLeavesSourceUntouched',
+            'PreflightBackupFile_ProtectedBackupWithUndecryptableCredentialFailsClosed',
+            'ProtectAndUnprotect_CurrentWindowsUser_RoundTripsUnicodeSecret',
+            'Unprotect_WhileRunningAsDifferentWindowsPrincipal_FailsClosed',
+            'ImportExportAndRestoreMessages_DoNotExposeSentinelSecretOrCiphertext'
+          )
+          $coverage = Join-Path $env:PD001G_EVIDENCE_ROOT 'security\pd001g-security-coverage.txt'
+          'PD001G_SECURITY_COVERAGE_SOURCE=AUTHORITATIVE_RELEASE_TRX' | Set-Content -LiteralPath $coverage -Encoding ascii
+          foreach ($name in $required) {
+            $matched = @($unitTests | Where-Object { $_ -like ('*' + $name + '*') })
+            if ($matched.Count -eq 0) {
+              ('MISSING=' + $name) | Add-Content -LiteralPath $coverage -Encoding ascii
+              throw ('Required PD-001G security evidence test missing from TRX: ' + $name)
+            }
+            ('FOUND=' + $name) | Add-Content -LiteralPath $coverage -Encoding ascii
+          }
+          'PD001G_SECURITY_COVERAGE=PASS' | Add-Content -LiteralPath $coverage -Encoding ascii
+
+      - name: Publish self-contained win-x64
+        shell: cmd
+        run: |
+          dotnet publish VSP.UI\VSP.UI.csproj -c Release /p:PublishProfile=win-x64 -o "%PD001G_PUBLISH_ROOT%" > "%PD001G_EVIDENCE_ROOT%\logs\dotnet-publish-win-x64.log" 2>&1
+          if not exist "%PD001G_PUBLISH_ROOT%\VSP.UI.exe" exit /b 1
+          if not exist "%PD001G_PUBLISH_ROOT%\coreclr.dll" exit /b 1
+          if not exist "%PD001G_PUBLISH_ROOT%\hostfxr.dll" exit /b 1
+          >>"%PD001G_EVIDENCE_ROOT%\provenance\run.txt" echo SELF_CONTAINED_WIN_X64_PUBLISH=PASS
+
+      - name: Package PD-001G RC and compute SHA-256
+        id: package
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = Join-Path $env:PD001G_EVIDENCE_ROOT $env:PD001G_PACKAGE_NAME
+          if (Test-Path -LiteralPath $package) { Remove-Item -LiteralPath $package -Force }
+          Compress-Archive -Path (Join-Path $env:PD001G_PUBLISH_ROOT '*') -DestinationPath $package -CompressionLevel Optimal
+          $hash = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash
+          $hash | Set-Content -LiteralPath (Join-Path $env:PD001G_EVIDENCE_ROOT ($env:PD001G_PACKAGE_NAME + '.sha256')) -Encoding ascii
+          @(
+            'PACKAGE_NAME=' + $env:PD001G_PACKAGE_NAME,
+            'PACKAGE_SHA256=' + $hash,
+            'PD001G_SOURCE_SHA=' + $env:PD001G_SOURCE_SHA,
+            'CHECKED_OUT_SHA=' + (git rev-parse HEAD),
+            'GITHUB_RUN_ID=' + $env:GITHUB_RUN_ID,
+            'GITHUB_RUN_ATTEMPT=' + $env:GITHUB_RUN_ATTEMPT,
+            'PACKAGE_INTENT=PD-001G_RC_EVIDENCE_NOT_GA'
+          ) | Set-Content -LiteralPath (Join-Path $env:PD001G_EVIDENCE_ROOT 'provenance\package.txt') -Encoding ascii
+          "package_sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Scan evidence artifacts for plaintext credential sentinels
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $roots = @($env:PD001G_EVIDENCE_ROOT, $env:PD001G_PUBLISH_ROOT)
+          $needles = @($env:PD001G_SENTINEL, $env:PD001G_REPLACEMENT_SENTINEL, $env:PD001G_BATCH_SENTINEL)
+          $filesScanned = 0
+          $matches = New-Object System.Collections.Generic.List[string]
+          foreach ($root in $roots) {
+            Get-ChildItem -LiteralPath $root -Recurse -File -Force | ForEach-Object {
+              $filesScanned++
+              $bytes = [System.IO.File]::ReadAllBytes($_.FullName)
+              foreach ($needle in $needles) {
+                $needleBytes = [System.Text.Encoding]::UTF8.GetBytes($needle)
+                for ($i = 0; $i -le $bytes.Length - $needleBytes.Length; $i++) {
+                  $found = $true
+                  for ($j = 0; $j -lt $needleBytes.Length; $j++) {
+                    if ($bytes[$i + $j] -ne $needleBytes[$j]) { $found = $false; break }
+                  }
+                  if ($found) { $matches.Add($_.FullName); break }
+                }
+              }
+            }
+          }
+          $scan = Join-Path $env:PD001G_EVIDENCE_ROOT 'security\credential-sentinel-scan.txt'
+          @(
+            'SCAN_SCOPE=logs,TRX,workflow-artifacts,publish-output; DB/WAL/journal/migration/staging/temp residue covered by required authoritative TRX tests',
+            'SCAN_PATTERN=PD-001 known credential sentinel values from bound test source',
+            'FILES_SCANNED=' + $filesScanned,
+            'MATCH_COUNT=' + $matches.Count
+          ) | Set-Content -LiteralPath $scan -Encoding ascii
+          if ($matches.Count -gt 0) {
+            $matches | Sort-Object -Unique | Add-Content -LiteralPath $scan -Encoding ascii
+            throw 'PD-001G plaintext credential sentinel scan found a match.'
+          }
+          'PD001G_CREDENTIAL_SENTINEL_SCAN=PASS' | Add-Content -LiteralPath $scan -Encoding ascii
+
+      - name: Write build evidence summary
+        if: always()
+        shell: cmd
+        run: |
+          >"%PD001G_EVIDENCE_ROOT%\RUN_SUMMARY.md" echo # VSP PD-001G Release Evidence - Build/Test/Package/Security
+          >>"%PD001G_EVIDENCE_ROOT%\RUN_SUMMARY.md" echo.
+          >>"%PD001G_EVIDENCE_ROOT%\RUN_SUMMARY.md" echo - Source SHA: `%PD001G_SOURCE_SHA%`
+          >>"%PD001G_EVIDENCE_ROOT%\RUN_SUMMARY.md" echo - Package: `%PD001G_PACKAGE_NAME%`
+          >>"%PD001G_EVIDENCE_ROOT%\RUN_SUMMARY.md" echo - Run ID: `%GITHUB_RUN_ID%`
+          >>"%PD001G_EVIDENCE_ROOT%\RUN_SUMMARY.md" echo - Run attempt: `%GITHUB_RUN_ATTEMPT%`
+          >>"%PD001G_EVIDENCE_ROOT%\RUN_SUMMARY.md" echo - Workflow dispatch only, exact source binding, no rerun-to-green.
+          >>"%PD001G_EVIDENCE_ROOT%\RUN_SUMMARY.md" echo - GUI validation is performed by the dependent VSP-GUI-01 job against this exact produced package.
+
+      - name: Upload build/package/security evidence
+        id: upload-build-evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PD001G_BUILD_ARTIFACT_NAME }}
+          path: ${{ env.PD001G_EVIDENCE_ROOT }}
+          if-no-files-found: error
+          retention-days: 30
+
+  gui-launch-validation:
+    name: VSP-GUI-01 Launch Validation
+    needs: build-package-security-evidence
+    if: ${{ always() && needs.build-package-security-evidence.result == 'success' }}
+    runs-on: [self-hosted, Windows, X64, vsp-gui, interactive-desktop]
+    timeout-minutes: 30
+    env:
+      PD001G_BUILD_ARTIFACT_ID: ${{ needs.build-package-security-evidence.outputs.artifact-id }}
+      PD001G_BUILD_ARTIFACT_DIGEST: ${{ needs.build-package-security-evidence.outputs.artifact-digest }}
+      PD001G_PACKAGE_SHA256: ${{ needs.build-package-security-evidence.outputs.package-sha256 }}
+
+    steps:
+      - name: Initialize GUI evidence and guards
+        shell: cmd
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+        run: |
+          setlocal EnableExtensions
+          set "PD001G_GUI_ROOT=%RUNNER_TEMP%\vsp-pd001g-gui-evidence-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "PD001G_DOWNLOAD_ROOT=%RUNNER_TEMP%\vsp-pd001g-gui-download-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "PD001G_SMOKE_ROOT=%RUNNER_TEMP%\vsp-pd001g-gui-smoke-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "PD001G_HELPER_SOURCE=%RUNNER_TEMP%\vsp-pd001g-gui-helper-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.cs"
+          set "PD001G_HELPER_EXE=%RUNNER_TEMP%\vsp-pd001g-gui-helper-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%.exe"
+          >>"%GITHUB_ENV%" echo PD001G_GUI_ROOT=%PD001G_GUI_ROOT%
+          >>"%GITHUB_ENV%" echo PD001G_DOWNLOAD_ROOT=%PD001G_DOWNLOAD_ROOT%
+          >>"%GITHUB_ENV%" echo PD001G_SMOKE_ROOT=%PD001G_SMOKE_ROOT%
+          >>"%GITHUB_ENV%" echo PD001G_HELPER_SOURCE=%PD001G_HELPER_SOURCE%
+          >>"%GITHUB_ENV%" echo PD001G_HELPER_EXE=%PD001G_HELPER_EXE%
+          mkdir "%PD001G_GUI_ROOT%\provenance" "%PD001G_GUI_ROOT%\smoke" "%PD001G_GUI_ROOT%\runner" "%PD001G_DOWNLOAD_ROOT%" "%PD001G_SMOKE_ROOT%"
+          >"%PD001G_GUI_ROOT%\provenance\run.txt" echo PD001G_SOURCE_SHA=%PD001G_SOURCE_SHA%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo GITHUB_SHA=%GITHUB_SHA%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo GITHUB_REF=%GITHUB_REF%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo GITHUB_EVENT_NAME=%GITHUB_EVENT_NAME%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo GITHUB_RUN_ID=%GITHUB_RUN_ID%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo GITHUB_RUN_ATTEMPT=%GITHUB_RUN_ATTEMPT%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo RUNNER_NAME=%RUNNER_NAME%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo RUNNER_OS=%RUNNER_OS%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo RUNNER_ARCH=%RUNNER_ARCH%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo BUILD_ARTIFACT_ID=%PD001G_BUILD_ARTIFACT_ID%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo BUILD_ARTIFACT_DIGEST=%PD001G_BUILD_ARTIFACT_DIGEST%
+          >>"%PD001G_GUI_ROOT%\provenance\run.txt" echo EXPECTED_PACKAGE_SHA256=%PD001G_PACKAGE_SHA256%
+          if not "%GITHUB_EVENT_NAME%"=="workflow_dispatch" exit /b 1
+          if not "%GITHUB_REF%"=="refs/heads/main" exit /b 1
+          if not "%GITHUB_RUN_ATTEMPT%"=="1" exit /b 1
+          if /i not "%GITHUB_ACTOR%"=="game2082001" exit /b 1
+          if /i not "%RUNNER_NAME%"=="VSP-GUI-01" exit /b 1
+          if /i not "%RUNNER_OS%"=="Windows" exit /b 1
+          if /i not "%RUNNER_ARCH%"=="X64" exit /b 1
+
+      - name: Download exact build artifact and verify package digest
+        shell: powershell
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $headers = @{ Accept = 'application/vnd.github+json'; Authorization = ('Bearer ' + $env:ACTIONS_READ_TOKEN); 'X-GitHub-Api-Version' = '2022-11-28' }
+          $artifactZip = Join-Path $env:PD001G_DOWNLOAD_ROOT 'build-package-security-artifact.zip'
+          $artifactRoot = Join-Path $env:PD001G_DOWNLOAD_ROOT 'build-package-security-artifact'
+          $uri = 'https://api.github.com/repos/' + $env:GITHUB_REPOSITORY + '/actions/artifacts/' + $env:PD001G_BUILD_ARTIFACT_ID + '/zip'
+          Invoke-WebRequest -UseBasicParsing -Uri $uri -Headers $headers -OutFile $artifactZip
+          $artifactSha = (Get-FileHash -LiteralPath $artifactZip -Algorithm SHA256).Hash
+          $expectedArtifactSha = $env:PD001G_BUILD_ARTIFACT_DIGEST -replace '^sha256:', ''
+          @(
+            'BUILD_ARTIFACT_ID=' + $env:PD001G_BUILD_ARTIFACT_ID,
+            'EXPECTED_ARTIFACT_DIGEST=' + $env:PD001G_BUILD_ARTIFACT_DIGEST,
+            'ACTUAL_ARTIFACT_ZIP_SHA256=' + $artifactSha
+          ) | Set-Content -LiteralPath (Join-Path $env:PD001G_GUI_ROOT 'provenance\artifact-integrity.txt') -Encoding ascii
+          if ($expectedArtifactSha -and $artifactSha -ine $expectedArtifactSha) { throw 'Downloaded build evidence artifact digest mismatch.' }
+          Expand-Archive -LiteralPath $artifactZip -DestinationPath $artifactRoot -Force
+          $package = Get-ChildItem -LiteralPath $artifactRoot -Recurse -File -Filter $env:PD001G_PACKAGE_NAME | Select-Object -First 1
+          if ($null -eq $package) { throw 'PD-001G package is absent from downloaded build artifact.' }
+          $packageHash = (Get-FileHash -LiteralPath $package.FullName -Algorithm SHA256).Hash
+          @(
+            'PACKAGE_NAME=' + $env:PD001G_PACKAGE_NAME,
+            'EXPECTED_PACKAGE_SHA256=' + $env:PD001G_PACKAGE_SHA256,
+            'ACTUAL_PACKAGE_SHA256=' + $packageHash,
+            'PACKAGE_PATH=' + $package.FullName
+          ) | Set-Content -LiteralPath (Join-Path $env:PD001G_GUI_ROOT 'provenance\package-integrity.txt') -Encoding ascii
+          if ($packageHash -ine $env:PD001G_PACKAGE_SHA256) { throw 'Downloaded PD-001G package SHA-256 mismatch.' }
+          "PD001G_PACKAGE_PATH=$($package.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Materialize GUI launch validation helper
+        shell: powershell
+        env:
+          HELPER_SOURCE: |
+            using System;
+            using System.Collections.Generic;
+            using System.Diagnostics;
+            using System.IO;
+            using System.IO.Compression;
+            using System.Runtime.InteropServices;
+            using System.Security.Principal;
+            using System.Text;
+            using System.Threading;
+
+            public static class Pd001gGuiLaunchValidation
+            {
+                private const string ExpectedAccount = @"Yousin\game2082001";
+                private const string ExpectedSid = "S-1-5-21-246760006-3988060075-516279282-1001";
+                private const string ExpectedRunner = "VSP-GUI-01";
+                private const string ExpectedTitle = "VSP - Login";
+                private const int WM_CLOSE = 0x0010;
+                private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr parameter);
+
+                [DllImport("user32.dll")]
+                private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+                [DllImport("user32.dll")]
+                private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+                [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+                private static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int count);
+                [DllImport("user32.dll")]
+                private static extern bool IsWindowVisible(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsWindowEnabled(IntPtr hwnd);
+                [DllImport("user32.dll")]
+                private static extern bool IsHungAppWindow(IntPtr hwnd);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+                [DllImport("kernel32.dll")]
+                private static extern uint WTSGetActiveConsoleSessionId();
+                [DllImport("kernel32.dll")]
+                private static extern uint GetCurrentProcessId();
+                [DllImport("kernel32.dll")]
+                private static extern bool ProcessIdToSessionId(uint processId, out uint sessionId);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern IntPtr GetProcessWindowStation();
+                [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+                private static extern IntPtr OpenInputDesktop(uint flags, bool inherit, uint desiredAccess);
+                [DllImport("user32.dll", SetLastError = true)]
+                private static extern bool CloseDesktop(IntPtr desktop);
+                [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+                private static extern bool GetUserObjectInformation(IntPtr handle, int index, StringBuilder info, int length, out int needed);
+                [DllImport("wtsapi32.dll", SetLastError = true)]
+                private static extern bool WTSQuerySessionInformation(IntPtr server, int sessionId, int infoClass, out IntPtr buffer, out int bytesReturned);
+                [DllImport("wtsapi32.dll")]
+                private static extern void WTSFreeMemory(IntPtr buffer);
+
+                public static int Main(string[] args)
+                {
+                    if (args.Length != 3)
+                    {
+                        Console.Error.WriteLine("Usage: helper <evidenceRoot> <smokeRoot> <packageZip>");
+                        return 2;
+                    }
+
+                    string evidenceRoot = args[0];
+                    string smokeRoot = args[1];
+                    string packageZip = args[2];
+                    Directory.CreateDirectory(evidenceRoot);
+                    Directory.CreateDirectory(Path.Combine(evidenceRoot, "runner"));
+                    Directory.CreateDirectory(Path.Combine(evidenceRoot, "smoke"));
+                    Directory.CreateDirectory(smokeRoot);
+
+                    Process process = null;
+                    bool forcedKill = false;
+                    try
+                    {
+                        ValidateRunnerIdentity(evidenceRoot);
+                        string extract = Path.Combine(smokeRoot, "app");
+                        string localAppData = Path.Combine(smokeRoot, "LocalAppData");
+                        Directory.CreateDirectory(extract);
+                        Directory.CreateDirectory(localAppData);
+                        ZipFile.ExtractToDirectory(packageZip, extract);
+                        string childPath = StripDotnetFromPath(Environment.GetEnvironmentVariable("PATH") ?? String.Empty);
+                        VerifyDotnetAbsent(childPath, evidenceRoot);
+
+                        string exe = Path.Combine(extract, "VSP.UI.exe");
+                        Require(File.Exists(exe), "VSP.UI.exe is missing from extracted package.");
+                        ProcessStartInfo startInfo = new ProcessStartInfo();
+                        startInfo.FileName = exe;
+                        startInfo.WorkingDirectory = extract;
+                        startInfo.UseShellExecute = false;
+                        startInfo.EnvironmentVariables["PATH"] = childPath;
+                        startInfo.EnvironmentVariables["LOCALAPPDATA"] = localAppData;
+                        process = Process.Start(startInfo);
+                        Require(process != null, "VSP.UI.exe did not start.");
+
+                        List<WindowSample> accepted = new List<WindowSample>();
+                        DateTime deadline = DateTime.UtcNow.AddSeconds(30);
+                        while (DateTime.UtcNow < deadline && accepted.Count < 3)
+                        {
+                            process.Refresh();
+                            Require(!process.HasExited, "VSP.UI.exe exited before GUI acceptance completed.");
+                            WindowSample sample = CaptureAcceptedWindow(process.Id);
+                            if (sample.Accepted)
+                            {
+                                accepted.Add(sample);
+                                AppendLine(Path.Combine(evidenceRoot, "smoke", "acceptance-samples.jsonl"), sample.ToJson());
+                                if (accepted.Count < 3)
+                                {
+                                    Thread.Sleep(2500);
+                                }
+                            }
+                            else
+                            {
+                                Thread.Sleep(500);
+                            }
+                        }
+
+                        Require(accepted.Count >= 3, "Fewer than three PID-based EnumWindows observations passed acceptance.");
+                        double interval = (accepted[accepted.Count - 1].ObservedUtc - accepted[0].ObservedUtc).TotalSeconds;
+                        Require(interval >= 5.0, "Accepted GUI sample interval was shorter than five seconds.");
+                        Require(PostMessage(accepted[accepted.Count - 1].Handle, WM_CLOSE, IntPtr.Zero, IntPtr.Zero), "WM_CLOSE could not be posted to Login Window.");
+                        Require(process.WaitForExit(10000), "VSP.UI.exe did not exit cleanly after WM_CLOSE.");
+                        WriteFinalState(evidenceRoot, true, accepted.Count, interval, process.ExitCode, false);
+                        return 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "validation-error.txt"), ex.ToString(), Encoding.UTF8);
+                        if (process != null && !process.HasExited)
+                        {
+                            forcedKill = true;
+                            process.Kill();
+                            process.WaitForExit();
+                        }
+                        WriteFinalState(evidenceRoot, false, 0, 0, process != null && process.HasExited ? process.ExitCode : -999, forcedKill);
+                        return 1;
+                    }
+                }
+
+                private static void ValidateRunnerIdentity(string evidenceRoot)
+                {
+                    WindowsIdentity identity = WindowsIdentity.GetCurrent();
+                    string account = identity.Name;
+                    string sid = identity.User == null ? String.Empty : identity.User.Value;
+                    string runner = Environment.GetEnvironmentVariable("RUNNER_NAME") ?? String.Empty;
+                    uint active = WTSGetActiveConsoleSessionId();
+                    uint currentSession;
+                    Require(ProcessIdToSessionId(GetCurrentProcessId(), out currentSession), "ProcessIdToSessionId failed.");
+                    string windowStationName = GetProcessWindowStationName();
+                    string desktopName = GetInputDesktopName();
+                    string sessionState = GetSessionState((int)currentSession);
+                    string json = "{\"account\":\"" + Escape(account) + "\",\"sid\":\"" + Escape(sid) + "\",\"runner\":\"" + Escape(runner) + "\",\"activeConsoleSessionId\":" + active + ",\"currentSessionId\":" + currentSession + ",\"sessionState\":\"" + Escape(sessionState) + "\",\"windowStation\":\"" + Escape(windowStationName) + "\",\"desktop\":\"" + Escape(desktopName) + "\"}";
+                    File.WriteAllText(Path.Combine(evidenceRoot, "runner", "identity.json"), json + Environment.NewLine, Encoding.UTF8);
+                    Require(String.Equals(account, ExpectedAccount, StringComparison.OrdinalIgnoreCase), "Runner account is not the approved Account.");
+                    Require(String.Equals(sid, ExpectedSid, StringComparison.OrdinalIgnoreCase), "Runner SID is not the approved SID.");
+                    Require(String.Equals(runner, ExpectedRunner, StringComparison.OrdinalIgnoreCase), "Runner name is not VSP-GUI-01.");
+                    Require(active == currentSession, "Runner is not in the active console session.");
+                    Require(String.Equals(sessionState, "WTSActive", StringComparison.OrdinalIgnoreCase), "Runner session is not WTSActive.");
+                    Require(String.Equals(windowStationName, "WinSta0", StringComparison.OrdinalIgnoreCase), "Runner is not on WinSta0.");
+                    Require(String.Equals(desktopName, "Default", StringComparison.OrdinalIgnoreCase), "Runner is not on WinSta0/Default input desktop.");
+                }
+
+                private static string GetSessionState(int sessionId)
+                {
+                    IntPtr buffer;
+                    int bytes;
+                    if (!WTSQuerySessionInformation(IntPtr.Zero, sessionId, 14, out buffer, out bytes))
+                    {
+                        return "UNKNOWN";
+                    }
+                    try
+                    {
+                        int state = Marshal.ReadInt32(buffer);
+                        return state == 0 ? "WTSActive" : ("WTSState" + state.ToString());
+                    }
+                    finally
+                    {
+                        WTSFreeMemory(buffer);
+                    }
+                }
+
+                private static string GetInputDesktopName()
+                {
+                    const uint DESKTOP_READOBJECTS = 0x0001;
+                    IntPtr desktop = OpenInputDesktop(0, false, DESKTOP_READOBJECTS);
+                    Require(desktop != IntPtr.Zero, "OpenInputDesktop failed.");
+                    try
+                    {
+                        int needed;
+                        StringBuilder builder = new StringBuilder(256);
+                        if (!GetUserObjectInformation(desktop, 2, builder, builder.Capacity, out needed))
+                        {
+                            return "UNKNOWN";
+                        }
+                        return builder.ToString();
+                    }
+                    finally
+                    {
+                        CloseDesktop(desktop);
+                    }
+                }
+
+                private static string GetProcessWindowStationName()
+                {
+                    IntPtr windowStation = GetProcessWindowStation();
+                    Require(windowStation != IntPtr.Zero, "GetProcessWindowStation failed.");
+                    return GetUserObjectName(windowStation);
+                }
+
+                private static string GetUserObjectName(IntPtr handle)
+                {
+                    int needed;
+                    StringBuilder builder = new StringBuilder(256);
+                    if (!GetUserObjectInformation(handle, 2, builder, builder.Capacity, out needed))
+                    {
+                        return "UNKNOWN";
+                    }
+                    return builder.ToString();
+                }
+
+                private static string StripDotnetFromPath(string path)
+                {
+                    string[] parts = path.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                    List<string> kept = new List<string>();
+                    foreach (string raw in parts)
+                    {
+                        string p = raw.Trim();
+                        if (p.Length == 0) continue;
+                        string lower = p.ToLowerInvariant();
+                        if (lower.Contains("\\dotnet") || lower.Contains("\\.dotnet") || lower.Contains("microsoft\\dotnet") || lower.Contains("program files\\dotnet")) continue;
+                        kept.Add(p);
+                    }
+                    return String.Join(";", kept.ToArray());
+                }
+
+                private static void VerifyDotnetAbsent(string childPath, string evidenceRoot)
+                {
+                    ProcessStartInfo info = new ProcessStartInfo();
+                    info.FileName = "where.exe";
+                    info.Arguments = "dotnet";
+                    info.UseShellExecute = false;
+                    info.RedirectStandardOutput = true;
+                    info.RedirectStandardError = true;
+                    info.EnvironmentVariables["PATH"] = childPath;
+                    Process probe = Process.Start(info);
+                    probe.WaitForExit();
+                    string output = "exit=" + probe.ExitCode + Environment.NewLine + probe.StandardOutput.ReadToEnd() + probe.StandardError.ReadToEnd();
+                    File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "dotnet-path-probe.txt"), output, Encoding.UTF8);
+                    Require(probe.ExitCode != 0, "dotnet remains reachable on child PATH.");
+                }
+
+                private static WindowSample CaptureAcceptedWindow(int targetPid)
+                {
+                    WindowSample best = new WindowSample();
+                    best.ObservedUtc = DateTime.UtcNow;
+                    EnumWindows(delegate(IntPtr hwnd, IntPtr ignored)
+                    {
+                        uint pid;
+                        GetWindowThreadProcessId(hwnd, out pid);
+                        if (pid != (uint)targetPid) return true;
+                        StringBuilder titleBuilder = new StringBuilder(512);
+                        GetWindowText(hwnd, titleBuilder, titleBuilder.Capacity);
+                        string title = titleBuilder.ToString();
+                        bool visible = IsWindowVisible(hwnd);
+                        bool enabled = IsWindowEnabled(hwnd);
+                        bool hung = IsHungAppWindow(hwnd);
+                        IntPtr result;
+                        bool responsive = SendMessageTimeout(hwnd, 0, IntPtr.Zero, IntPtr.Zero, 2, 1000, out result) != IntPtr.Zero;
+                        bool accepted = String.Equals(title, ExpectedTitle, StringComparison.Ordinal) && visible && enabled && !hung && responsive;
+                        best = new WindowSample(hwnd, title, visible, enabled, hung, responsive, accepted, DateTime.UtcNow);
+                        if (accepted) return false;
+                        return true;
+                    }, IntPtr.Zero);
+                    return best;
+                }
+
+                private static void WriteFinalState(string evidenceRoot, bool pass, int samples, double interval, int exitCode, bool forcedKill)
+                {
+                    string json = "{\"guiLaunchResult\":\"" + (pass ? "PASS" : "FAIL") + "\",\"acceptanceSource\":\"PID-based EnumWindows\",\"expectedTitle\":\"VSP - Login\",\"acceptedSamples\":" + samples + ",\"acceptedIntervalSeconds\":" + interval.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + ",\"cleanWmClose\":" + Bool(pass && !forcedKill) + ",\"processExitCode\":" + exitCode + ",\"forcedKill\":" + Bool(forcedKill) + "}";
+                    File.WriteAllText(Path.Combine(evidenceRoot, "smoke", "final-state.json"), json + Environment.NewLine, Encoding.UTF8);
+                }
+
+                private static void AppendLine(string path, string line)
+                {
+                    File.AppendAllText(path, line + Environment.NewLine, Encoding.UTF8);
+                }
+
+                private static void Require(bool condition, string message)
+                {
+                    if (!condition) throw new InvalidOperationException(message);
+                }
+
+                private static string Bool(bool value)
+                {
+                    return value ? "true" : "false";
+                }
+
+                private static string Escape(string value)
+                {
+                    return (value ?? String.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"");
+                }
+
+                private sealed class WindowSample
+                {
+                    public IntPtr Handle;
+                    public string Title;
+                    public bool Visible;
+                    public bool Enabled;
+                    public bool Hung;
+                    public bool Responsive;
+                    public bool Accepted;
+                    public DateTime ObservedUtc;
+
+                    public WindowSample()
+                    {
+                        Title = String.Empty;
+                    }
+
+                    public WindowSample(IntPtr handle, string title, bool visible, bool enabled, bool hung, bool responsive, bool accepted, DateTime observedUtc)
+                    {
+                        Handle = handle;
+                        Title = title;
+                        Visible = visible;
+                        Enabled = enabled;
+                        Hung = hung;
+                        Responsive = responsive;
+                        Accepted = accepted;
+                        ObservedUtc = observedUtc;
+                    }
+
+                    public string ToJson()
+                    {
+                        return "{\"observedUtc\":\"" + ObservedUtc.ToString("O") + "\",\"handle\":\"0x" + Handle.ToInt64().ToString("x") + "\",\"title\":\"" + Escape(Title) + "\",\"visible\":" + Bool(Visible) + ",\"enabled\":" + Bool(Enabled) + ",\"hung\":" + Bool(Hung) + ",\"responsive\":" + Bool(Responsive) + ",\"accepted\":" + Bool(Accepted) + "}";
+                    }
+                }
+            }
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:HELPER_SOURCE | Set-Content -LiteralPath $env:PD001G_HELPER_SOURCE -Encoding UTF8
+          Add-Type -OutputType ConsoleApplication -OutputAssembly $env:PD001G_HELPER_EXE -ReferencedAssemblies @('System.IO.Compression.dll','System.IO.Compression.FileSystem.dll') -TypeDefinition (Get-Content -LiteralPath $env:PD001G_HELPER_SOURCE -Raw)
+
+      - name: Run GUI launch validation against exact package
+        shell: cmd
+        run: |
+          "%PD001G_HELPER_EXE%" "%PD001G_GUI_ROOT%" "%PD001G_SMOKE_ROOT%" "%PD001G_PACKAGE_PATH%"
+
+      - name: Write GUI evidence summary
+        if: always()
+        shell: cmd
+        run: |
+          >"%PD001G_GUI_ROOT%\GUI_SUMMARY.md" echo # VSP PD-001G GUI Launch Validation
+          >>"%PD001G_GUI_ROOT%\GUI_SUMMARY.md" echo.
+          >>"%PD001G_GUI_ROOT%\GUI_SUMMARY.md" echo - Source SHA: `%PD001G_SOURCE_SHA%`
+          >>"%PD001G_GUI_ROOT%\GUI_SUMMARY.md" echo - Build artifact ID: `%PD001G_BUILD_ARTIFACT_ID%`
+          >>"%PD001G_GUI_ROOT%\GUI_SUMMARY.md" echo - Package: `%PD001G_PACKAGE_NAME%`
+          >>"%PD001G_GUI_ROOT%\GUI_SUMMARY.md" echo - Expected package SHA-256: `%PD001G_PACKAGE_SHA256%`
+          >>"%PD001G_GUI_ROOT%\GUI_SUMMARY.md" echo - Runner: `%RUNNER_NAME%`
+          >>"%PD001G_GUI_ROOT%\GUI_SUMMARY.md" echo - Acceptance: approved Account/SID, active console WTSActive, WinSta0/Default, no-dotnet child PATH, exact `VSP - Login`, PID-based EnumWindows, ^>=3 samples over ^>=5s, WM_CLOSE, clean exit, forcedKill=false.
+
+      - name: Upload GUI launch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PD001G_GUI_ARTIFACT_NAME }}
+          path: ${{ env.PD001G_GUI_ROOT }}
+          if-no-files-found: error
+          retention-days: 30
