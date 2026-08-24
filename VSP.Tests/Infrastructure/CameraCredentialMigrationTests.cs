@@ -167,10 +167,10 @@ PRAGMA user_version = 77;";
         return (databaseService.GetDatabaseFilePath(), Path.Combine(_tempDirectory, "vsp.credential-migration.db"));
     }
 
-    private static Camera CreateCamera(string name, string password)
+    private static VSP.Domain.Entities.Camera CreateCamera(string name, string password)
     {
         var now = DateTime.UtcNow;
-        return new Camera
+        return new VSP.Domain.Entities.Camera
         {
             Name = name,
             IpAddress = "192.0.2.10",
