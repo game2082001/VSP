@@ -35,7 +35,7 @@ public class CameraImportMapper
 
     private static DeviceConnectionType ResolveConnectionType(string connectionType, string brand)
     {
-        if (Enum.TryParse<DeviceConnectionType>(connectionType, ignoreCase: true, out var parsedConnectionType))
+        if (TryParseNamedConnectionType(connectionType, out var parsedConnectionType))
         {
             return parsedConnectionType;
         }
@@ -51,6 +51,23 @@ public class CameraImportMapper
         }
 
         return DeviceConnectionType.Unknown;
+    }
+
+    private static bool TryParseNamedConnectionType(string connectionType, out DeviceConnectionType parsedConnectionType)
+    {
+        var trimmedConnectionType = connectionType.Trim();
+
+        foreach (var name in Enum.GetNames<DeviceConnectionType>())
+        {
+            if (string.Equals(name, trimmedConnectionType, StringComparison.OrdinalIgnoreCase))
+            {
+                parsedConnectionType = Enum.Parse<DeviceConnectionType>(name);
+                return true;
+            }
+        }
+
+        parsedConnectionType = DeviceConnectionType.Unknown;
+        return false;
     }
 
     private static int ParsePort(string value, int defaultValue)

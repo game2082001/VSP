@@ -166,6 +166,27 @@ public class ImportExecutorTests
         Assert.Equal("rtsp://192.168.1.2/live", camera.RtspUrl);
     }
 
+    [Theory]
+    [InlineData("99")]
+    [InlineData("RTSP, ONVIF")]
+    public void CameraImportMapper_DoesNotParseLooseConnectionTypeValues(string connectionType)
+    {
+        var mapper = new CameraImportMapper();
+
+        var camera = mapper.Map(new ImportPreviewRow
+        {
+            RowNumber = 2,
+            Name = "Camera",
+            Brand = "Dahua",
+            IPAddress = "192.168.1.2",
+            ConnectionType = connectionType,
+            IsValid = true,
+            Status = "Valid"
+        });
+
+        Assert.Equal(VSP.Domain.Enums.DeviceConnectionType.Unknown, camera.ConnectionType);
+    }
+
     private static ImportPreviewResult CreatePreviewResult(params ImportPreviewRow[] rows)
     {
         return new ImportPreviewResult
