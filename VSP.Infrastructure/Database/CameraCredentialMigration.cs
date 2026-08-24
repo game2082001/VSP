@@ -1,0 +1,521 @@
+using System.Security.Cryptography;
+using Microsoft.Data.Sqlite;
+using VSP.Infrastructure.Security;
+
+namespace VSP.Infrastructure.Database;
+
+/// <summary>
+/// Builds and verifies an encrypted database beside a legacy source. This component is dormant:
+/// it never replaces, renames, or writes to the source database and is not called by startup.
+/// </summary>
+internal sealed class CameraCredentialMigration
+{
+    private const int ProtectionVersion = 1;
+    private readonly ICameraCredentialProtector _protector;
+
+    public CameraCredentialMigration(ICameraCredentialProtector protector)
+    {
+        _protector = protector ?? throw new ArgumentNullException(nameof(protector));
+    }
+
+    public CameraCredentialMigrationOutcome Stage(string sourcePath, string stagingPath)
+    {
+        ValidatePaths(sourcePath, stagingPath);
+
+        var state = Inspect(sourcePath, stagingPath);
+        if (state == CameraCredentialMigrationState.ReadyForActivation)
+        {
+            return CameraCredentialMigrationOutcome.AlreadyStaged;
+        }
+
+        if (state is CameraCredentialMigrationState.SourceMissing
+            or CameraCredentialMigrationState.SourceAlreadyProtected
+            or CameraCredentialMigrationState.UnsupportedSource)
+        {
+            throw new InvalidOperationException($"Credential migration cannot start from state '{state}'.");
+        }
+
+        TryDelete(stagingPath);
+        var sourceFingerprint = ComputeSha256(sourcePath);
+
+        try
+        {
+            using (var source = OpenReadOnly(sourcePath))
+            using (var staging = OpenReadWriteCreate(stagingPath))
+            {
+                ValidateLegacySource(source);
+                InitializeStaging(staging);
+
+                using var transaction = staging.BeginTransaction();
+                CopyUsers(source, staging, transaction);
+                CopyCameras(source, staging, transaction);
+                WriteMigrationMetadata(staging, transaction, sourceFingerprint);
+                SetSchemaVersion(staging, transaction);
+                transaction.Commit();
+            }
+
+            if (!CryptographicOperations.FixedTimeEquals(sourceFingerprint, ComputeSha256(sourcePath)))
+            {
+                throw new IOException("The source database changed while credential migration was being staged.");
+            }
+
+            VerifyStagingDatabase(sourcePath, stagingPath, sourceFingerprint);
+            return CameraCredentialMigrationOutcome.Staged;
+        }
+        catch
+        {
+            SqliteConnection.ClearAllPools();
+            TryDelete(stagingPath);
+            throw;
+        }
+    }
+
+    public CameraCredentialMigrationState Inspect(string sourcePath, string stagingPath)
+    {
+        ValidatePaths(sourcePath, stagingPath);
+
+        if (!File.Exists(sourcePath))
+        {
+            return CameraCredentialMigrationState.SourceMissing;
+        }
+
+        var sourceVersion = TryReadSchemaVersion(sourcePath);
+        if (sourceVersion == DatabaseSchemaVersion.CurrentUserProtectedCredentials)
+        {
+            return CameraCredentialMigrationState.SourceAlreadyProtected;
+        }
+
+        if (sourceVersion != DatabaseSchemaVersion.LegacyPlaintextCredentials || !IsLegacySourceSchema(sourcePath))
+        {
+            return CameraCredentialMigrationState.UnsupportedSource;
+        }
+
+        if (!File.Exists(stagingPath))
+        {
+            return CameraCredentialMigrationState.NotStarted;
+        }
+
+        try
+        {
+            var expectedFingerprint = ComputeSha256(sourcePath);
+            var stagedFingerprint = ReadStagedSourceFingerprint(stagingPath);
+            if (!CryptographicOperations.FixedTimeEquals(expectedFingerprint, stagedFingerprint))
+            {
+                return CameraCredentialMigrationState.SourceChangedSinceStaging;
+            }
+
+            VerifyStagingDatabase(sourcePath, stagingPath, expectedFingerprint);
+            return CameraCredentialMigrationState.ReadyForActivation;
+        }
+        catch
+        {
+            return CameraCredentialMigrationState.InvalidStaging;
+        }
+    }
+
+    private void CopyCameras(SqliteConnection source, SqliteConnection staging, SqliteTransaction transaction)
+    {
+        using var read = source.CreateCommand();
+        read.CommandText = @"
+SELECT Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+       HttpPort, RtspPort, SdkPort, Username, Password, RtspUrl,
+       Status, Recording, CreateTime, LastModifyTime
+FROM Camera
+ORDER BY Id;";
+
+        using var reader = read.ExecuteReader();
+        while (reader.Read())
+        {
+            var plaintext = reader.IsDBNull(11) ? string.Empty : reader.GetString(11);
+            byte[]? protectedPassword = null;
+            try
+            {
+                protectedPassword = plaintext.Length == 0 ? null : _protector.Protect(plaintext);
+
+                using var insert = staging.CreateCommand();
+                insert.Transaction = transaction;
+                insert.CommandText = @"
+INSERT INTO Camera
+(Id, Name, IpAddress, Brand, ConnectionType, Model, Location,
+ HttpPort, RtspPort, SdkPort, Username, PasswordProtected, PasswordProtectionVersion,
+ RtspUrl, Status, Recording, CreateTime, LastModifyTime)
+VALUES
+($Id, $Name, $IpAddress, $Brand, $ConnectionType, $Model, $Location,
+ $HttpPort, $RtspPort, $SdkPort, $Username, $PasswordProtected, $PasswordProtectionVersion,
+ $RtspUrl, $Status, $Recording, $CreateTime, $LastModifyTime);";
+
+                AddValue(insert, "$Id", reader, 0);
+                AddValue(insert, "$Name", reader, 1);
+                AddValue(insert, "$IpAddress", reader, 2);
+                AddValue(insert, "$Brand", reader, 3);
+                AddValue(insert, "$ConnectionType", reader, 4);
+                AddValue(insert, "$Model", reader, 5);
+                AddValue(insert, "$Location", reader, 6);
+                AddValue(insert, "$HttpPort", reader, 7);
+                AddValue(insert, "$RtspPort", reader, 8);
+                AddValue(insert, "$SdkPort", reader, 9);
+                AddValue(insert, "$Username", reader, 10);
+                insert.Parameters.AddWithValue("$PasswordProtected", (object?)protectedPassword ?? DBNull.Value);
+                insert.Parameters.AddWithValue("$PasswordProtectionVersion", protectedPassword is null ? DBNull.Value : ProtectionVersion);
+                AddValue(insert, "$RtspUrl", reader, 12);
+                AddValue(insert, "$Status", reader, 13);
+                AddValue(insert, "$Recording", reader, 14);
+                AddValue(insert, "$CreateTime", reader, 15);
+                AddValue(insert, "$LastModifyTime", reader, 16);
+                insert.ExecuteNonQuery();
+            }
+            finally
+            {
+                if (protectedPassword is not null)
+                {
+                    CryptographicOperations.ZeroMemory(protectedPassword);
+                }
+            }
+        }
+    }
+
+    private static void CopyUsers(SqliteConnection source, SqliteConnection staging, SqliteTransaction transaction)
+    {
+        using var read = source.CreateCommand();
+        read.CommandText = @"
+SELECT Id, Username, PasswordHash, PasswordSalt, PasswordIterations,
+       Role, MustChangePassword, CreateTime, LastModifyTime
+FROM User
+ORDER BY Id;";
+
+        using var reader = read.ExecuteReader();
+        while (reader.Read())
+        {
+            using var insert = staging.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = @"
+INSERT INTO User
+(Id, Username, PasswordHash, PasswordSalt, PasswordIterations,
+ Role, MustChangePassword, CreateTime, LastModifyTime)
+VALUES
+($Id, $Username, $PasswordHash, $PasswordSalt, $PasswordIterations,
+ $Role, $MustChangePassword, $CreateTime, $LastModifyTime);";
+
+            for (var index = 0; index < reader.FieldCount; index++)
+            {
+                AddValue(insert, "$" + reader.GetName(index), reader, index);
+            }
+
+            insert.ExecuteNonQuery();
+        }
+    }
+
+    private void VerifyStagingDatabase(string sourcePath, string stagingPath, byte[] expectedSourceFingerprint)
+    {
+        using var staging = OpenReadOnly(stagingPath);
+        ValidateCurrentSchema(staging);
+
+        using (var integrity = staging.CreateCommand())
+        {
+            integrity.CommandText = "PRAGMA integrity_check;";
+            if (!string.Equals(integrity.ExecuteScalar() as string, "ok", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("The staged database failed its integrity check.");
+            }
+        }
+
+        var recordedFingerprint = ReadStagedSourceFingerprint(staging);
+        if (!CryptographicOperations.FixedTimeEquals(expectedSourceFingerprint, recordedFingerprint))
+        {
+            throw new InvalidDataException("The staged database does not match the source database fingerprint.");
+        }
+
+        using var source = OpenReadOnly(sourcePath);
+        using var sourceCommand = source.CreateCommand();
+        sourceCommand.CommandText = "SELECT Id, COALESCE(Password, '') FROM Camera ORDER BY Id;";
+        using var sourceReader = sourceCommand.ExecuteReader();
+
+        using var stagedCommand = staging.CreateCommand();
+        stagedCommand.CommandText = @"
+SELECT Id, PasswordProtected, PasswordProtectionVersion
+FROM Camera
+ORDER BY Id;";
+        using var stagedReader = stagedCommand.ExecuteReader();
+
+        while (sourceReader.Read())
+        {
+            if (!stagedReader.Read() || sourceReader.GetString(0) != stagedReader.GetString(0))
+            {
+                throw new InvalidDataException("The staged camera set does not match the source database.");
+            }
+
+            var plaintext = sourceReader.GetString(1);
+            if (plaintext.Length == 0)
+            {
+                if (!stagedReader.IsDBNull(1) || !stagedReader.IsDBNull(2))
+                {
+                    throw new InvalidDataException("An empty legacy credential was not represented as empty.");
+                }
+
+                continue;
+            }
+
+            if (stagedReader.IsDBNull(1) || stagedReader.GetInt32(2) != ProtectionVersion)
+            {
+                throw new InvalidDataException("A staged credential is missing protection metadata.");
+            }
+
+            var protectedEnvelope = (byte[])stagedReader.GetValue(1);
+            if (!string.Equals(plaintext, _protector.Unprotect(protectedEnvelope), StringComparison.Ordinal))
+            {
+                throw new CryptographicException("A staged credential failed round-trip verification.");
+            }
+        }
+
+        if (stagedReader.Read())
+        {
+            throw new InvalidDataException("The staged database contains an unexpected camera row.");
+        }
+    }
+
+    private static void InitializeStaging(SqliteConnection staging)
+    {
+        using var command = staging.CreateCommand();
+        command.CommandText = @"
+PRAGMA journal_mode = DELETE;
+PRAGMA synchronous = FULL;
+PRAGMA secure_delete = ON;
+
+CREATE TABLE Camera
+(
+    Id TEXT PRIMARY KEY,
+    Name TEXT NOT NULL,
+    IpAddress TEXT NOT NULL,
+    Brand INTEGER NOT NULL,
+    ConnectionType INTEGER NOT NULL,
+    Model TEXT,
+    Location TEXT,
+    HttpPort INTEGER,
+    RtspPort INTEGER,
+    SdkPort INTEGER,
+    Username TEXT,
+    PasswordProtected BLOB,
+    PasswordProtectionVersion INTEGER,
+    RtspUrl TEXT,
+    Status INTEGER,
+    Recording INTEGER,
+    CreateTime TEXT,
+    LastModifyTime TEXT,
+    CHECK ((PasswordProtected IS NULL AND PasswordProtectionVersion IS NULL)
+        OR (PasswordProtected IS NOT NULL AND PasswordProtectionVersion = 1))
+);
+
+CREATE TABLE User
+(
+    Id TEXT PRIMARY KEY,
+    Username TEXT NOT NULL,
+    PasswordHash TEXT NOT NULL,
+    PasswordSalt TEXT NOT NULL,
+    PasswordIterations INTEGER NOT NULL,
+    Role INTEGER NOT NULL,
+    MustChangePassword INTEGER NOT NULL DEFAULT 0,
+    CreateTime TEXT,
+    LastModifyTime TEXT
+);
+CREATE UNIQUE INDEX IX_User_Username ON User (Username);
+
+CREATE TABLE CredentialMigrationMetadata
+(
+    Id INTEGER PRIMARY KEY CHECK (Id = 1),
+    SourceSha256 BLOB NOT NULL,
+    ProtectionProvider TEXT NOT NULL CHECK (ProtectionProvider = 'DPAPI'),
+    ProtectionScope TEXT NOT NULL CHECK (ProtectionScope = 'CurrentUser'),
+    ProtectionVersion INTEGER NOT NULL CHECK (ProtectionVersion = 1)
+);";
+        command.ExecuteNonQuery();
+    }
+
+    private static void WriteMigrationMetadata(SqliteConnection staging, SqliteTransaction transaction, byte[] fingerprint)
+    {
+        using var command = staging.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = @"
+INSERT INTO CredentialMigrationMetadata
+(Id, SourceSha256, ProtectionProvider, ProtectionScope, ProtectionVersion)
+VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
+        command.Parameters.AddWithValue("$SourceSha256", fingerprint);
+        command.ExecuteNonQuery();
+    }
+
+    private static void SetSchemaVersion(SqliteConnection staging, SqliteTransaction transaction)
+    {
+        using var command = staging.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = $"PRAGMA user_version = {DatabaseSchemaVersion.CurrentUserProtectedCredentials};";
+        command.ExecuteNonQuery();
+    }
+
+    private static void ValidateLegacySource(SqliteConnection source)
+    {
+        if (ReadSchemaVersion(source) != DatabaseSchemaVersion.LegacyPlaintextCredentials
+            || !HasExactColumns(source, "Camera", LegacyCameraColumns)
+            || !HasExactColumns(source, "User", UserColumns))
+        {
+            throw new InvalidDataException("The source database schema is not a supported legacy VSP schema.");
+        }
+    }
+
+    private static void ValidateCurrentSchema(SqliteConnection connection)
+    {
+        if (ReadSchemaVersion(connection) != DatabaseSchemaVersion.CurrentUserProtectedCredentials
+            || !HasExactColumns(connection, "Camera", ProtectedCameraColumns)
+            || !HasExactColumns(connection, "User", UserColumns)
+            || !HasExactColumns(connection, "CredentialMigrationMetadata", MigrationMetadataColumns))
+        {
+            throw new InvalidDataException("The staged database schema is not a supported protected VSP schema.");
+        }
+    }
+
+    private static bool IsLegacySourceSchema(string path)
+    {
+        try
+        {
+            using var connection = OpenReadOnly(path);
+            ValidateLegacySource(connection);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static int TryReadSchemaVersion(string path)
+    {
+        try
+        {
+            using var connection = OpenReadOnly(path);
+            return ReadSchemaVersion(connection);
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    private static int ReadSchemaVersion(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA user_version;";
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    private static bool HasExactColumns(SqliteConnection connection, string table, IReadOnlyList<string> expected)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info([{table.Replace("]", "]]", StringComparison.Ordinal)}]);";
+        using var reader = command.ExecuteReader();
+        var actual = new List<string>();
+        while (reader.Read())
+        {
+            actual.Add(reader.GetString(1));
+        }
+
+        return actual.SequenceEqual(expected, StringComparer.Ordinal);
+    }
+
+    private static byte[] ReadStagedSourceFingerprint(string stagingPath)
+    {
+        using var connection = OpenReadOnly(stagingPath);
+        return ReadStagedSourceFingerprint(connection);
+    }
+
+    private static byte[] ReadStagedSourceFingerprint(SqliteConnection connection)
+    {
+        ValidateCurrentSchema(connection);
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT SourceSha256 FROM CredentialMigrationMetadata WHERE Id = 1;";
+        return command.ExecuteScalar() as byte[]
+            ?? throw new InvalidDataException("The staged database has no source fingerprint.");
+    }
+
+    private static SqliteConnection OpenReadOnly(string path)
+    {
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false
+        }.ToString());
+        connection.Open();
+        return connection;
+    }
+
+    private static SqliteConnection OpenReadWriteCreate(string path)
+    {
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Pooling = false
+        }.ToString());
+        connection.Open();
+        return connection;
+    }
+
+    private static byte[] ComputeSha256(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return SHA256.HashData(stream);
+    }
+
+    private static void AddValue(SqliteCommand command, string name, SqliteDataReader reader, int ordinal)
+    {
+        command.Parameters.AddWithValue(name, reader.IsDBNull(ordinal) ? DBNull.Value : reader.GetValue(ordinal));
+    }
+
+    private static void ValidatePaths(string sourcePath, string stagingPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(stagingPath);
+        if (string.Equals(Path.GetFullPath(sourcePath), Path.GetFullPath(stagingPath), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Source and staging paths must be different.", nameof(stagingPath));
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // The original exception remains authoritative; cleanup is best effort.
+        }
+    }
+
+    private static readonly string[] LegacyCameraColumns =
+    {
+        "Id", "Name", "IpAddress", "Brand", "ConnectionType", "Model", "Location",
+        "HttpPort", "RtspPort", "SdkPort", "Username", "Password", "RtspUrl",
+        "Status", "Recording", "CreateTime", "LastModifyTime"
+    };
+
+    private static readonly string[] ProtectedCameraColumns =
+    {
+        "Id", "Name", "IpAddress", "Brand", "ConnectionType", "Model", "Location",
+        "HttpPort", "RtspPort", "SdkPort", "Username", "PasswordProtected",
+        "PasswordProtectionVersion", "RtspUrl", "Status", "Recording", "CreateTime", "LastModifyTime"
+    };
+
+    private static readonly string[] UserColumns =
+    {
+        "Id", "Username", "PasswordHash", "PasswordSalt", "PasswordIterations",
+        "Role", "MustChangePassword", "CreateTime", "LastModifyTime"
+    };
+
+    private static readonly string[] MigrationMetadataColumns =
+    {
+        "Id", "SourceSha256", "ProtectionProvider", "ProtectionScope", "ProtectionVersion"
+    };
+}
