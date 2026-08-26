@@ -51,6 +51,7 @@ public sealed class FrameDispatcher<TFrame> : IFrameDispatcher<TFrame>
         private readonly FrameDispatcher<TFrame> _owner;
         private readonly IFrameConsumer<TFrame> _consumer;
         private readonly CancellationTokenSource _cts = new();
+        private readonly ManualResetEventSlim _ready = new();
         private Task? _pumpTask;
         private bool _disposed;
 
@@ -66,23 +67,25 @@ public sealed class FrameDispatcher<TFrame> : IFrameDispatcher<TFrame>
 
         public void Start()
         {
-            _pumpTask = Task.Run(Pump);
+            _pumpTask = Task.Factory.StartNew(
+                Pump,
+                _cts.Token,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+            _ready.Wait(_cts.Token);
         }
 
         private void Pump()
         {
             var token = _cts.Token;
+            _ready.Set();
             while (!token.IsCancellationRequested)
             {
-                if (Buffer.TryDequeue(out var item))
+                if (Buffer.WaitToDequeue(out var item, token))
                 {
                     var latency = DateTime.UtcNow - item.EnqueuedAt;
                     _owner._metrics.RecordDelivery(latency, Buffer.Count);
                     _consumer.OnFrame(item.Frame);
-                }
-                else
-                {
-                    Thread.Sleep(2);
                 }
             }
         }
@@ -96,6 +99,7 @@ public sealed class FrameDispatcher<TFrame> : IFrameDispatcher<TFrame>
 
             _disposed = true;
             _cts.Cancel();
+            Buffer.Complete();
             try
             {
                 _pumpTask?.Wait(TimeSpan.FromSeconds(1));
@@ -105,6 +109,7 @@ public sealed class FrameDispatcher<TFrame> : IFrameDispatcher<TFrame>
                 // best-effort during dispose
             }
 
+            _ready.Dispose();
             _cts.Dispose();
             _owner.Remove(this);
         }
