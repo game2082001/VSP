@@ -499,7 +499,7 @@ LIMIT 1;";
         Assert.Equal(new[] { OriginalCameraName, ChangedAfterBackupCameraName }, ReadAllCameraNames(preRestoreFile));
 
         Assert.Equal(sourceBytesBeforeInstall, File.ReadAllBytes(backupPath));
-        Assert.Equal(DatabaseSchemaVersion.CurrentUserProtectedCredentials, ReadUserVersion(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(DatabaseSchemaVersion.UserLifecycleFoundation, ReadUserVersion(databaseService.GetDatabaseFilePath()));
         Assert.Equal(1, CountProtectedCredentialRows(databaseService.GetDatabaseFilePath()));
         Assert.False(File.Exists(Path.Combine(LiveDirectory, "vsp.db.restoring.tmp")));
         Assert.False(File.Exists(Path.Combine(LiveDirectory, "vsp.db.restore-prepared.tmp")));
@@ -537,7 +537,7 @@ LIMIT 1;";
 
         Assert.True(result.Success);
         Assert.Equal(new[] { OriginalCameraName }, ReadAllCameraNames(databaseService.GetDatabaseFilePath()));
-        Assert.Equal(DatabaseSchemaVersion.CurrentUserProtectedCredentials, ReadUserVersion(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(DatabaseSchemaVersion.UserLifecycleFoundation, ReadUserVersion(databaseService.GetDatabaseFilePath()));
         Assert.Equal(sourceBytesBeforeInstall, ReadBytes(protectedPath));
         Assert.Single(Directory.GetFiles(LiveDirectory, "vsp.pre-restore.*.db"));
     }
@@ -558,7 +558,7 @@ LIMIT 1;";
 
         Assert.True(result.Success);
         Assert.Equal(new[] { OriginalCameraName }, ReadAllCameraNames(databaseService.GetDatabaseFilePath()));
-        Assert.Equal(DatabaseSchemaVersion.CurrentUserProtectedCredentials, ReadUserVersion(databaseService.GetDatabaseFilePath()));
+        Assert.Equal(DatabaseSchemaVersion.UserLifecycleFoundation, ReadUserVersion(databaseService.GetDatabaseFilePath()));
         Assert.Equal(0, CountProtectedCredentialRows(databaseService.GetDatabaseFilePath()));
         Assert.Equal(sourceBytesBeforeInstall, File.ReadAllBytes(protectedPath));
     }

@@ -8,6 +8,8 @@ public class User
 
     public string Username { get; set; } = "";
 
+    public string NormalizedUsername { get; set; } = "";
+
     public string PasswordHash { get; set; } = "";
 
     public string PasswordSalt { get; set; } = "";
@@ -20,6 +22,8 @@ public class User
     public Role Role { get; set; } = Role.Operator;
 
     public bool MustChangePassword { get; set; }
+
+    public bool IsEnabled { get; set; } = true;
 
     public DateTime CreateTime { get; set; } = DateTime.Now;
 

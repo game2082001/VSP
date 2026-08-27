@@ -256,6 +256,16 @@ public class ForcedPasswordChangeViewModelTests
 
         public UserEntity? GetByUsername(string username) => null;
 
+        public List<UserEntity> GetAll() => new();
+
+        public UserEntity? GetById(Guid id) => null;
+
+        public UserEntity? GetByNormalizedUsername(string normalizedUsername) => null;
+
+        public void Add(UserEntity user)
+        {
+        }
+
         public void Update(UserEntity user)
         {
             LastUpdatedUser = user;

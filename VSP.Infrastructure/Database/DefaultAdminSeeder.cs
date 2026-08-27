@@ -33,24 +33,26 @@ public static class DefaultAdminSeeder
         insertCommand.CommandText = @"
 INSERT INTO User
 (
-    Id, Username, PasswordHash, PasswordSalt, PasswordIterations,
-    Role, MustChangePassword,
+    Id, Username, NormalizedUsername, PasswordHash, PasswordSalt, PasswordIterations,
+    Role, MustChangePassword, IsEnabled,
     CreateTime, LastModifyTime
 )
 VALUES
 (
-    $Id, $Username, $PasswordHash, $PasswordSalt, $PasswordIterations,
-    $Role, $MustChangePassword,
+    $Id, $Username, $NormalizedUsername, $PasswordHash, $PasswordSalt, $PasswordIterations,
+    $Role, $MustChangePassword, $IsEnabled,
     $CreateTime, $LastModifyTime
 );";
 
         insertCommand.Parameters.AddWithValue("$Id", Guid.NewGuid().ToString());
         insertCommand.Parameters.AddWithValue("$Username", DefaultUsername);
+        insertCommand.Parameters.AddWithValue("$NormalizedUsername", VSP.Core.Security.UsernameIdentity.Normalize(DefaultUsername));
         insertCommand.Parameters.AddWithValue("$PasswordHash", hash);
         insertCommand.Parameters.AddWithValue("$PasswordSalt", salt);
         insertCommand.Parameters.AddWithValue("$PasswordIterations", iterations);
         insertCommand.Parameters.AddWithValue("$Role", (int)Role.Admin);
         insertCommand.Parameters.AddWithValue("$MustChangePassword", 1);
+        insertCommand.Parameters.AddWithValue("$IsEnabled", 1);
         insertCommand.Parameters.AddWithValue("$CreateTime", now);
         insertCommand.Parameters.AddWithValue("$LastModifyTime", now);
 

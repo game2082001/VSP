@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
+using VSP.Core.Security;
 using VSP.Infrastructure.Security;
 
 namespace VSP.Infrastructure.Database;
@@ -151,7 +152,8 @@ internal sealed class CameraCredentialMigration
         }
 
         var sourceVersion = TryReadSchemaVersion(sourcePath);
-        if (sourceVersion == DatabaseSchemaVersion.CurrentUserProtectedCredentials)
+        if (sourceVersion is DatabaseSchemaVersion.CurrentUserProtectedCredentials
+            or DatabaseSchemaVersion.UserLifecycleFoundation)
         {
             return IsCurrentProtectedSchema(sourcePath)
                 ? CameraCredentialMigrationState.SourceAlreadyProtected
@@ -249,8 +251,15 @@ VALUES
 
     private static void CopyUsers(SqliteConnection source, SqliteConnection staging, SqliteTransaction transaction)
     {
+        var hasLifecycleColumns = HasExactColumns(source, "User", UserColumns);
         using var read = source.CreateCommand();
-        read.CommandText = @"
+        read.CommandText = hasLifecycleColumns
+            ? @"
+SELECT Id, Username, NormalizedUsername, PasswordHash, PasswordSalt, PasswordIterations,
+       Role, MustChangePassword, IsEnabled, CreateTime, LastModifyTime
+FROM User
+ORDER BY Id;"
+            : @"
 SELECT Id, Username, PasswordHash, PasswordSalt, PasswordIterations,
        Role, MustChangePassword, CreateTime, LastModifyTime
 FROM User
@@ -263,15 +272,32 @@ ORDER BY Id;";
             insert.Transaction = transaction;
             insert.CommandText = @"
 INSERT INTO User
-(Id, Username, PasswordHash, PasswordSalt, PasswordIterations,
- Role, MustChangePassword, CreateTime, LastModifyTime)
+(Id, Username, NormalizedUsername, PasswordHash, PasswordSalt, PasswordIterations,
+ Role, MustChangePassword, IsEnabled, CreateTime, LastModifyTime)
 VALUES
-($Id, $Username, $PasswordHash, $PasswordSalt, $PasswordIterations,
- $Role, $MustChangePassword, $CreateTime, $LastModifyTime);";
+($Id, $Username, $NormalizedUsername, $PasswordHash, $PasswordSalt, $PasswordIterations,
+ $Role, $MustChangePassword, $IsEnabled, $CreateTime, $LastModifyTime);";
 
-            for (var index = 0; index < reader.FieldCount; index++)
+            if (hasLifecycleColumns)
             {
-                AddValue(insert, "$" + reader.GetName(index), reader, index);
+                for (var index = 0; index < reader.FieldCount; index++)
+                {
+                    AddValue(insert, "$" + reader.GetName(index), reader, index);
+                }
+            }
+            else
+            {
+                AddValue(insert, "$Id", reader, 0);
+                AddValue(insert, "$Username", reader, 1);
+                insert.Parameters.AddWithValue("$NormalizedUsername", UsernameIdentity.Normalize(reader.GetString(1)));
+                AddValue(insert, "$PasswordHash", reader, 2);
+                AddValue(insert, "$PasswordSalt", reader, 3);
+                AddValue(insert, "$PasswordIterations", reader, 4);
+                AddValue(insert, "$Role", reader, 5);
+                AddValue(insert, "$MustChangePassword", reader, 6);
+                insert.Parameters.AddWithValue("$IsEnabled", 1);
+                AddValue(insert, "$CreateTime", reader, 7);
+                AddValue(insert, "$LastModifyTime", reader, 8);
             }
 
             insert.ExecuteNonQuery();
@@ -407,7 +433,14 @@ ORDER BY Id;";
     private static void VerifyUserRows(SqliteConnection source, SqliteConnection staging)
     {
         using var sourceCommand = source.CreateCommand();
-        sourceCommand.CommandText = @"
+        var sourceHasLifecycleColumns = HasExactColumns(source, "User", UserColumns);
+        sourceCommand.CommandText = sourceHasLifecycleColumns
+            ? @"
+SELECT Id, Username, NormalizedUsername, PasswordHash, PasswordSalt, PasswordIterations,
+       Role, MustChangePassword, IsEnabled, CreateTime, LastModifyTime
+FROM User
+ORDER BY Id;"
+            : @"
 SELECT Id, Username, PasswordHash, PasswordSalt, PasswordIterations,
        Role, MustChangePassword, CreateTime, LastModifyTime
 FROM User
@@ -415,7 +448,11 @@ ORDER BY Id;";
         using var sourceReader = sourceCommand.ExecuteReader();
 
         using var stagedCommand = staging.CreateCommand();
-        stagedCommand.CommandText = sourceCommand.CommandText;
+        stagedCommand.CommandText = @"
+SELECT Id, Username, NormalizedUsername, PasswordHash, PasswordSalt, PasswordIterations,
+       Role, MustChangePassword, IsEnabled, CreateTime, LastModifyTime
+FROM User
+ORDER BY Id;";
         using var stagedReader = stagedCommand.ExecuteReader();
 
         while (sourceReader.Read())
@@ -425,9 +462,34 @@ ORDER BY Id;";
                 throw new InvalidDataException("The staged user set does not match the source database.");
             }
 
-            for (var index = 0; index < sourceReader.FieldCount; index++)
+            if (sourceHasLifecycleColumns)
             {
-                EnsureValuesMatch(sourceReader, index, stagedReader, index, "user");
+                for (var index = 0; index < sourceReader.FieldCount; index++)
+                {
+                    EnsureValuesMatch(sourceReader, index, stagedReader, index, "user");
+                }
+            }
+            else
+            {
+                EnsureValuesMatch(sourceReader, 0, stagedReader, 0, "user");
+                EnsureValuesMatch(sourceReader, 1, stagedReader, 1, "user");
+                if (!string.Equals(UsernameIdentity.Normalize(sourceReader.GetString(1)), stagedReader.GetString(2), StringComparison.Ordinal))
+                {
+                    throw new InvalidDataException("A staged user has an unexpected normalized username.");
+                }
+
+                for (var sourceIndex = 2; sourceIndex <= 6; sourceIndex++)
+                {
+                    EnsureValuesMatch(sourceReader, sourceIndex, stagedReader, sourceIndex + 1, "user");
+                }
+
+                if (stagedReader.GetInt32(8) != 1)
+                {
+                    throw new InvalidDataException("A migrated user was not enabled.");
+                }
+
+                EnsureValuesMatch(sourceReader, 7, stagedReader, 9, "user");
+                EnsureValuesMatch(sourceReader, 8, stagedReader, 10, "user");
             }
         }
 
@@ -561,9 +623,12 @@ CREATE TABLE User
     Role INTEGER NOT NULL,
     MustChangePassword INTEGER NOT NULL DEFAULT 0,
     CreateTime TEXT,
-    LastModifyTime TEXT
+    LastModifyTime TEXT,
+    IsEnabled INTEGER NOT NULL DEFAULT 1,
+    NormalizedUsername TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IX_User_Username ON User (Username);
+CREATE UNIQUE INDEX IX_User_NormalizedUsername ON User (NormalizedUsername);
 
 CREATE TABLE CredentialMigrationMetadata
 (
@@ -592,7 +657,7 @@ VALUES (1, $SourceSha256, 'DPAPI', 'CurrentUser', 1);";
     {
         using var command = staging.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = $"PRAGMA user_version = {DatabaseSchemaVersion.CurrentUserProtectedCredentials};";
+        command.CommandText = $"PRAGMA user_version = {DatabaseSchemaVersion.UserLifecycleFoundation};";
         command.ExecuteNonQuery();
     }
 
@@ -632,7 +697,7 @@ PRAGMA journal_mode = DELETE;";
     {
         if (ReadSchemaVersion(source) != DatabaseSchemaVersion.LegacyPlaintextCredentials
             || !HasExactColumns(source, "Camera", LegacyCameraColumns)
-            || !HasExactColumns(source, "User", UserColumns)
+            || !HasExactColumns(source, "User", UserColumnsV1)
             || !HasExactApplicationSchema(source, LegacySchemaObjects))
         {
             throw new InvalidDataException("The source database schema is not a supported legacy VSP schema.");
@@ -641,11 +706,18 @@ PRAGMA journal_mode = DELETE;";
 
     private static void ValidateCurrentSchema(SqliteConnection connection)
     {
-        if (ReadSchemaVersion(connection) != DatabaseSchemaVersion.CurrentUserProtectedCredentials
-            || !HasExactColumns(connection, "Camera", ProtectedCameraColumns)
-            || !HasExactColumns(connection, "User", UserColumns)
-            || !HasExactColumns(connection, "CredentialMigrationMetadata", MigrationMetadataColumns)
-            || !HasExactApplicationSchema(connection, ProtectedSchemaObjects))
+        var schemaVersion = ReadSchemaVersion(connection);
+        var isProtectedV1 = schemaVersion == DatabaseSchemaVersion.CurrentUserProtectedCredentials
+            && HasExactColumns(connection, "Camera", ProtectedCameraColumns)
+            && HasExactColumns(connection, "User", UserColumnsV1)
+            && HasExactColumns(connection, "CredentialMigrationMetadata", MigrationMetadataColumns)
+            && HasExactApplicationSchema(connection, ProtectedSchemaObjectsV1);
+        var isUserLifecycle = schemaVersion == DatabaseSchemaVersion.UserLifecycleFoundation
+            && HasExactColumns(connection, "Camera", ProtectedCameraColumns)
+            && HasExactColumns(connection, "User", UserColumns)
+            && HasExactColumns(connection, "CredentialMigrationMetadata", MigrationMetadataColumns)
+            && HasExactApplicationSchema(connection, ProtectedSchemaObjects);
+        if (!isProtectedV1 && !isUserLifecycle)
         {
             throw new InvalidDataException("The staged database schema is not a supported protected VSP schema.");
         }
@@ -844,10 +916,17 @@ ORDER BY type, name, tbl_name;";
         "PasswordProtectionVersion", "RtspUrl", "Status", "Recording", "CreateTime", "LastModifyTime"
     };
 
-    internal static readonly string[] UserColumns =
+    internal static readonly string[] UserColumnsV1 =
     {
         "Id", "Username", "PasswordHash", "PasswordSalt", "PasswordIterations",
         "Role", "MustChangePassword", "CreateTime", "LastModifyTime"
+    };
+
+    internal static readonly string[] UserColumns =
+    {
+        "Id", "Username", "PasswordHash", "PasswordSalt", "PasswordIterations",
+        "Role", "MustChangePassword", "CreateTime", "LastModifyTime",
+        "IsEnabled", "NormalizedUsername"
     };
 
     internal static readonly string[] MigrationMetadataColumns =
@@ -863,6 +942,15 @@ ORDER BY type, name, tbl_name;";
     };
 
     internal static readonly string[] ProtectedSchemaObjects =
+    {
+        "index|IX_User_NormalizedUsername|User",
+        "index|IX_User_Username|User",
+        "table|Camera|Camera",
+        "table|CredentialMigrationMetadata|CredentialMigrationMetadata",
+        "table|User|User"
+    };
+
+    internal static readonly string[] ProtectedSchemaObjectsV1 =
     {
         "index|IX_User_Username|User",
         "table|Camera|Camera",

@@ -117,7 +117,7 @@ public class CameraCredentialMigrationTests : IDisposable
         connection.Open();
         using var version = connection.CreateCommand();
         version.CommandText = "PRAGMA user_version;";
-        Assert.Equal(DatabaseSchemaVersion.CurrentUserProtectedCredentials, Convert.ToInt32(version.ExecuteScalar()));
+        Assert.Equal(DatabaseSchemaVersion.UserLifecycleFoundation, Convert.ToInt32(version.ExecuteScalar()));
 
         using var columns = connection.CreateCommand();
         columns.CommandText = "PRAGMA table_info(Camera);";
@@ -334,7 +334,7 @@ VALUES
 
         using var version = connection.CreateCommand();
         version.CommandText = "PRAGMA user_version;";
-        Assert.Equal(DatabaseSchemaVersion.CurrentUserProtectedCredentials, Convert.ToInt32(version.ExecuteScalar()));
+        Assert.Equal(DatabaseSchemaVersion.UserLifecycleFoundation, Convert.ToInt32(version.ExecuteScalar()));
 
         using var schema = connection.CreateCommand();
         schema.CommandText = "SELECT COUNT(*) FROM pragma_table_info('Camera') WHERE name = 'Password';";
