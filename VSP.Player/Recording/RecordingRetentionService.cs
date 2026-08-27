@@ -7,15 +7,20 @@ internal sealed class RecordingRetentionService
 {
     private readonly Func<DateTime> _localClock;
     private readonly Action<string> _deleteFile;
+    private readonly RecordingFileUsageTracker _usageTracker;
 
     public RecordingRetentionService()
-        : this(static () => DateTime.Now, static path => File.Delete(path))
+        : this(static () => DateTime.Now, RecordingFileUsageTracker.Shared, static path => File.Delete(path))
     {
     }
 
-    internal RecordingRetentionService(Func<DateTime> localClock, Action<string>? deleteFile = null)
+    internal RecordingRetentionService(
+        Func<DateTime> localClock,
+        RecordingFileUsageTracker? usageTracker = null,
+        Action<string>? deleteFile = null)
     {
         _localClock = localClock ?? throw new ArgumentNullException(nameof(localClock));
+        _usageTracker = usageTracker ?? RecordingFileUsageTracker.Shared;
         _deleteFile = deleteFile ?? (static path => File.Delete(path));
     }
 
@@ -44,7 +49,13 @@ internal sealed class RecordingRetentionService
 
             try
             {
-                _deleteFile(file.FilePath);
+                var deleteAttempt = _usageTracker.TryDeleteIfNotInUse(file.FilePath, _deleteFile);
+                if (deleteAttempt == RecordingFileDeleteAttempt.SkippedInUse)
+                {
+                    skipped++;
+                    continue;
+                }
+
                 deleted++;
             }
             catch (Exception ex)

@@ -37,6 +37,7 @@ public sealed class MediaController : IMediaController
     private bool _isRecording;
     private IRecordingSession? _recordingSession;
     private IDisposable? _recordingSubscription;
+    private IDisposable? _recordingFileUsage;
 
     private readonly Func<string, IMediaSession> _sessionFactory;
     private readonly Func<IMediaSession, IVideoDecoder> _decoderFactory;
@@ -265,16 +266,37 @@ public sealed class MediaController : IMediaController
 
         var recordingSession = _recordingSessionFactory(session);
         var filePath = BuildRecordingFilePath();
+        var recordingFileUsage = RecordingFileUsageTracker.Shared.Register(filePath);
 
-        await recordingSession.StartAsync(filePath, CancellationToken.None).ConfigureAwait(false);
-        recordingSession.Start();
+        try
+        {
+            await recordingSession.StartAsync(filePath, CancellationToken.None).ConfigureAwait(false);
+            recordingSession.Start();
+        }
+        catch
+        {
+            recordingFileUsage.Dispose();
+            recordingSession.Dispose();
+            throw;
+        }
 
-        var subscription = _encodedDispatcher.Subscribe(recordingSession, BufferPolicy.BlockProducerWhenFull);
+        IDisposable subscription;
+        try
+        {
+            subscription = _encodedDispatcher.Subscribe(recordingSession, BufferPolicy.BlockProducerWhenFull);
+        }
+        catch
+        {
+            recordingFileUsage.Dispose();
+            recordingSession.Dispose();
+            throw;
+        }
 
         lock (_gate)
         {
             _recordingSession = recordingSession;
             _recordingSubscription = subscription;
+            _recordingFileUsage = recordingFileUsage;
             _isRecording = true;
         }
     }
@@ -284,6 +306,7 @@ public sealed class MediaController : IMediaController
     {
         IRecordingSession? recordingSession;
         IDisposable? subscription;
+        IDisposable? recordingFileUsage;
 
         lock (_gate)
         {
@@ -294,14 +317,23 @@ public sealed class MediaController : IMediaController
 
             recordingSession = _recordingSession;
             subscription = _recordingSubscription;
+            recordingFileUsage = _recordingFileUsage;
             _recordingSession = null;
             _recordingSubscription = null;
+            _recordingFileUsage = null;
             _isRecording = false;
         }
 
         subscription?.Dispose();
-        await recordingSession!.StopAsync().ConfigureAwait(false);
-        recordingSession.Dispose();
+        try
+        {
+            await recordingSession!.StopAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            recordingSession.Dispose();
+            recordingFileUsage?.Dispose();
+        }
     }
 
     /// <summary>

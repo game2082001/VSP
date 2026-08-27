@@ -156,6 +156,94 @@ public class RecordingRetentionServiceTests : IDisposable
     }
 
     [Fact]
+    public void Run_ActiveUsage_SkipsExpiredFileUntilLeaseIsReleased()
+    {
+        var file = CreateRecording(Guid.NewGuid(), "20260818_090000");
+        var usageTracker = new RecordingFileUsageTracker();
+        var service = new RecordingRetentionService(() => _now, usageTracker);
+
+        using (usageTracker.Register(file))
+        {
+            var activeResult = service.Run(_root, retentionDays: 7);
+
+            Assert.Equal(1, activeResult.CandidatesScanned);
+            Assert.Equal(0, activeResult.DeletedFiles);
+            Assert.Equal(1, activeResult.SkippedFiles);
+            Assert.True(File.Exists(file));
+        }
+
+        var releasedResult = service.Run(_root, retentionDays: 7);
+
+        Assert.Equal(1, releasedResult.CandidatesScanned);
+        Assert.Equal(1, releasedResult.DeletedFiles);
+        Assert.False(File.Exists(file));
+    }
+
+    [Fact]
+    public void Run_RechecksUsageImmediatelyBeforeDeletion()
+    {
+        var file = CreateRecording(Guid.NewGuid(), "20260818_090000");
+        var usageTracker = new RecordingFileUsageTracker();
+        var service = new RecordingRetentionService(
+            () => _now,
+            usageTracker,
+            path =>
+            {
+                throw new IOException("file became active before delete");
+            });
+
+        var result = service.Run(_root, retentionDays: 7);
+
+        Assert.Equal(1, result.CandidatesScanned);
+        Assert.Equal(0, result.DeletedFiles);
+        Assert.Equal(1, result.FailedFiles);
+        Assert.False(usageTracker.IsInUse(file));
+        Assert.True(File.Exists(file));
+    }
+
+    [Fact]
+    public void UsageTracker_RepeatedRegistrationRequiresMatchingReleases()
+    {
+        var file = CreateRecording(Guid.NewGuid(), "20260818_090000");
+        var usageTracker = new RecordingFileUsageTracker();
+        var first = usageTracker.Register(file);
+        var second = usageTracker.Register(file);
+
+        Assert.True(usageTracker.IsInUse(file));
+        Assert.Equal(2, usageTracker.ActiveUsageCount(file));
+
+        first.Dispose();
+
+        Assert.True(usageTracker.IsInUse(file));
+        Assert.Equal(1, usageTracker.ActiveUsageCount(file));
+
+        second.Dispose();
+        second.Dispose();
+
+        Assert.False(usageTracker.IsInUse(file));
+        Assert.Equal(0, usageTracker.ActiveUsageCount(file));
+    }
+
+    [Fact]
+    public void UsageTracker_DeleteCheckIsAtomicWithRegistration()
+    {
+        var file = CreateRecording(Guid.NewGuid(), "20260818_090000");
+        var usageTracker = new RecordingFileUsageTracker();
+
+        using (usageTracker.Register(file))
+        {
+            var attempt = usageTracker.TryDeleteIfNotInUse(file, File.Delete);
+
+            Assert.Equal(RecordingFileDeleteAttempt.SkippedInUse, attempt);
+        }
+
+        var deleted = usageTracker.TryDeleteIfNotInUse(file, File.Delete);
+
+        Assert.Equal(RecordingFileDeleteAttempt.Deleted, deleted);
+        Assert.False(File.Exists(file));
+    }
+
+    [Fact]
     public void Run_RepeatedPass_IsIdempotent()
     {
         CreateRecording(Guid.NewGuid(), "20260818_090000");
@@ -209,7 +297,7 @@ public class RecordingRetentionServiceTests : IDisposable
     }
 
     private RecordingRetentionService CreateService(Action<string>? deleteFile = null) =>
-        new(() => _now, deleteFile);
+        new(() => _now, deleteFile: deleteFile);
 
     private string CreateRecording(Guid cameraId, string timestamp)
     {
