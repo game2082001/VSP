@@ -3,6 +3,7 @@ using VSP.Player.Decoder;
 using VSP.Player.Entities;
 using VSP.Player.Interfaces;
 using VSP.Player.Pipeline;
+using VSP.Player.Recording;
 using VSP.Player.Renderer;
 
 namespace VSP.Player.Control;
@@ -36,6 +37,7 @@ public sealed class PlaybackController : IMediaController
     private volatile IVideoDecoder? _decoder;
 
     private IDisposable? _rendererSubscription;
+    private IDisposable? _playbackFileUsage;
     private CancellationTokenSource? _controllerCts;
     private Task? _openTask;
     private bool _disposed;
@@ -106,6 +108,7 @@ public sealed class PlaybackController : IMediaController
         _controllerCts?.Dispose();
         _controllerCts = new CancellationTokenSource();
         _rendererSubscription ??= _dispatcher.Subscribe(_renderer, BufferPolicy.DropOldestWhenFull);
+        _playbackFileUsage ??= RecordingFileUsageTracker.Shared.Register(_filePath);
         _renderer.Start();
 
         _openTask = Task.Run(() => OpenAndReadAsync(_controllerCts.Token));
@@ -194,11 +197,26 @@ public sealed class PlaybackController : IMediaController
         }
 
         _rendererSubscription?.Dispose();
+        _playbackFileUsage?.Dispose();
+        _playbackFileUsage = null;
         _renderer.Dispose();
         _controllerCts?.Dispose();
     }
 
     private async Task OpenAndReadAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await OpenAndReadCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _playbackFileUsage?.Dispose();
+            _playbackFileUsage = null;
+        }
+    }
+
+    private async Task OpenAndReadCoreAsync(CancellationToken cancellationToken)
     {
         SetState(MediaControllerState.Connecting);
 

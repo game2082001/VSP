@@ -22,6 +22,7 @@ public class MediaControllerRecordingTests
         await controller.StartRecordingAsync();
 
         Assert.True(controller.IsRecording);
+        Assert.True(RecordingFileUsageTracker.Shared.IsInUse(recordingSession.FilePath!));
         Assert.True(recordingSession.StartCalled);
         Assert.True(recordingSession.IsActive);
         Assert.EndsWith(".mp4", recordingSession.FilePath);
@@ -79,6 +80,7 @@ public class MediaControllerRecordingTests
         await controller.StopRecordingAsync();
 
         Assert.False(controller.IsRecording);
+        Assert.False(RecordingFileUsageTracker.Shared.IsInUse(recordingSession.FilePath!));
         Assert.True(recordingSession.StopAsyncCalled);
         Assert.True(recordingSession.DisposeCalled);
     }
@@ -97,8 +99,62 @@ public class MediaControllerRecordingTests
         await controller.StopAsync();
 
         Assert.False(controller.IsRecording);
+        Assert.False(RecordingFileUsageTracker.Shared.IsInUse(recordingSession.FilePath!));
         Assert.True(recordingSession.StopAsyncCalled);
         Assert.Equal(MediaControllerState.Disconnected, controller.State);
+    }
+
+    [Fact]
+    public async Task Dispose_WhileRecording_ReleasesRecordingFileUsage()
+    {
+        var recordingSession = new FakeRecordingSession();
+        var sessions = new List<FakeMediaSession>();
+        var controller = CreateController(sessions, _ => recordingSession);
+
+        await controller.StartAsync(CancellationToken.None);
+        Assert.True(await WaitUntilAsync(() => controller.State == MediaControllerState.Connected, TimeSpan.FromSeconds(2)));
+
+        await controller.StartRecordingAsync();
+        Assert.True(RecordingFileUsageTracker.Shared.IsInUse(recordingSession.FilePath!));
+
+        controller.Dispose();
+
+        Assert.False(RecordingFileUsageTracker.Shared.IsInUse(recordingSession.FilePath!));
+    }
+
+    [Fact]
+    public async Task StopRecordingAsync_WhenStopThrows_ReleasesRecordingFileUsage()
+    {
+        var recordingSession = new FakeRecordingSession { ThrowOnStop = true };
+        var sessions = new List<FakeMediaSession>();
+        using var controller = CreateController(sessions, _ => recordingSession);
+
+        await controller.StartAsync(CancellationToken.None);
+        Assert.True(await WaitUntilAsync(() => controller.State == MediaControllerState.Connected, TimeSpan.FromSeconds(2)));
+
+        await controller.StartRecordingAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controller.StopRecordingAsync());
+
+        Assert.False(RecordingFileUsageTracker.Shared.IsInUse(recordingSession.FilePath!));
+        Assert.True(recordingSession.DisposeCalled);
+    }
+
+    [Fact]
+    public async Task StartRecordingAsync_WhenSessionStartThrows_ReleasesRecordingFileUsage()
+    {
+        var recordingSession = new FakeRecordingSession { ThrowOnStart = true };
+        var sessions = new List<FakeMediaSession>();
+        using var controller = CreateController(sessions, _ => recordingSession);
+
+        await controller.StartAsync(CancellationToken.None);
+        Assert.True(await WaitUntilAsync(() => controller.State == MediaControllerState.Connected, TimeSpan.FromSeconds(2)));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => controller.StartRecordingAsync());
+
+        Assert.NotNull(recordingSession.FilePath);
+        Assert.False(RecordingFileUsageTracker.Shared.IsInUse(recordingSession.FilePath!));
+        Assert.True(recordingSession.DisposeCalled);
     }
 
     [Fact]
@@ -281,12 +337,21 @@ public class MediaControllerRecordingTests
 
         public bool DisposeCalled { get; private set; }
 
+        public bool ThrowOnStop { get; init; }
+
+        public bool ThrowOnStart { get; init; }
+
         public int ReceivedFrameCount => _receivedFrameCount;
 
         public Task StartAsync(string filePath, CancellationToken cancellationToken)
         {
             StartCalled = true;
             FilePath = filePath;
+            if (ThrowOnStart)
+            {
+                throw new InvalidOperationException("simulated start failure");
+            }
+
             return Task.CompletedTask;
         }
 
@@ -302,6 +367,11 @@ public class MediaControllerRecordingTests
         public Task StopAsync()
         {
             StopAsyncCalled = true;
+            if (ThrowOnStop)
+            {
+                throw new InvalidOperationException("simulated stop failure");
+            }
+
             return Task.CompletedTask;
         }
 

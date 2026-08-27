@@ -3,6 +3,7 @@ using VSP.Player.Control;
 using VSP.Player.Decoder;
 using VSP.Player.Entities;
 using VSP.Player.Interfaces;
+using VSP.Player.Recording;
 using Xunit;
 
 namespace VSP.Tests.Player;
@@ -129,6 +130,104 @@ public class PlaybackControllerTests
     }
 
     [Fact]
+    public async Task StartAsync_RegistersPlaybackFileUsageUntilStop()
+    {
+        var filePath = TestFilePath();
+        var session = new FakeMediaSession(shouldSucceedOpen: true, duration: TimeSpan.FromSeconds(5));
+        using var controller = CreateController(filePath, _ => session, _ => new FakeVideoDecoder());
+
+        await controller.StartAsync(CancellationToken.None);
+        Assert.True(await WaitForStateAsync(controller, MediaControllerState.Connected));
+        Assert.True(RecordingFileUsageTracker.Shared.IsInUse(filePath));
+
+        await controller.StopAsync();
+
+        Assert.False(RecordingFileUsageTracker.Shared.IsInUse(filePath));
+    }
+
+    [Fact]
+    public async Task Dispose_WhilePlaybackActive_ReleasesPlaybackFileUsage()
+    {
+        var filePath = TestFilePath();
+        var session = new FakeMediaSession(shouldSucceedOpen: true, duration: TimeSpan.FromSeconds(5));
+        var controller = CreateController(filePath, _ => session, _ => new FakeVideoDecoder());
+
+        await controller.StartAsync(CancellationToken.None);
+        Assert.True(await WaitForStateAsync(controller, MediaControllerState.Connected));
+        Assert.True(RecordingFileUsageTracker.Shared.IsInUse(filePath));
+
+        controller.Dispose();
+
+        Assert.False(RecordingFileUsageTracker.Shared.IsInUse(filePath));
+    }
+
+    [Fact]
+    public async Task OpenFailure_ReleasesPlaybackFileUsage()
+    {
+        var filePath = TestFilePath();
+        var session = new FakeMediaSession(shouldSucceedOpen: false, duration: null);
+        using var controller = CreateController(filePath, _ => session, _ => new FakeVideoDecoder());
+
+        await controller.StartAsync(CancellationToken.None);
+
+        Assert.True(await WaitForStateAsync(controller, MediaControllerState.Error));
+        Assert.False(RecordingFileUsageTracker.Shared.IsInUse(filePath));
+    }
+
+    [Fact]
+    public async Task NaturalClose_ReleasesPlaybackFileUsage()
+    {
+        var filePath = TestFilePath();
+        var session = new FakeMediaSession(shouldSucceedOpen: true, duration: TimeSpan.FromSeconds(5));
+        using var controller = CreateController(filePath, _ => session, _ => new FakeVideoDecoder());
+
+        await controller.StartAsync(CancellationToken.None);
+        Assert.True(await WaitForStateAsync(controller, MediaControllerState.Connected));
+
+        session.SimulateClosed();
+
+        Assert.True(await WaitForStateAsync(controller, MediaControllerState.Disconnected));
+        Assert.False(RecordingFileUsageTracker.Shared.IsInUse(filePath));
+    }
+
+    [Fact]
+    public async Task Retention_WhilePlaybackActive_SkipsFileThenDeletesAfterStop()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"vsp-playback-retention-{Guid.NewGuid():N}");
+        var filePath = CreatePlaybackRecording(root);
+        var session = new FakeMediaSession(shouldSucceedOpen: true, duration: TimeSpan.FromSeconds(5));
+        using var controller = CreateController(filePath, _ => session, _ => new FakeVideoDecoder());
+        var retention = new RecordingRetentionService(() => new DateTime(2026, 8, 27, 12, 0, 0));
+
+        try
+        {
+            await controller.StartAsync(CancellationToken.None);
+            Assert.True(await WaitForStateAsync(controller, MediaControllerState.Connected));
+
+            var activeResult = retention.Run(root, retentionDays: 1);
+
+            Assert.Equal(1, activeResult.CandidatesScanned);
+            Assert.Equal(0, activeResult.DeletedFiles);
+            Assert.True(File.Exists(filePath));
+
+            await controller.StopAsync();
+
+            var stoppedResult = retention.Run(root, retentionDays: 1);
+
+            Assert.Equal(1, stoppedResult.CandidatesScanned);
+            Assert.Equal(1, stoppedResult.DeletedFiles);
+            Assert.False(File.Exists(filePath));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task OpenAlwaysFails_ReachesError()
     {
         var session = new FakeMediaSession(shouldSucceedOpen: false, duration: null);
@@ -143,7 +242,27 @@ public class PlaybackControllerTests
         Func<string, IMediaSession> sessionFactory,
         Func<IMediaSession, IVideoDecoder> decoderFactory)
     {
-        return new PlaybackController(@"C:\fake\recording.mp4", Dispatcher.CurrentDispatcher, sessionFactory, decoderFactory);
+        return CreateController(TestFilePath(), sessionFactory, decoderFactory);
+    }
+
+    private static PlaybackController CreateController(
+        string filePath,
+        Func<string, IMediaSession> sessionFactory,
+        Func<IMediaSession, IVideoDecoder> decoderFactory)
+    {
+        return new PlaybackController(filePath, Dispatcher.CurrentDispatcher, sessionFactory, decoderFactory);
+    }
+
+    private static string TestFilePath() =>
+        Path.Combine(Path.GetTempPath(), $"vsp-playback-usage-{Guid.NewGuid():N}.mp4");
+
+    private static string CreatePlaybackRecording(string root)
+    {
+        var cameraDirectory = Path.Combine(root, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(cameraDirectory);
+        var filePath = Path.Combine(cameraDirectory, "20260820_115959_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.mp4");
+        File.WriteAllBytes(filePath, []);
+        return filePath;
     }
 
     private static Task<bool> WaitForStateAsync(PlaybackController controller, MediaControllerState state, TimeSpan? timeout = null)
