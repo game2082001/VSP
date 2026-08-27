@@ -739,6 +739,33 @@ public class LiveViewViewModelTests
         Assert.False(viewModel.IsRecording);
     }
 
+    [Fact]
+    public void StopRecordingCommand_TriggersRetentionAfterRecordingStops()
+    {
+        var controller = new FakeMediaController();
+        var dispatcher = Dispatcher.CurrentDispatcher;
+        var completedCameraIds = new List<Guid>();
+        var viewModel = new LiveViewViewModel(
+            dispatcher,
+            (_, _, _) => controller,
+            Role.Admin,
+            recordingCompleted: completedCameraIds.Add);
+        var camera = new EntityCamera { Name = "Front Door", RtspUrl = "rtsp://host/stream", ConnectionType = DeviceConnectionType.RTSP };
+
+        viewModel.LoadCamera(camera);
+        controller.RaiseStateChanged(MediaControllerState.Connected);
+        PumpDispatcher(dispatcher);
+
+        viewModel.StartRecordingCommand.Execute(null);
+        PumpDispatcher(dispatcher);
+        viewModel.StopRecordingCommand.Execute(null);
+        PumpDispatcher(dispatcher);
+
+        Assert.True(controller.StopRecordingCalled);
+        Assert.Equal([camera.Id], completedCameraIds);
+        Assert.False(controller.IsRecording);
+    }
+
     // Epic-018 Decision 1 (§8.1): Recording is Admin-only. Previously ungated -- a gap discovered
     // during Milestone 18D's manual-validation preparation, fixed under the same approved
     // decision, not a new feature.

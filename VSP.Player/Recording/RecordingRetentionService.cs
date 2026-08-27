@@ -26,6 +26,16 @@ internal sealed class RecordingRetentionService
 
     public RecordingRetentionResult Run(string recordingRoot, int retentionDays)
     {
+        return RunCore(recordingRoot, retentionDays, cameraId: null);
+    }
+
+    internal RecordingRetentionResult RunForCamera(string recordingRoot, Guid cameraId, int retentionDays)
+    {
+        return RunCore(recordingRoot, retentionDays, cameraId);
+    }
+
+    private RecordingRetentionResult RunCore(string recordingRoot, int retentionDays, Guid? cameraId)
+    {
         if (string.IsNullOrWhiteSpace(recordingRoot) || retentionDays < 1 || !Directory.Exists(recordingRoot))
         {
             return RecordingRetentionResult.Empty;
@@ -37,7 +47,7 @@ internal sealed class RecordingRetentionService
         var skipped = 0;
         var failed = 0;
 
-        foreach (var file in EnumerateOwnedCandidates(recordingRoot))
+        foreach (var file in EnumerateOwnedCandidates(recordingRoot, cameraId))
         {
             scanned++;
 
@@ -70,9 +80,9 @@ internal sealed class RecordingRetentionService
     }
 
     internal static IReadOnlyList<RecordingRetentionCandidate> ListOwnedCandidates(string recordingRoot) =>
-        EnumerateOwnedCandidates(recordingRoot).ToList();
+        EnumerateOwnedCandidates(recordingRoot, cameraId: null).ToList();
 
-    private static IEnumerable<RecordingRetentionCandidate> EnumerateOwnedCandidates(string recordingRoot)
+    private static IEnumerable<RecordingRetentionCandidate> EnumerateOwnedCandidates(string recordingRoot, Guid? cameraId)
     {
         if (string.IsNullOrWhiteSpace(recordingRoot) || !Directory.Exists(recordingRoot))
         {
@@ -93,17 +103,7 @@ internal sealed class RecordingRetentionService
             yield break;
         }
 
-        IEnumerable<DirectoryInfo> cameraDirectories;
-        try
-        {
-            cameraDirectories = root.EnumerateDirectories("*", SearchOption.TopDirectoryOnly).ToList();
-        }
-        catch
-        {
-            yield break;
-        }
-
-        foreach (var cameraDirectory in cameraDirectories)
+        foreach (var cameraDirectory in EnumerateCameraDirectories(root, cameraId))
         {
             if (RecordingRetentionOwnership.IsReparsePoint(cameraDirectory) ||
                 !Guid.TryParseExact(cameraDirectory.Name, "N", out _))
@@ -133,6 +133,35 @@ internal sealed class RecordingRetentionService
                     yield return candidate;
                 }
             }
+        }
+    }
+
+    private static IEnumerable<DirectoryInfo> EnumerateCameraDirectories(DirectoryInfo root, Guid? cameraId)
+    {
+        if (cameraId.HasValue)
+        {
+            var cameraDirectory = new DirectoryInfo(Path.Combine(root.FullName, cameraId.Value.ToString("N")));
+            if (cameraDirectory.Exists)
+            {
+                yield return cameraDirectory;
+            }
+
+            yield break;
+        }
+
+        IEnumerable<DirectoryInfo> cameraDirectories;
+        try
+        {
+            cameraDirectories = root.EnumerateDirectories("*", SearchOption.TopDirectoryOnly).ToList();
+        }
+        catch
+        {
+            yield break;
+        }
+
+        foreach (var cameraDirectory in cameraDirectories)
+        {
+            yield return cameraDirectory;
         }
     }
 }

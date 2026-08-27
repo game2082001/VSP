@@ -9,6 +9,7 @@ using VSP.Domain.Enums;
 using VSP.Device.Repositories;
 using VSP.Infrastructure.Database;
 using VSP.Infrastructure.Settings;
+using VSP.Player.Recording;
 using VSP.UI.Services;
 using VSP.UI.Views;
 
@@ -57,7 +58,7 @@ public class MainWindowViewModel : ObservableObject
         set => SetProperty(ref _currentView, value);
     }
 
-    public MainWindowViewModel(SessionService sessionService)
+    public MainWindowViewModel(SessionService sessionService, RecordingRetentionCoordinator? recordingRetentionCoordinator = null)
     {
         ArgumentNullException.ThrowIfNull(sessionService);
         if (sessionService.CurrentUser is null)
@@ -72,10 +73,15 @@ public class MainWindowViewModel : ObservableObject
         LogoutCommand = new RelayCommand(Logout);
 
         var cameraRepository = new CameraRepository();
+        Action<Guid>? recordingCompleted = recordingRetentionCoordinator is null
+            ? null
+            : recordingRetentionCoordinator.TriggerRecordingCompleted;
+
         _liveViewViewModel = new LiveViewViewModel(
             Dispatcher.CurrentDispatcher,
             currentUser.Role,
-            cameraRepository.GetCredentials);
+            cameraRepository.GetCredentials,
+            recordingCompleted);
         _liveView = new LiveView(_liveViewViewModel);
 
         Navigation.Add(new NavigationItem
