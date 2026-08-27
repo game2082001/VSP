@@ -7,6 +7,7 @@ using VSP.Device.Repositories;
 using VSP.Domain.Entities;
 using VSP.Infrastructure.Database;
 using VSP.Infrastructure.Settings;
+using VSP.Player.Recording;
 using VSP.UI.Services;
 using VSP.UI.ViewModels;
 using VSP.UI.Views;
@@ -17,6 +18,7 @@ public partial class App : Application
 {
     private FileLogger? _logger;
     private IUserRepository? _userRepository;
+    private RecordingRetentionCoordinator? _recordingRetentionCoordinator;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -40,6 +42,9 @@ public partial class App : Application
             HandleDatabaseInitializationFailure(initializationResult.Exception);
             return;
         }
+
+        _recordingRetentionCoordinator = new RecordingRetentionCoordinator(LoadRecordingRetentionSettings);
+        _recordingRetentionCoordinator.Start();
 
         _userRepository = new UserRepository();
         StartSession();
@@ -73,7 +78,7 @@ public partial class App : Application
         var sessionService = new SessionService();
         sessionService.Start(authenticatedUser);
 
-        var mainWindowViewModel = new MainWindowViewModel(sessionService);
+        var mainWindowViewModel = new MainWindowViewModel(sessionService, _recordingRetentionCoordinator);
         var mainWindow = new MainWindow(mainWindowViewModel);
         var isLoggingOut = false;
 
@@ -172,6 +177,18 @@ public partial class App : Application
     }
 
     private static string NewErrorId() => Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+
+    private static RecordingRetentionSettings LoadRecordingRetentionSettings()
+    {
+        var settings = new AppSettingsProvider().Load();
+        return new RecordingRetentionSettings(settings.RecordingPath, settings.RetentionDays);
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _recordingRetentionCoordinator?.Dispose();
+        base.OnExit(e);
+    }
 
     /// <summary>Non-UI-thread exception: fatal, per the approved Epic-014 scope -- log then exit deliberately.</summary>
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)

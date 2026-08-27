@@ -25,6 +25,7 @@ public class LiveViewViewModel : ObservableObject, IDisposable
     private readonly Func<string, Dispatcher, Guid, IMediaController> _controllerFactory;
     private readonly Func<Guid, CameraCredentials> _credentialProvider;
     private readonly IOnvifStreamUriResolver _onvifStreamUriResolver;
+    private readonly Action<Guid>? _recordingCompleted;
     private IMediaController? _controller;
 
     private Camera? _camera;
@@ -69,12 +70,14 @@ public class LiveViewViewModel : ObservableObject, IDisposable
     public LiveViewViewModel(
         Dispatcher uiDispatcher,
         Role role = Role.Admin,
-        Func<Guid, CameraCredentials>? credentialProvider = null)
+        Func<Guid, CameraCredentials>? credentialProvider = null,
+        Action<Guid>? recordingCompleted = null)
         : this(
             uiDispatcher,
             static (rtspUrl, dispatcher, cameraId) => new MediaController(rtspUrl, dispatcher, cameraId: cameraId),
             role,
-            credentialProvider: credentialProvider)
+            credentialProvider: credentialProvider,
+            recordingCompleted: recordingCompleted)
     {
     }
 
@@ -83,12 +86,14 @@ public class LiveViewViewModel : ObservableObject, IDisposable
         Func<string, Dispatcher, Guid, IMediaController> controllerFactory,
         Role role = Role.Admin,
         IOnvifStreamUriResolver? onvifStreamUriResolver = null,
-        Func<Guid, CameraCredentials>? credentialProvider = null)
+        Func<Guid, CameraCredentials>? credentialProvider = null,
+        Action<Guid>? recordingCompleted = null)
     {
         _uiDispatcher = uiDispatcher;
         _controllerFactory = controllerFactory;
         _credentialProvider = credentialProvider ?? (_ => new CameraCredentials("", ""));
         _onvifStreamUriResolver = onvifStreamUriResolver ?? new OnvifStreamUriResolver();
+        _recordingCompleted = recordingCompleted;
 
         // Item F (Stop/Restart control-state defect): Play/Start Live is only ever offered once
         // there is a controller to (re)start from -- i.e. Disconnected (after Stop) or Error --
@@ -330,7 +335,20 @@ public class LiveViewViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var cameraId = Camera?.Id;
         await _controller.StopRecordingAsync().ConfigureAwait(false);
+        if (cameraId.HasValue)
+        {
+            try
+            {
+                _recordingCompleted?.Invoke(cameraId.Value);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warning($"Recording retention completion trigger failed: {ex.GetType().Name}.");
+            }
+        }
+
         _ = _uiDispatcher.BeginInvoke(new Action(RaiseAllChanged));
     }
 
