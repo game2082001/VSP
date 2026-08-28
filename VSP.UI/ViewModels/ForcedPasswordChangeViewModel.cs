@@ -1,27 +1,20 @@
 using System.Windows.Input;
 using VSP.Core.Commands;
 using VSP.Core.MVVM;
-using VSP.Core.Security;
 using VSP.Device.Interfaces;
+using VSP.Device.Users;
 using VSP.Domain.Entities;
 
 namespace VSP.UI.ViewModels;
 
 /// <summary>
-/// Mandatory, login-triggered password change (Epic-018 §4.18/Decision 5) -- not a general
-/// Change Password feature (Decision 2 explicitly rules that out). Only ever shown when the
-/// just-authenticated <see cref="User.MustChangePassword"/> is true; on success the flag is
-/// cleared and never set again in v1.0.
+/// Password change flow shared by mandatory login-triggered changes and the logged-in Change
+/// Password screen. Policy and mutation rules live in <see cref="UserLifecycleService"/>.
 /// </summary>
 public class ForcedPasswordChangeViewModel : ObservableObject
 {
-    // Milestone 18C password policy -- deliberately not an "enterprise" policy (no complexity
-    // scoring, no character-class rules, no history): a minimum length plus the handful of
-    // trivially-guessable choices the Product Owner named explicitly.
-    private const int MinimumPasswordLength = 8;
-
     private readonly User _user;
-    private readonly IUserRepository _userRepository;
+    private readonly UserLifecycleService _userLifecycleService;
 
     private string _currentPassword = "";
     public string CurrentPassword
@@ -51,66 +44,60 @@ public class ForcedPasswordChangeViewModel : ObservableObject
         private set => SetProperty(ref _errorMessage, value);
     }
 
+    private string? _statusMessage;
+    public string? StatusMessage
+    {
+        get => _statusMessage;
+        private set => SetProperty(ref _statusMessage, value);
+    }
+
     public ICommand ChangePasswordCommand { get; }
 
     /// <summary>Raised once the new password has been persisted, so the hosting window can close itself.</summary>
     public event Action? PasswordChangeSucceeded;
 
     public ForcedPasswordChangeViewModel(User user, IUserRepository userRepository)
+        : this(user, new UserLifecycleService(userRepository))
     {
-        _user = user;
-        _userRepository = userRepository;
+    }
+
+    public ForcedPasswordChangeViewModel(User user, UserLifecycleService userLifecycleService)
+    {
+        _user = user ?? throw new ArgumentNullException(nameof(user));
+        _userLifecycleService = userLifecycleService ?? throw new ArgumentNullException(nameof(userLifecycleService));
         ChangePasswordCommand = new RelayCommand(ChangePassword);
     }
 
     private void ChangePassword()
     {
-        if (!PasswordHasher.Verify(CurrentPassword, _user.PasswordHash, _user.PasswordSalt, _user.PasswordIterations))
+        try
         {
-            ErrorMessage = "Current password is incorrect.";
-            return;
-        }
+            var result = _userLifecycleService.ChangeOwnPassword(_user, CurrentPassword, NewPassword, ConfirmNewPassword);
+            if (!result.Success)
+            {
+                ErrorMessage = result.FailureMessage ?? "Password could not be changed.";
+                StatusMessage = null;
+                ClearPasswords();
+                return;
+            }
 
-        if (string.IsNullOrWhiteSpace(NewPassword))
+            ErrorMessage = null;
+            StatusMessage = "Password changed.";
+            ClearPasswords();
+            PasswordChangeSucceeded?.Invoke();
+        }
+        catch (Exception)
         {
-            ErrorMessage = "New password cannot be blank.";
-            return;
+            ErrorMessage = "Password could not be changed.";
+            StatusMessage = null;
+            ClearPasswords();
         }
+    }
 
-        if (NewPassword.Length < MinimumPasswordLength)
-        {
-            ErrorMessage = $"New password must be at least {MinimumPasswordLength} characters.";
-            return;
-        }
-
-        if (string.Equals(NewPassword, _user.Username, StringComparison.OrdinalIgnoreCase))
-        {
-            ErrorMessage = "New password cannot be the same as the username.";
-            return;
-        }
-
-        if (NewPassword == CurrentPassword)
-        {
-            ErrorMessage = "New password cannot be the same as the current password.";
-            return;
-        }
-
-        if (NewPassword != ConfirmNewPassword)
-        {
-            ErrorMessage = "New password and confirmation do not match.";
-            return;
-        }
-
-        var (hash, salt, iterations) = PasswordHasher.Hash(NewPassword);
-
-        _user.PasswordHash = hash;
-        _user.PasswordSalt = salt;
-        _user.PasswordIterations = iterations;
-        _user.MustChangePassword = false;
-
-        _userRepository.Update(_user);
-
-        ErrorMessage = null;
-        PasswordChangeSucceeded?.Invoke();
+    private void ClearPasswords()
+    {
+        CurrentPassword = "";
+        NewPassword = "";
+        ConfirmNewPassword = "";
     }
 }

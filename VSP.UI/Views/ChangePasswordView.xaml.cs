@@ -1,33 +1,23 @@
-using System.Windows;
 using System.ComponentModel;
+using System.Windows;
 using System.Windows.Controls;
 using VSP.UI.ViewModels;
 
 namespace VSP.UI.Views;
 
-public partial class ForcedPasswordChangeWindow : Window
+public partial class ChangePasswordView : UserControl
 {
     private readonly ForcedPasswordChangeViewModel _viewModel;
     private bool _clearingPasswordBoxes;
 
-    public ForcedPasswordChangeWindow(ForcedPasswordChangeViewModel viewModel)
+    public ChangePasswordView(ForcedPasswordChangeViewModel viewModel)
     {
         InitializeComponent();
-
         _viewModel = viewModel;
         DataContext = _viewModel;
-        _viewModel.PasswordChangeSucceeded += HandlePasswordChangeSucceeded;
         _viewModel.PropertyChanged += HandleViewModelPropertyChanged;
     }
 
-    private void HandlePasswordChangeSucceeded()
-    {
-        DialogResult = true;
-        Close();
-    }
-
-    // Same PasswordBox code-behind pattern as LoginWindow/CameraDetailWindow -- WPF's PasswordBox
-    // does not support data-binding its Password property directly.
     private void HandleCurrentPasswordChanged(object sender, RoutedEventArgs e)
     {
         if (!_clearingPasswordBoxes)

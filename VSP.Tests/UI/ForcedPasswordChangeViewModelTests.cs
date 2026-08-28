@@ -9,12 +9,12 @@ namespace VSP.Tests.UI;
 
 public class ForcedPasswordChangeViewModelTests
 {
-    private static UserEntity AdminUser(string currentPassword = "admin")
+    private static UserEntity AdminUser(string currentPassword = "admin", string username = "admin")
     {
         var (hash, salt, iterations) = PasswordHasher.Hash(currentPassword);
         return new UserEntity
         {
-            Username = "admin",
+            Username = username,
             PasswordHash = hash,
             PasswordSalt = salt,
             PasswordIterations = iterations,
@@ -41,8 +41,12 @@ public class ForcedPasswordChangeViewModelTests
 
         Assert.True(raised);
         Assert.Null(viewModel.ErrorMessage);
+        Assert.Equal("Password changed.", viewModel.StatusMessage);
         Assert.False(user.MustChangePassword);
         Assert.Same(user, repository.LastUpdatedUser);
+        Assert.Equal("", viewModel.CurrentPassword);
+        Assert.Equal("", viewModel.NewPassword);
+        Assert.Equal("", viewModel.ConfirmNewPassword);
     }
 
     [Fact]
@@ -101,6 +105,9 @@ public class ForcedPasswordChangeViewModelTests
         Assert.Equal(originalHash, user.PasswordHash);
         Assert.True(user.MustChangePassword);
         Assert.Null(repository.LastUpdatedUser);
+        Assert.Equal("", viewModel.CurrentPassword);
+        Assert.Equal("", viewModel.NewPassword);
+        Assert.Equal("", viewModel.ConfirmNewPassword);
     }
 
     [Fact]
@@ -121,7 +128,7 @@ public class ForcedPasswordChangeViewModelTests
         viewModel.ChangePasswordCommand.Execute(null);
 
         Assert.False(raised);
-        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.Equal("New password and confirmation do not match.", viewModel.ErrorMessage);
         Assert.Equal(originalHash, user.PasswordHash);
         Assert.True(user.MustChangePassword);
         Assert.Null(repository.LastUpdatedUser);
@@ -189,14 +196,12 @@ public class ForcedPasswordChangeViewModelTests
     }
 
     [Theory]
-    [InlineData("admin")]
-    [InlineData("ADMIN")]
-    [InlineData("Admin")]
+    [InlineData("long-admin-name")]
+    [InlineData("LONG-ADMIN-NAME")]
+    [InlineData("Long-Admin-Name")]
     public void ChangePassword_WithNewPasswordEqualToUsername_IsRejectedAndDoesNotUpdate(string usernameAsPassword)
     {
-        // "admin" is both the seeded username and >= 8 chars, so this exercises the
-        // username-rejection rule specifically, not the length rule.
-        var user = AdminUser();
+        var user = AdminUser(username: "long-admin-name");
         var repository = new FakeUserRepository();
         var viewModel = new ForcedPasswordChangeViewModel(user, repository)
         {
@@ -207,7 +212,7 @@ public class ForcedPasswordChangeViewModelTests
 
         viewModel.ChangePasswordCommand.Execute(null);
 
-        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.Equal("New password cannot be the same as the username.", viewModel.ErrorMessage);
         Assert.True(user.MustChangePassword);
         Assert.Null(repository.LastUpdatedUser);
     }

@@ -122,10 +122,29 @@ public sealed class UserLifecycleService
         return UserLifecycleResult.Ok();
     }
 
-    public UserLifecycleResult ChangeOwnPassword(Guid actingUserId, string currentPassword, string newPassword)
+    public UserLifecycleResult ChangeOwnPassword(
+        Guid actingUserId,
+        string currentPassword,
+        string newPassword,
+        string confirmNewPassword)
     {
         var user = _userRepository.GetById(actingUserId);
         if (user is null || !user.IsEnabled)
+        {
+            return UserLifecycleResult.Failed("Password could not be changed.");
+        }
+
+        return ChangeOwnPassword(user, currentPassword, newPassword, confirmNewPassword);
+    }
+
+    public UserLifecycleResult ChangeOwnPassword(
+        User user,
+        string currentPassword,
+        string newPassword,
+        string confirmNewPassword)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+        if (!user.IsEnabled)
         {
             return UserLifecycleResult.Failed("Password could not be changed.");
         }
@@ -138,6 +157,26 @@ public sealed class UserLifecycleService
         if (string.IsNullOrWhiteSpace(newPassword))
         {
             return UserLifecycleResult.Failed("New password cannot be blank.");
+        }
+
+        if (newPassword.Length < PasswordPolicy.MinimumLength)
+        {
+            return UserLifecycleResult.Failed($"New password must be at least {PasswordPolicy.MinimumLength} characters.");
+        }
+
+        if (string.Equals(newPassword, user.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            return UserLifecycleResult.Failed("New password cannot be the same as the username.");
+        }
+
+        if (newPassword == currentPassword)
+        {
+            return UserLifecycleResult.Failed("New password cannot be the same as the current password.");
+        }
+
+        if (newPassword != confirmNewPassword)
+        {
+            return UserLifecycleResult.Failed("New password and confirmation do not match.");
         }
 
         var (hash, salt, iterations) = PasswordHasher.Hash(newPassword);
@@ -155,4 +194,9 @@ public sealed class UserLifecycleService
         _userRepository.GetAll().Count(user => user.Id != excludedUserId && user.Role == Role.Admin && user.IsEnabled);
 
     private static bool IsSupportedRole(Role role) => role is Role.Admin or Role.Operator;
+
+    private static class PasswordPolicy
+    {
+        public const int MinimumLength = 8;
+    }
 }

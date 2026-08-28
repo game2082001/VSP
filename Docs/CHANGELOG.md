@@ -1,4 +1,39 @@
 # CHANGELOG
+## 2026-08-28 (VSP-PD-003C - Change Own Password UX & Forced-Change Generalization)
+
+### Shared Password Change Lifecycle
+
+Status:
+Implementation Complete - Pending Independent Review and Product Owner Acceptance. No autonomous merge, Pilot, GA, or version bump performed.
+
+Summary:
+- Added a logged-in Change Password screen available to both Admin and Operator sessions.
+- Generalized the existing forced password change ViewModel so mandatory first-login changes and normal logged-in changes use the same `UserLifecycleService.ChangeOwnPassword` policy and mutation path.
+- Moved password-change policy enforcement to the service boundary: current-password verification, nonblank password, minimum 8 characters, username-equivalent rejection, same-as-current rejection, and confirmation match.
+- Preserved PBKDF2-HMACSHA256 hashing and the existing iteration policy while rotating hash/salt and clearing `MustChangePassword` on success.
+- Kept password fields write-only and cleared them after success and failure; no existing password is displayed or prefilled.
+- Kept V1.0 exclusions unchanged: no User Delete, no Role Change, no password history, no password expiration, no account lockout/throttling, no MFA/SSO/LDAP, no immediate multi-session revocation, and no full audit subsystem.
+
+Verification:
+- `dotnet build VSP.slnx -c Debug`: PASS / 0 errors / 5 known pre-existing warnings.
+- Focused user management, login, forced-change, and password lifecycle tests: 67/67 PASS.
+- Full local suite: 1073/1073 PASS.
+
+Files:
+- `VSP.Device/Users/UserLifecycleService.cs`
+- `VSP.UI/App.xaml.cs`
+- `VSP.UI/ViewModels/ForcedPasswordChangeViewModel.cs`
+- `VSP.UI/ViewModels/MainWindowViewModel.cs`
+- `VSP.UI/Views/ChangePasswordView.xaml`
+- `VSP.UI/Views/ChangePasswordView.xaml.cs`
+- `VSP.UI/Views/ForcedPasswordChangeWindow.xaml.cs`
+- `VSP.Tests/Device/UserLifecycleServiceTests.cs`
+- `VSP.Tests/UI/ForcedPasswordChangeViewModelTests.cs`
+- `VSP.Tests/UI/MainWindowViewModelUserNavigationTests.cs`
+- `Docs/CHANGELOG.md`, `Docs/03_PRODUCT_ROADMAP.md`
+
+---
+
 ## 2026-08-28 (VSP-PD-003B - Admin User Management UX)
 
 ### Minimal User Management Admin UX
