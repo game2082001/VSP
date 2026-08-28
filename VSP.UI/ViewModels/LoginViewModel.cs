@@ -61,7 +61,9 @@ public class LoginViewModel : ObservableObject
 
         var user = _userRepository.GetByUsername(Username);
 
-        if (user is null || !PasswordHasher.Verify(Password, user.PasswordHash, user.PasswordSalt, user.PasswordIterations))
+        if (user is null
+            || !user.IsEnabled
+            || !PasswordHasher.Verify(Password, user.PasswordHash, user.PasswordSalt, user.PasswordIterations))
         {
             AppLog.Warning($"Login failed for username '{Username}'.");
             ErrorMessage = InvalidCredentialsMessage;

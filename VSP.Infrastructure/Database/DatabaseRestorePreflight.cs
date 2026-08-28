@@ -59,7 +59,8 @@ internal sealed class DatabaseRestorePreflight
                     sourceFilePath,
                     connection,
                     verifyLegacyConvertibility),
-                DatabaseSchemaVersion.CurrentUserProtectedCredentials => CheckCurrentUserProtected(
+                DatabaseSchemaVersion.CurrentUserProtectedCredentials
+                    or DatabaseSchemaVersion.UserLifecycleFoundation => CheckCurrentUserProtected(
                     connection,
                     allowConfigOnlyProtectedCredentials),
                 _ => DatabaseRestorePreflightResult.ValidationFailed(
@@ -102,7 +103,7 @@ internal sealed class DatabaseRestorePreflight
         }
 
         if (!HasExactColumns(connection, "Camera", CameraCredentialMigration.LegacyCameraColumns)
-            || !HasExactColumns(connection, "User", CameraCredentialMigration.UserColumns)
+            || !HasExactColumns(connection, "User", CameraCredentialMigration.UserColumnsV1)
             || !HasExactApplicationSchema(connection, CameraCredentialMigration.LegacySchemaObjects))
         {
             return DatabaseRestorePreflightResult.ValidationFailed(
@@ -133,10 +134,18 @@ internal sealed class DatabaseRestorePreflight
         SqliteConnection connection,
         bool allowConfigOnlyProtectedCredentials)
     {
+        var schemaVersion = ReadSchemaVersion(connection);
+        var expectedUserColumns = schemaVersion == DatabaseSchemaVersion.UserLifecycleFoundation
+            ? CameraCredentialMigration.UserColumns
+            : CameraCredentialMigration.UserColumnsV1;
+        var expectedSchemaObjects = schemaVersion == DatabaseSchemaVersion.UserLifecycleFoundation
+            ? CameraCredentialMigration.ProtectedSchemaObjects
+            : CameraCredentialMigration.ProtectedSchemaObjectsV1;
+
         if (!HasExactColumns(connection, "Camera", CameraCredentialMigration.ProtectedCameraColumns)
-            || !HasExactColumns(connection, "User", CameraCredentialMigration.UserColumns)
+            || !HasExactColumns(connection, "User", expectedUserColumns)
             || !HasExactColumns(connection, "CredentialMigrationMetadata", CameraCredentialMigration.MigrationMetadataColumns)
-            || !HasExactApplicationSchema(connection, CameraCredentialMigration.ProtectedSchemaObjects)
+            || !HasExactApplicationSchema(connection, expectedSchemaObjects)
             || !HasValidCredentialMigrationMetadata(connection))
         {
             return DatabaseRestorePreflightResult.ValidationFailed(

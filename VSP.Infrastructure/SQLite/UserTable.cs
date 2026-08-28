@@ -18,9 +18,12 @@ CREATE TABLE IF NOT EXISTS User
     MustChangePassword INTEGER NOT NULL DEFAULT 0,
 
     CreateTime TEXT,
-    LastModifyTime TEXT
+    LastModifyTime TEXT,
+    IsEnabled INTEGER NOT NULL DEFAULT 1,
+    NormalizedUsername TEXT NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS IX_User_Username ON User (Username);";
+CREATE UNIQUE INDEX IF NOT EXISTS IX_User_Username ON User (Username);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_User_NormalizedUsername ON User (NormalizedUsername);";
 
         using var command = connection.CreateCommand();
         command.CommandText = sql;

@@ -30,7 +30,16 @@ public class DatabaseInitializer
             connection.Open();
 
             CameraTable.Create(connection);
-            UserTable.Create(connection);
+            if (HasUserTable(connection))
+            {
+                UserSchemaMigration.EnsureCurrent(connection);
+            }
+            else
+            {
+                UserTable.Create(connection);
+                UserSchemaMigration.EnsureCurrent(connection);
+            }
+
             EnsureProtectedMetadata(connection);
             DefaultAdminSeeder.SeedIfEmpty(connection);
 
@@ -40,6 +49,13 @@ public class DatabaseInitializer
         {
             return DatabaseInitializationResult.Failed(ex);
         }
+    }
+
+    private static bool HasUserTable(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'User';";
+        return string.Equals(command.ExecuteScalar() as string, "User", StringComparison.Ordinal);
     }
 
     private void ActivateCredentialSchemaIfRequired()
@@ -88,7 +104,7 @@ CREATE TABLE IF NOT EXISTS CredentialMigrationMetadata
 INSERT OR IGNORE INTO CredentialMigrationMetadata
 (Id, SourceSha256, ProtectionProvider, ProtectionScope, ProtectionVersion)
 VALUES (1, zeroblob(32), 'DPAPI', 'CurrentUser', 1);
-PRAGMA user_version = {DatabaseSchemaVersion.CurrentUserProtectedCredentials};";
+PRAGMA user_version = {DatabaseSchemaVersion.UserLifecycleFoundation};";
         command.ExecuteNonQuery();
     }
 }

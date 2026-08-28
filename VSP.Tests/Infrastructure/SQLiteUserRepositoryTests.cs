@@ -1,4 +1,5 @@
 using VSP.Core.Logging;
+using VSP.Core.Security;
 using VSP.Domain.Enums;
 using VSP.Infrastructure.Database;
 using VSP.Infrastructure.Repositories;
@@ -47,6 +48,36 @@ public class SQLiteUserRepositoryTests : IDisposable
         Assert.Equal(user.PasswordIterations, stored.PasswordIterations);
         Assert.Equal(Role.Operator, stored.Role);
         Assert.False(stored.MustChangePassword);
+        Assert.True(stored.IsEnabled);
+        Assert.Equal(UsernameIdentity.Normalize(user.Username), stored.NormalizedUsername);
+    }
+
+    [Fact]
+    public void GetByUsername_UsesNormalizedCaseInsensitiveIdentity()
+    {
+        var repository = CreateRepository();
+        repository.Add(NewUser("DisplayName"));
+
+        var found = repository.GetByUsername("  displayname  ");
+
+        Assert.NotNull(found);
+        Assert.Equal("DisplayName", found!.Username);
+        Assert.Equal("DISPLAYNAME", found.NormalizedUsername);
+    }
+
+    [Fact]
+    public void Add_CaseOnlyDuplicateUsername_ThrowsAndLogsError()
+    {
+        var repository = CreateRepository();
+        repository.Add(NewUser("CaseUser"));
+        var recorder = new RecordingLogger();
+        AppLog.Initialize(recorder);
+
+        var thrown = Record.Exception(() => repository.Add(NewUser("caseuser")));
+
+        Assert.NotNull(thrown);
+        var call = Assert.Single(recorder.Calls);
+        Assert.Equal(LogLevel.Error, call.Level);
     }
 
     [Fact]

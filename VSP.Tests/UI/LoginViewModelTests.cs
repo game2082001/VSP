@@ -66,6 +66,20 @@ public class LoginViewModelTests
         Assert.Equal("Invalid username or password.", viewModel.ErrorMessage);
     }
 
+    [Fact]
+    public void Login_WithDisabledUser_FailsWithIdenticalGenericMessage()
+    {
+        var user = AdminUser();
+        user.IsEnabled = false;
+        var repository = new FakeUserRepository(user);
+        var viewModel = new LoginViewModel(repository) { Username = "admin", Password = "admin" };
+
+        viewModel.LoginCommand.Execute(null);
+
+        Assert.Null(viewModel.AuthenticatedUser);
+        Assert.Equal("Invalid username or password.", viewModel.ErrorMessage);
+    }
+
     [Theory]
     [InlineData("", "admin")]
     [InlineData("admin", "")]
@@ -153,7 +167,20 @@ public class LoginViewModelTests
         public UserEntity? GetByUsername(string username)
         {
             GetByUsernameCallCount++;
-            return _user is not null && _user.Username == username ? _user : null;
+            return _user is not null && UsernameIdentity.Normalize(_user.Username) == UsernameIdentity.Normalize(username)
+                ? _user
+                : null;
+        }
+
+        public List<UserEntity> GetAll() => _user is null ? new List<UserEntity>() : new List<UserEntity> { _user };
+
+        public UserEntity? GetById(Guid id) => _user is not null && _user.Id == id ? _user : null;
+
+        public UserEntity? GetByNormalizedUsername(string normalizedUsername) =>
+            _user is not null && UsernameIdentity.Normalize(_user.Username) == normalizedUsername ? _user : null;
+
+        public void Add(UserEntity user)
+        {
         }
 
         public void Update(UserEntity user)
