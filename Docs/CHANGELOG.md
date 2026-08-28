@@ -1,4 +1,35 @@
 # CHANGELOG
+## 2026-08-28 (VSP-PD-003B - Admin User Management UX)
+
+### Minimal User Management Admin UX
+
+Status:
+Implementation Complete - Pending Independent Review and Product Owner Acceptance. No autonomous merge, Pilot, GA, or version bump performed.
+
+Summary:
+- Added an Admin-only Users navigation entry backed by the PD-003A user lifecycle service boundary.
+- Added a Users screen listing username, role, enabled state, forced-change state, and created/modified timestamps without exposing password hash or salt fields.
+- Added Admin create-user flow for Admin/Operator accounts with temporary password confirmation and `MustChangePassword=true`.
+- Added Admin enable/disable and reset-password flows through service-enforced self-disable, last-enabled-Admin, and self-reset protections.
+- Kept V1.0 exclusions unchanged: no User Delete, no Role Change, no immediate session revocation, no account lockout/throttling, no SSO/LDAP/MFA, and no Change Own Password UX in this phase.
+
+Verification:
+- `dotnet build VSP.slnx -c Debug`: PASS / 0 errors.
+- Focused user management, migration, login, and forced-password-change tests: 55/55 PASS.
+- Full local suite: 1061/1061 PASS.
+
+Files:
+- `VSP.UI/ViewModels/MainWindowViewModel.cs`
+- `VSP.UI/ViewModels/UserListItemViewModel.cs`
+- `VSP.UI/ViewModels/UsersViewModel.cs`
+- `VSP.UI/Views/UsersView.xaml`
+- `VSP.UI/Views/UsersView.xaml.cs`
+- `VSP.Tests/UI/MainWindowViewModelUserNavigationTests.cs`
+- `VSP.Tests/UI/UsersViewModelTests.cs`
+- `Docs/CHANGELOG.md`, `Docs/03_PRODUCT_ROADMAP.md`
+
+---
+
 ## 2026-08-18 (AI01-008 - Autonomous Multi-Agent Development Pipeline)
 
 ### Agent Router / Orchestrator Foundation

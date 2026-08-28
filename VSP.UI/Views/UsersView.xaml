@@ -1,0 +1,117 @@
+<UserControl x:Class="VSP.UI.Views.UsersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource BrushBackground}">
+
+    <Grid Background="{DynamicResource BrushBackground}" Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Users"
+                   Foreground="{DynamicResource BrushTextPrimary}"
+                   FontSize="28"
+                   Margin="0,0,0,20"/>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="24"/>
+                <ColumnDefinition Width="360"/>
+            </Grid.ColumnDefinitions>
+
+            <DataGrid Grid.Column="0"
+                      ItemsSource="{Binding Users}"
+                      SelectedItem="{Binding SelectedUser}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      HeadersVisibility="Column"
+                      SelectionMode="Single">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="*"/>
+                    <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="110"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110"/>
+                    <DataGridCheckBoxColumn Header="Must Change Password" Binding="{Binding MustChangePassword}" Width="160"/>
+                    <DataGridTextColumn Header="Created" Binding="{Binding CreateTime, StringFormat=yyyy-MM-dd HH:mm}" Width="150"/>
+                    <DataGridTextColumn Header="Modified" Binding="{Binding LastModifyTime, StringFormat=yyyy-MM-dd HH:mm}" Width="150"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Create User"
+                           Foreground="{DynamicResource BrushTextSecondary}"
+                           FontSize="16"
+                           FontWeight="SemiBold"/>
+
+                <TextBlock Text="Username" Style="{StaticResource VspFieldLabel}" Margin="0,12,0,0"/>
+                <TextBox Style="{StaticResource VspTextBox}"
+                         Text="{Binding NewUsername, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <TextBlock Text="Role" Style="{StaticResource VspFieldLabel}" Margin="0,8,0,0"/>
+                <ComboBox Style="{StaticResource VspComboBox}"
+                          ItemsSource="{Binding RoleOptions}"
+                          SelectedItem="{Binding NewUserRole}"/>
+
+                <TextBlock Text="Temporary Password" Style="{StaticResource VspFieldLabel}" Margin="0,8,0,0"/>
+                <PasswordBox x:Name="TemporaryPasswordBox"
+                             Style="{StaticResource VspPasswordBox}"
+                             PasswordChanged="HandleTemporaryPasswordChanged"/>
+
+                <TextBlock Text="Confirm Temporary Password" Style="{StaticResource VspFieldLabel}" Margin="0,8,0,0"/>
+                <PasswordBox x:Name="ConfirmTemporaryPasswordBox"
+                             Style="{StaticResource VspPasswordBox}"
+                             PasswordChanged="HandleConfirmTemporaryPasswordChanged"/>
+
+                <Button Content="Create"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding CreateUserCommand}"
+                        Margin="0,14,0,0"
+                        HorizontalAlignment="Left"/>
+
+                <Separator Margin="0,24,0,20"/>
+
+                <TextBlock Text="Selected User"
+                           Foreground="{DynamicResource BrushTextSecondary}"
+                           FontSize="16"
+                           FontWeight="SemiBold"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                    <Button Content="Enable"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding EnableSelectedUserCommand}"/>
+                    <Button Content="Disable"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding DisableSelectedUserCommand}"
+                            Margin="8,0,0,0"/>
+                </StackPanel>
+
+                <TextBlock Text="Reset Password" Style="{StaticResource VspFieldLabel}" Margin="0,18,0,0"/>
+                <PasswordBox x:Name="ResetTemporaryPasswordBox"
+                             Style="{StaticResource VspPasswordBox}"
+                             PasswordChanged="HandleResetTemporaryPasswordChanged"/>
+
+                <TextBlock Text="Confirm Reset Password" Style="{StaticResource VspFieldLabel}" Margin="0,8,0,0"/>
+                <PasswordBox x:Name="ConfirmResetTemporaryPasswordBox"
+                             Style="{StaticResource VspPasswordBox}"
+                             PasswordChanged="HandleConfirmResetTemporaryPasswordChanged"/>
+
+                <Button Content="Reset Password"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding ResetSelectedUserPasswordCommand}"
+                        Margin="0,14,0,0"
+                        HorizontalAlignment="Left"/>
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Grid.Row="2"
+                   Text="{Binding StatusMessage}"
+                   Foreground="{DynamicResource BrushTextSecondary}"
+                   FontSize="13"
+                   TextWrapping="Wrap"
+                   Margin="0,16,0,0"/>
+    </Grid>
+</UserControl>
