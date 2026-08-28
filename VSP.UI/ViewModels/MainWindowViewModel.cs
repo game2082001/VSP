@@ -7,6 +7,7 @@ using VSP.Core.MVVM;
 using VSP.Domain.Entities;
 using VSP.Domain.Enums;
 using VSP.Device.Repositories;
+using VSP.Device.Users;
 using VSP.Infrastructure.Database;
 using VSP.Infrastructure.Settings;
 using VSP.Player.Recording;
@@ -118,8 +119,20 @@ public class MainWindowViewModel : ObservableObject
 
         // Epic-018 §4.5 Part A / §8: Settings (and, inside it, Backup/Restore) is Admin-only.
         // Not even the underlying services are constructed for an Operator session.
-        if (currentUser.Role == Role.Admin)
+        if (CanManageUsers(currentUser.Role))
         {
+            var userRepository = new UserRepository();
+            var usersViewModel = new UsersViewModel(
+                userRepository,
+                new UserLifecycleService(userRepository),
+                currentUser);
+            Navigation.Add(new NavigationItem
+            {
+                Title = "Users",
+                Icon = "Users",
+                View = new UsersView(usersViewModel)
+            });
+
             var databaseService = new DatabaseService();
             var settingsViewModel = new SettingsViewModel(
                 new AppSettingsProvider(),
@@ -161,6 +174,8 @@ public class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentUser));
         LogoutRequested?.Invoke();
     }
+
+    internal static bool CanManageUsers(Role role) => role == Role.Admin;
 
     /// <summary>
     /// Milestone 18D requirement: Logout requires confirmation. Same in-ViewModel
