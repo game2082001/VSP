@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using VSP.Core.Logging;
 using VSP.Device.Interfaces;
 using VSP.Device.Repositories;
+using VSP.Device.Users;
 using VSP.Domain.Entities;
 using VSP.Infrastructure.Database;
 using VSP.Infrastructure.Settings;
@@ -128,7 +129,7 @@ public partial class App : Application
     /// </summary>
     private static bool ShowForcedPasswordChangeWindow(User user, IUserRepository userRepository)
     {
-        var viewModel = new ForcedPasswordChangeViewModel(user, userRepository);
+        var viewModel = new ForcedPasswordChangeViewModel(user, new UserLifecycleService(userRepository));
         var window = new ForcedPasswordChangeWindow(viewModel);
 
         return window.ShowDialog() == true;

@@ -1,6 +1,6 @@
 # Product Roadmap
 
-Last updated: 2026-08-28 (VSP-PD-003B pending Product Owner acceptance)
+Last updated: 2026-08-28 (VSP-PD-003C pending Product Owner acceptance)
 
 This is the single actively-maintained product roadmap for VSP. `Docs/03_ROADMAP.md` is a legacy, encoding-corrupted duplicate frozen at Milestone M1 / 62% — treat it as historical only, do not edit it further. `Docs/PROJECT_STATUS.md` is also stale (frozen at v1.0.0-m1 / 88 tests) and should be refreshed or retired. See the 2026-07-28 Product Status Report for the full review behind this update.
 
@@ -10,13 +10,14 @@ This is the single actively-maintained product roadmap for VSP. `Docs/03_ROADMAP
 
 In progress:
 
-- VSP-PD-003B: Admin User Management UX. Adds Admin-only user listing, Admin/Operator account creation, enable/disable, and Admin reset-password flows on top of the accepted PD-003A lifecycle foundation. V1.0 exclusions remain unchanged: no User Delete, no Role Change, no immediate session revocation, no account lockout/throttling, no SSO/LDAP/MFA, no Change Own Password UX in this phase, and no Pilot/GA/version bump.
+- VSP-PD-003C: Change Own Password UX and forced-change generalization. Adds logged-in Admin/Operator self-service password change and routes forced-change plus normal-change through the same service-layer password mutation policy. V1.0 exclusions remain unchanged: no User Delete, no Role Change, no immediate session revocation, no password history/expiration, no account lockout/throttling, no SSO/LDAP/MFA, no full audit subsystem, and no Pilot/GA/version bump.
 
 Completed:
 
 - VSP-PD-001: Camera credential protection and release evidence reconciliation.
 - VSP-PD-002: Recording retention enforcement.
 - VSP-PD-003A: User schema migration and lifecycle foundation.
+- VSP-PD-003B: Admin User Management UX.
 
 ---
 

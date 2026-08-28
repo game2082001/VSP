@@ -17,4 +17,12 @@ public class MainWindowViewModelUserNavigationTests
     {
         Assert.False(MainWindowViewModel.CanManageUsers(Role.Operator));
     }
+
+    [Theory]
+    [InlineData(Role.Admin)]
+    [InlineData(Role.Operator)]
+    public void CanChangeOwnPassword_AdminAndOperatorCanChangeOwnPassword(Role role)
+    {
+        Assert.True(MainWindowViewModel.CanChangeOwnPassword(role));
+    }
 }

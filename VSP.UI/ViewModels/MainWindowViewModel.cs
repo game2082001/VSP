@@ -117,6 +117,20 @@ public class MainWindowViewModel : ObservableObject
             View = new CameraListView(_liveViewCoordinator, currentUser.Role)
         });
 
+        if (CanChangeOwnPassword(currentUser.Role))
+        {
+            var passwordRepository = new UserRepository();
+            var changePasswordViewModel = new ForcedPasswordChangeViewModel(
+                currentUser,
+                new UserLifecycleService(passwordRepository));
+            Navigation.Add(new NavigationItem
+            {
+                Title = "Change Password",
+                Icon = "Key",
+                View = new ChangePasswordView(changePasswordViewModel)
+            });
+        }
+
         // Epic-018 §4.5 Part A / §8: Settings (and, inside it, Backup/Restore) is Admin-only.
         // Not even the underlying services are constructed for an Operator session.
         if (CanManageUsers(currentUser.Role))
@@ -176,6 +190,8 @@ public class MainWindowViewModel : ObservableObject
     }
 
     internal static bool CanManageUsers(Role role) => role == Role.Admin;
+
+    internal static bool CanChangeOwnPassword(Role role) => role is Role.Admin or Role.Operator;
 
     /// <summary>
     /// Milestone 18D requirement: Logout requires confirmation. Same in-ViewModel

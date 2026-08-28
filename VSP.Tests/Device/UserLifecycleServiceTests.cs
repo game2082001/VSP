@@ -1,12 +1,15 @@
+using VSP.Core.Logging;
 using VSP.Core.Security;
 using VSP.Device.Interfaces;
 using VSP.Device.Users;
 using VSP.Domain.Enums;
+using VSP.Tests.Logging;
 using Xunit;
 using UserEntity = VSP.Domain.Entities.User;
 
 namespace VSP.Tests.Device;
 
+[Collection("AppLog")]
 public class UserLifecycleServiceTests
 {
     [Fact]
@@ -130,12 +133,154 @@ public class UserLifecycleServiceTests
         repository.Add(user);
         var service = new UserLifecycleService(repository);
 
-        var result = service.ChangeOwnPassword(user.Id, "old-password", "new-password");
+        var result = service.ChangeOwnPassword(user.Id, "old-password", "new-password", "new-password");
 
         Assert.True(result.Success);
         Assert.False(user.MustChangePassword);
         Assert.True(PasswordHasher.Verify("new-password", user.PasswordHash, user.PasswordSalt, user.PasswordIterations));
         Assert.Same(user, repository.LastUpdated);
+    }
+
+    [Fact]
+    public void ChangeOwnPassword_ForAdmin_ReplacesSecretClearsForcedChangeAndRotatesSalt()
+    {
+        var repository = new FakeUserRepository();
+        var user = User("admin-user", Role.Admin, "old-password");
+        user.MustChangePassword = true;
+        repository.Add(user);
+        var originalHash = user.PasswordHash;
+        var originalSalt = user.PasswordSalt;
+        var originalIterations = user.PasswordIterations;
+        var service = new UserLifecycleService(repository);
+
+        var result = service.ChangeOwnPassword(user.Id, "old-password", "new-admin-password", "new-admin-password");
+
+        Assert.True(result.Success);
+        Assert.False(user.MustChangePassword);
+        Assert.NotEqual(originalHash, user.PasswordHash);
+        Assert.NotEqual(originalSalt, user.PasswordSalt);
+        Assert.Equal(originalIterations, user.PasswordIterations);
+        Assert.False(PasswordHasher.Verify("old-password", user.PasswordHash, user.PasswordSalt, user.PasswordIterations));
+        Assert.True(PasswordHasher.Verify("new-admin-password", user.PasswordHash, user.PasswordSalt, user.PasswordIterations));
+    }
+
+    [Fact]
+    public void ChangeOwnPassword_ForOperator_ReplacesSecretClearsForcedChangeAndRotatesSalt()
+    {
+        var repository = new FakeUserRepository();
+        var user = User("operator-user", Role.Operator, "old-password");
+        user.MustChangePassword = true;
+        repository.Add(user);
+        var originalSalt = user.PasswordSalt;
+        var service = new UserLifecycleService(repository);
+
+        var result = service.ChangeOwnPassword(user.Id, "old-password", "new-operator-password", "new-operator-password");
+
+        Assert.True(result.Success);
+        Assert.False(user.MustChangePassword);
+        Assert.NotEqual(originalSalt, user.PasswordSalt);
+        Assert.True(PasswordHasher.Verify("new-operator-password", user.PasswordHash, user.PasswordSalt, user.PasswordIterations));
+    }
+
+    [Fact]
+    public void ChangeOwnPassword_WithWrongCurrentPassword_RejectsWithoutMutation()
+    {
+        var repository = new FakeUserRepository();
+        var user = User("operator", Role.Operator, "old-password");
+        repository.Add(user);
+        var originalHash = user.PasswordHash;
+        var service = new UserLifecycleService(repository);
+
+        var result = service.ChangeOwnPassword(user.Id, "wrong-password", "new-password", "new-password");
+
+        Assert.False(result.Success);
+        Assert.Equal("Current password is incorrect.", result.FailureMessage);
+        Assert.Equal(originalHash, user.PasswordHash);
+        Assert.Null(repository.LastUpdated);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("        ")]
+    [InlineData("short")]
+    public void ChangeOwnPassword_WithInvalidNewPassword_RejectsWithoutMutation(string newPassword)
+    {
+        var repository = new FakeUserRepository();
+        var user = User("operator", Role.Operator, "old-password");
+        repository.Add(user);
+        var originalHash = user.PasswordHash;
+        var service = new UserLifecycleService(repository);
+
+        var result = service.ChangeOwnPassword(user.Id, "old-password", newPassword, newPassword);
+
+        Assert.False(result.Success);
+        Assert.Equal(originalHash, user.PasswordHash);
+        Assert.Null(repository.LastUpdated);
+    }
+
+    [Fact]
+    public void ChangeOwnPassword_WithUsernameEquivalentPassword_RejectsWithoutMutation()
+    {
+        var repository = new FakeUserRepository();
+        var user = User("operator-name", Role.Operator, "old-password");
+        repository.Add(user);
+        var service = new UserLifecycleService(repository);
+
+        var result = service.ChangeOwnPassword(user.Id, "old-password", "OPERATOR-NAME", "OPERATOR-NAME");
+
+        Assert.False(result.Success);
+        Assert.Equal("New password cannot be the same as the username.", result.FailureMessage);
+        Assert.Null(repository.LastUpdated);
+    }
+
+    [Fact]
+    public void ChangeOwnPassword_WithSameAsCurrentPassword_RejectsWithoutMutation()
+    {
+        var repository = new FakeUserRepository();
+        var user = User("operator", Role.Operator, "old-password");
+        repository.Add(user);
+        var service = new UserLifecycleService(repository);
+
+        var result = service.ChangeOwnPassword(user.Id, "old-password", "old-password", "old-password");
+
+        Assert.False(result.Success);
+        Assert.Equal("New password cannot be the same as the current password.", result.FailureMessage);
+        Assert.Null(repository.LastUpdated);
+    }
+
+    [Fact]
+    public void ChangeOwnPassword_WithConfirmationMismatch_RejectsWithoutMutation()
+    {
+        var repository = new FakeUserRepository();
+        var user = User("operator", Role.Operator, "old-password");
+        repository.Add(user);
+        var service = new UserLifecycleService(repository);
+
+        var result = service.ChangeOwnPassword(user.Id, "old-password", "new-password", "different-password");
+
+        Assert.False(result.Success);
+        Assert.Equal("New password and confirmation do not match.", result.FailureMessage);
+        Assert.Null(repository.LastUpdated);
+    }
+
+    [Fact]
+    public void ChangeOwnPassword_SuccessLogDoesNotExposePasswordHashOrSalt()
+    {
+        var repository = new FakeUserRepository();
+        var user = User("operator", Role.Operator, "old-password");
+        repository.Add(user);
+        var recorder = new RecordingLogger();
+        AppLog.Initialize(recorder);
+        var service = new UserLifecycleService(repository);
+
+        var result = service.ChangeOwnPassword(user.Id, "old-password", "new-password", "new-password");
+
+        Assert.True(result.Success);
+        var call = Assert.Single(recorder.Calls);
+        Assert.DoesNotContain("old-password", call.Message);
+        Assert.DoesNotContain("new-password", call.Message);
+        Assert.DoesNotContain(user.PasswordHash, call.Message);
+        Assert.DoesNotContain(user.PasswordSalt, call.Message);
     }
 
     private static UserEntity User(string username, Role role, string password = "password") 
