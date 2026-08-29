@@ -55,6 +55,17 @@ function Assert-NonBlankString {
     }
 }
 
+function Assert-NonBlankText {
+    param(
+        [Parameter(Mandatory = $true)] $Value,
+        [Parameter(Mandatory = $true)][string] $Name
+    )
+
+    if ($null -eq $Value -or [string]::IsNullOrWhiteSpace([string]$Value)) {
+        throw "Manifest validation failed: $Name is required."
+    }
+}
+
 function Assert-StringArray {
     param(
         [Parameter(Mandatory = $true)] $Value,
@@ -95,20 +106,6 @@ function Get-ArrayText {
     return (@($Value) -join [Environment]::NewLine)
 }
 
-function Test-RoleAdapterPair {
-    param(
-        [Parameter(Mandatory = $true)][string] $Role,
-        [Parameter(Mandatory = $true)][string] $Adapter
-    )
-
-    switch ($Adapter) {
-        "codex" { return $Role -match "Codex" }
-        "claude" { return $Role -match "Claude" }
-        "manual" { return $Role -match "Manual|Product Owner" }
-        default { return $false }
-    }
-}
-
 function Test-ManifestClassification {
     param([Parameter(Mandatory = $true)] $Manifest)
 
@@ -118,12 +115,12 @@ function Test-ManifestClassification {
     $reviewerAdapter = $Manifest.independentReviewer.adapter
     $claudeRequired = [bool]$Manifest.claudeCrossReview.required
 
-    if (-not (Test-RoleAdapterPair -Role $developerRole -Adapter $developerAdapter)) {
-        throw "Manifest validation failed: primaryDeveloper role and adapter are inconsistent."
-    }
-
     if ($Manifest.independentReviewer.required -ne $true) {
         throw "Manifest validation failed: independentReviewer.required must be true."
+    }
+
+    if ($Manifest.independentReviewer.role -ne "Separate Codex Independent Reviewer") {
+        throw "Manifest validation failed: independentReviewer.role must be Separate Codex Independent Reviewer."
     }
 
     if ($reviewerAdapter -ne "codex") {
@@ -137,9 +134,11 @@ function Test-ManifestClassification {
             }
         }
         "MEDIUM" {
-            if ($developerAdapter -notin @("codex", "claude")) {
-                throw "Manifest validation failed: MEDIUM tasks require codex or claude primary developer adapter."
+            if (($developerRole -eq "Codex Development Agent" -and $developerAdapter -eq "codex") -or
+                ($developerRole -eq "Claude Code Primary Developer" -and $developerAdapter -eq "claude")) {
+                return
             }
+            throw "Manifest validation failed: MEDIUM tasks require Codex Development Agent or Claude Code Primary Developer."
         }
         "MAJOR" {
             if ($developerRole -ne "Claude Code Primary Developer" -or $developerAdapter -ne "claude") {
@@ -202,7 +201,7 @@ function Test-TaskManifest {
         throw "Manifest validation failed: Product Owner authorization must be true."
     }
     Assert-NonBlankString -Value $Manifest.productOwnerAuthorization.authorizedBy -Name "productOwnerAuthorization.authorizedBy"
-    Assert-NonBlankString -Value $Manifest.productOwnerAuthorization.authorizedAtUtc -Name "productOwnerAuthorization.authorizedAtUtc"
+    Assert-NonBlankText -Value $Manifest.productOwnerAuthorization.authorizedAtUtc -Name "productOwnerAuthorization.authorizedAtUtc"
     Assert-NonBlankString -Value $Manifest.productOwnerAuthorization.evidenceSource -Name "productOwnerAuthorization.evidenceSource"
     Assert-NonBlankString -Value $Manifest.productOwnerAuthorization.evidenceUrl -Name "productOwnerAuthorization.evidenceUrl"
     Assert-NonBlankString -Value $Manifest.productOwnerAuthorization.approvalSummary -Name "productOwnerAuthorization.approvalSummary"
