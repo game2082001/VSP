@@ -8,10 +8,14 @@ For PR-based autonomous multi-agent work, the executable routing and gate artifa
 
 Task classification for Product and Engineering work is governed by [`AI/OperatingSystem/TASK_CLASSIFICATION.md`](../AI/OperatingSystem/TASK_CLASSIFICATION.md). That document owns the AI02 `SMALL` / `MEDIUM` / `MAJOR` / `CRITICAL` matrix, developer/reviewer separation rule, Claude Cross Review requirements, and required `AI GOVERNANCE EVIDENCE` block for `READY_FOR_MERGE`.
 
+AI02 task intake must also have a Product Owner-approved machine-readable manifest before implementation begins. The preferred mechanism is a GitHub Issue plus an AI02 Task Manifest governed by [`AI/Orchestrator/TASK_MANIFEST_SCHEMA.md`](../AI/Orchestrator/TASK_MANIFEST_SCHEMA.md). Missing or invalid manifest authorization is fail-closed and cannot be replaced by chat history alone.
+
 ## Workflow
 
 ```text
 Task
+  ↓
+AI02 Task Manifest
   ↓
 Analysis
   ↓
