@@ -54,7 +54,11 @@ Classification:
 
 Primary Developer:
 
+implementationContextId:
+
 Independent Reviewer:
+
+independentReviewerContextId:
 
 Developer == Reviewer:
 FALSE
@@ -65,17 +69,17 @@ Claude Cross Review Result:
 N/A | PASS
 
 Windows CI:
-PASS
+PENDING
 
 Independent Review:
-APPROVED
+PENDING
 
 Unresolved Findings:
-0
+PENDING
 
 Scope Drift:
-NONE
+PENDING
 
 READY_FOR_MERGE:
-YES
+NO
 ```
