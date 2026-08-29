@@ -6,6 +6,8 @@ This is the canonical single-Task workflow diagram for VSP. `Docs/DEVELOPMENT_RO
 
 For PR-based autonomous multi-agent work, the executable routing and gate artifacts live under [`AI/Orchestrator/`](../AI/Orchestrator/README.md). The orchestrator must use GitHub PR state, Git history, workflow/check results, and structured artifacts as recovery truth, and the first version stops at `READY_FOR_MERGE` for Product Owner manual merge.
 
+Task classification for Product and Engineering work is governed by [`AI/OperatingSystem/TASK_CLASSIFICATION.md`](../AI/OperatingSystem/TASK_CLASSIFICATION.md). That document owns the AI02 `SMALL` / `MEDIUM` / `MAJOR` / `CRITICAL` matrix, developer/reviewer separation rule, Claude Cross Review requirements, and required `AI GOVERNANCE EVIDENCE` block for `READY_FOR_MERGE`.
+
 ## Workflow
 
 ```text
@@ -41,5 +43,6 @@ Commit
 - Review → [WORKFLOW/REVIEW_TASK.md](WORKFLOW/REVIEW_TASK.md)
 - Project Reference → [PROJECT.md](PROJECT.md)
 - AI Operating System → [`AI/OperatingSystem/AI_OPERATING_SYSTEM.md`](../AI/OperatingSystem/AI_OPERATING_SYSTEM.md)
+- Task Classification → [`AI/OperatingSystem/TASK_CLASSIFICATION.md`](../AI/OperatingSystem/TASK_CLASSIFICATION.md)
 - Epic Governance → [`AI/OperatingSystem/AUTONOMOUS_DEVELOPMENT.md`](../AI/OperatingSystem/AUTONOMOUS_DEVELOPMENT.md)
 - PR Orchestrator → [`AI/Orchestrator/README.md`](../AI/Orchestrator/README.md)

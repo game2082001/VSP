@@ -8,6 +8,8 @@
 
 不得修改任何檔案。
 
+For AI02-governed Product / Engineering work, Independent Review must also verify the task classification and role-separation evidence defined in `AI/OperatingSystem/TASK_CLASSIFICATION.md`. The reviewer must operate in a separate read-only context and must not remediate its own findings.
+
 ---
 
 # Review 範圍
@@ -176,6 +178,18 @@ Spec：
 Build：
 
 ✅ 或 ❌
+
+----------------------------
+
+AI02 Classification：
+
+✅ 或 ❌ 或 N/A
+
+----------------------------
+
+Developer / Reviewer Separation：
+
+✅ 或 ❌ 或 N/A
 
 ----------------------------
 

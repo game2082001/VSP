@@ -244,6 +244,8 @@ An AI Agent must not assume a prerequisite task is complete based on memory, a p
 
 ## 7. Risk Classification
 
+For Product and Engineering PR lifecycle routing after VSP-AI02-001A, the authoritative task classification matrix is [`TASK_CLASSIFICATION.md`](TASK_CLASSIFICATION.md). That document defines `SMALL`, `MEDIUM`, `MAJOR`, and `CRITICAL`, assigns the Primary Developer and Independent Reviewer roles, and records Claude Cross Review requirements. The `LOW` / `MEDIUM` / `HIGH` categories below remain operating-risk guidance for approval boundaries and historical AI01 compatibility; they must not override an AI02 `TASK CLASSIFICATION` block.
+
 ### LOW
 
 Examples:
@@ -753,6 +755,8 @@ Added by Task-AI01-006, resolving `GB-005`. Elaborates §21's existing principle
 **Proportional review** applies to LOW-risk and documentation-only tasks — the existing §17 Self-Review Checklist remains sufficient by default.
 
 Independent Review does not replace Product Owner Acceptance (§18, §22).
+
+For AI02-governed work, Independent Review eligibility additionally requires the developer/reviewer separation evidence defined in [`TASK_CLASSIFICATION.md`](TASK_CLASSIFICATION.md). If `Developer == Reviewer` is not provably `FALSE`, or if `implementationContextId` equals `independentReviewerContextId` for Codex-developed work, the task must stop as `NOT READY_FOR_MERGE`.
 
 ---
 

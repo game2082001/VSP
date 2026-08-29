@@ -14,6 +14,7 @@ Return one of:
 
 Required checks:
 
+- AI02 task classification
 - Scope coverage
 - Architecture compliance
 - Correctness and reliability
@@ -23,3 +24,11 @@ Required checks:
 - Maintainability
 - Role separation
 - READY FOR MERGE eligibility
+
+AI02 role separation requirements:
+
+- Verify `Primary Developer`.
+- Verify `Independent Reviewer`.
+- Verify `Developer == Reviewer: FALSE`.
+- For Codex-developed work, verify `implementationContextId != independentReviewerContextId`.
+- If separation evidence is missing or contradictory, return `STOPPED FOR PRODUCT OWNER` and mark the PR `STOP / NOT READY_FOR_MERGE`.

@@ -24,6 +24,8 @@ Required files:
 
 5. AI/Orchestrator/README.md — required only for PR-based autonomous multi-agent pipeline work, including Agent Router, Codex Worker, Claude Code remediation, Codex Independent Review, token budget gates, and crash recovery
 
+6. AI/OperatingSystem/TASK_CLASSIFICATION.md — required for Product or Engineering task implementation/review. This is the AI02 source of truth for SMALL / MEDIUM / MAJOR / CRITICAL classification, developer/reviewer separation, Claude Cross Review requirements, and READY_FOR_MERGE governance evidence.
+
 ---
 
 ## Task Instructions
@@ -31,6 +33,8 @@ Required files:
 Task specs are provided per task (via prompt or `Docs/SPECS/`) and are not tracked in this file. Follow the process defined in Docs/AI_DEVELOPMENT_WORKFLOW.md for how a task spec is read, planned, implemented, and reviewed.
 
 For orchestrated PR work, handoff must be through GitHub PR state, Git history, workflow/check results, and structured artifacts under `AI/Orchestrator/`; it must not require manual copy/paste between Claude Code and Codex chats.
+
+Before implementation begins, Product and Engineering tasks must record the `TASK CLASSIFICATION` block defined in `AI/OperatingSystem/TASK_CLASSIFICATION.md`. Missing or unprovable Developer / Independent Reviewer separation means `STOP / NOT READY_FOR_MERGE`.
 
 ## Approval Boundary
 

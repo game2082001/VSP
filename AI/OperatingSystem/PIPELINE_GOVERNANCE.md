@@ -30,12 +30,13 @@ Implementation
   -> Commit Gate
   -> Push Gate
   -> PR Gate
-  -> [Windows CI Gate || Claude Automated Review Gate]
+  -> Windows CI Gate
+  -> Claude Automated Review / Cross Review Gate when required by AI02 classification
   -> Codex Independent Review Gate (when required)
   -> Merge Gate
 ```
 
-Windows CI and Claude Automated Review are parallel gates. They are not ordered relative to each other. When Codex Independent Review is required by `AI_OPERATING_SYSTEM.md` §27 or by the approved task lifecycle, it starts only after both parallel gates have current-head PASS evidence.
+AI02 task classification is governed by [`TASK_CLASSIFICATION.md`](TASK_CLASSIFICATION.md). Claude review is not mandatory for every PR: it is not required by default for SMALL tasks, risk-based for MEDIUM tasks, classification-driven for MAJOR tasks, and mandatory for CRITICAL tasks. When Claude review is required, current-head PASS evidence is part of merge eligibility.
 
 ## 3. Gate Rules
 
@@ -59,11 +60,15 @@ The Windows CI gate uses `.github/workflows/vsp-windows-ci.yml`.
 
 For PR lifecycle validation, the gate must be evaluated against the PR current head or GitHub's current PR merge ref evidence. A red CI gate blocks Independent Review and Merge until triaged.
 
-### Claude Automated Review Gate
+The authoritative Windows CI environment is the GitHub self-hosted `VSP-Server-01` runner on the Product Owner-approved VSP development server environment. The current recorded authority is `DESKTOP-COVI6R2`, runner directory `C:\actions-runner`, checkout path `C:\actions-runner\_work\VSP\VSP`, and runner service `actions.runner.game2082001-VSP.VSP-Server-01`.
+
+Agent sandbox or temporary local validation is diagnostic evidence unless a task explicitly designates it as authoritative. Sandbox failures must be recorded and causally reconciled, but they do not automatically override an authoritative Windows CI PASS when the PR diff does not touch the affected surface and no regression, secret exposure, data-loss risk, destructive behavior, or authoritative-gate coverage gap is indicated. If any such causal or safety concern is plausible, the task stops for Product Owner review or in-scope remediation.
+
+### Claude Automated Review / Cross Review Gate
 
 The Claude Automated Review gate uses `.github/workflows/claude-code-review.yml`.
 
-Automated Review is evidence, not final approval. It never substitutes for any required Codex Independent Review.
+Automated Review is evidence, not final approval. It never substitutes for any required Codex Independent Review. AI02 distinguishes optional/risk-based Claude review from mandatory Claude Cross Review; CRITICAL tasks always require Claude Cross Review evidence.
 
 ### Codex Independent Review Gate
 
@@ -85,10 +90,12 @@ A remediation commit invalidates the previous Independent Review result and requ
 Merge eligibility requires:
 
 1. Windows CI PASS.
-2. Claude Automated Review PASS.
-3. Codex Independent Review APPROVED when required by §27 or by the approved task/PR lifecycle.
-4. No unresolved in-scope findings.
-5. No PR head drift after approval evidence.
+2. Claude Automated Review / Cross Review PASS when required by the AI02 task classification.
+3. Codex Independent Review APPROVED when required by §27, by `TASK_CLASSIFICATION.md`, or by the approved task/PR lifecycle.
+4. Developer / Independent Reviewer separation evidence.
+5. No unresolved in-scope findings.
+6. No PR head drift after approval evidence.
+7. Environment Authority / Evidence Precedence reconciled, including any non-authoritative sandbox anomalies.
 
 Merge eligibility is not merge authorization. Merge remains a Product Owner decision unless a future task explicitly grants autonomous merge authority. Current AI01 Orchestrator policy stops at `READY_FOR_MERGE`.
 

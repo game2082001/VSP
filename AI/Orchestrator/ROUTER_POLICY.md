@@ -7,7 +7,7 @@
 1. Read GitHub PR state.
 2. Read Git branch/head SHA.
 3. Read structured state.
-4. Read Task Plan authorization.
+4. Read AI02 Task Classification and Task Plan authorization.
 5. Read workflow/check status.
 6. Detect Stop Conditions.
 7. Apply token budget gates.
@@ -40,8 +40,12 @@ The Router must not emit `PRODUCT OWNER DECISION REQUIRED` for normal waiting. I
 
 ## Role Selection
 
+AI02 task classification is authoritative; see `AI/OperatingSystem/TASK_CLASSIFICATION.md`.
+
 Use Codex Worker for:
 
+- SMALL task implementation.
+- MEDIUM task implementation when assigned by classification.
 - Low-risk analysis.
 - CI triage.
 - Small documentation/configuration changes.
@@ -49,8 +53,9 @@ Use Codex Worker for:
 
 Use Claude Code for:
 
-- General implementation.
-- Medium/high-risk implementation after approval.
+- MAJOR task implementation.
+- CRITICAL task implementation.
+- MEDIUM task implementation when assigned by classification.
 - Remediation that touches production behavior.
 - Changes requiring build/test execution evidence.
 
@@ -61,11 +66,11 @@ Use Codex Independent Reviewer for:
 
 ## Gate Rules
 
-Windows CI and Claude Automated Review are parallel gates. Required Independent Review may start only when both gates pass.
+Windows CI is always required for PR merge eligibility. Claude review is required only when the AI02 task classification says `REQUIRED` or when risk-based escalation requires it.
 
 ```text
 Windows CI PASS
-Claude Automated Review PASS
+Claude Automated Review / Cross Review PASS when required
         -> Codex Independent Review
 ```
 
