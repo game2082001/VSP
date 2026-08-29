@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001B",
+  "title": "Approved Task Intake / Machine-Readable Task Manifest",
+  "classification": "MEDIUM",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "approvedScope": [
+    "Create a machine-readable AI02 task manifest schema.",
+    "Create a parser and fail-closed validation rules.",
+    "Create initial AI02 state from an approved manifest.",
+    "Validate classification and state consistency before PR creation."
+  ],
+  "outOfScope": [
+    "Dispatch Claude Developer.",
+    "Dispatch Codex Developer.",
+    "Dispatch Codex Independent Reviewer.",
+    "Execute remediation routing.",
+    "Modify product code.",
+    "Start SEC-001A/B/C."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "Product Owner required for VSP-AI02-001B."
+  },
+  "stopConditions": [
+    "Missing Product Owner authorization evidence.",
+    "Classification and role assignment mismatch.",
+    "Developer and Independent Reviewer are the same context.",
+    "Scope drift beyond task intake manifest/state foundation.",
+    "Any attempted developer, reviewer, remediation, CI, or release dispatch from intake tooling."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-08-29T00:00:00Z",
+    "evidenceSource": "Conversation / GitHub Issue",
+    "evidenceUrl": "https://github.com/game2082001/VSP/issues/0",
+    "approvalSummary": "Product Owner approved VSP-AI02-001B task intake manifest implementation."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  }
+}
