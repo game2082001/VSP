@@ -27,6 +27,16 @@ Crash and session recovery must be based on verifiable repository state:
 5. PR comments and review comments
 6. Chat history as a hint only
 
+## AI02 Task Intake
+
+Before implementation begins, AI02 work must have a Product Owner-approved machine-readable task manifest. The preferred intake path is:
+
+```text
+GitHub Issue + AI02 Task Manifest
+```
+
+The manifest schema is defined in `TASK_MANIFEST_SCHEMA.md`, with a reusable template at `Templates/task-manifest.template.json`. The validation tool `tools/orchestrator/task-manifest.ps1` verifies classification, approved scope, role assignment, independent reviewer requirements, Claude Cross Review requirements, Stop Conditions, and Product Owner authorization evidence. It can create an initial structured state artifact, but it must not dispatch developers, dispatch reviewers, route remediation, trigger workflows, or merge PRs.
+
 ## Terminal State
 
 The orchestrator never merges automatically. A successful run stops at:
@@ -52,4 +62,5 @@ Each AI01 task must define its approved scope from current GitHub truth. Protect
 - `RECOVERY.md` - crash and session recovery rules
 - `ROLE_SEPARATION.md` - implementation/review isolation rules
 - `REMEDIATION_POLICY.md` - bounded automatic remediation loop
+- `TASK_MANIFEST_SCHEMA.md` - Product Owner-approved task intake manifest contract
 - `DECISION_UX.md` - Product Owner decision format and pre-authorized execution

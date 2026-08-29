@@ -5,6 +5,9 @@ TASK CLASSIFICATION
 
 Task:
 
+Task Manifest:
+PRESENT | NOT_APPLICABLE
+
 Risk Class:
 SMALL | MEDIUM | MAJOR | CRITICAL
 
@@ -34,6 +37,7 @@ Lifecycle:
 ## Scope
 
 - [ ] This PR stays within the approved scope.
+- [ ] AI02 Task Manifest is present and valid for Product/Engineering work, or Product Owner explicitly approved a non-Product/Engineering exception.
 - [ ] This PR does not modify AI02 governance unless the task is an approved `VSP-AI02-*` Governance Task.
 - [ ] Product behavior changes, if any, match the approved task.
 - [ ] No autonomous merge is requested or performed.
@@ -85,6 +89,12 @@ Environment Authority:
 PENDING
 
 Sandbox / Diagnostic Anomalies:
+PENDING
+
+Task Manifest Validation:
+PENDING
+
+Classification / State Consistency:
 PENDING
 
 READY_FOR_MERGE:

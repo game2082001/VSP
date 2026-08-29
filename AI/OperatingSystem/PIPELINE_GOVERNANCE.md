@@ -25,6 +25,10 @@ This document is a higher-level governance summary. The executable routing rules
 ## 2. Gate Sequence
 
 ```text
+Product Owner-approved AI02 Task Manifest
+  -> Initial State Creation
+  -> Classification / Authorization Gate
+  -> Role Separation Gate
 Implementation
   -> Local Validation
   -> Commit Gate
@@ -37,6 +41,8 @@ Implementation
 ```
 
 AI02 task classification is governed by [`TASK_CLASSIFICATION.md`](TASK_CLASSIFICATION.md). Claude review is not mandatory for every PR: it is not required by default for SMALL tasks, risk-based for MEDIUM tasks, classification-driven for MAJOR tasks, and mandatory for CRITICAL tasks. When Claude review is required, current-head PASS evidence is part of merge eligibility.
+
+The AI02 Task Manifest contract is defined in `AI/Orchestrator/TASK_MANIFEST_SCHEMA.md`. The manifest is the machine-readable Product Owner authorization record before PR creation. Missing or invalid task manifest evidence is a fail-closed condition and must not be bypassed by chat history alone.
 
 ## 3. Gate Rules
 

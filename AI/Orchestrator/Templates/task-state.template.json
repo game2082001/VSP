@@ -1,12 +1,25 @@
 {
   "schemaVersion": "1.0",
   "taskId": "AI01-XXX",
+  "taskManifestPath": "",
+  "taskManifestStatus": "MISSING",
   "classification": "SMALL|MEDIUM|MAJOR|CRITICAL",
+  "classificationConsistencyStatus": "UNKNOWN",
   "prNumber": 0,
   "repository": "game2082001/VSP",
   "baseBranch": "main",
   "headBranch": "",
   "approvedScope": "",
+  "outOfScope": "",
+  "stopConditions": [],
+  "productOwnerAuthorizationEvidence": {
+    "authorized": false,
+    "authorizedBy": "",
+    "authorizedAtUtc": "",
+    "evidenceSource": "",
+    "evidenceUrl": "",
+    "approvalSummary": ""
+  },
   "executionAuthorization": {
     "implementation": false,
     "localValidation": false,

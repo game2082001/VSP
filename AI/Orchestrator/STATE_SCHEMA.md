@@ -10,18 +10,37 @@ Recommended path:
 AI/Orchestrator/State/<pr-number>.state.json
 ```
 
+Initial AI02 state may also be created before a PR exists from a Product Owner-approved task manifest:
+
+```text
+AI/Orchestrator/State/<task-id>.state.json
+```
+
 ## Required Fields
 
 ```json
 {
   "schemaVersion": "1.0",
   "taskId": "AI01-XXX",
+  "taskManifestPath": "",
+  "taskManifestStatus": "MISSING|VALID|INVALID",
   "classification": "SMALL|MEDIUM|MAJOR|CRITICAL",
+  "classificationConsistencyStatus": "UNKNOWN|VALID|INVALID",
   "prNumber": 0,
   "repository": "game2082001/VSP",
   "baseBranch": "main",
   "headBranch": "",
   "approvedScope": "",
+  "outOfScope": "",
+  "stopConditions": [],
+  "productOwnerAuthorizationEvidence": {
+    "authorized": false,
+    "authorizedBy": "",
+    "authorizedAtUtc": "",
+    "evidenceSource": "",
+    "evidenceUrl": "",
+    "approvalSummary": ""
+  },
   "executionAuthorization": {
     "implementation": false,
     "localValidation": false,
@@ -93,6 +112,8 @@ AI/Orchestrator/State/<pr-number>.state.json
 ```
 
 AI02 fields are authoritative for Product and Engineering PR lifecycle evidence. AI01-compatible consumers may ignore unknown fields, but must not claim `READY_FOR_MERGE` if `developerEqualsReviewer` is true, if required context IDs are missing, or if a sandbox diagnostic anomaly remains unreconciled.
+
+`taskManifestPath`, `taskManifestStatus`, `classificationConsistencyStatus`, and `productOwnerAuthorizationEvidence` record the machine-readable intake contract introduced by VSP-AI02-001B. Missing or invalid manifest authorization must stop implementation before PR creation. A state artifact created before implementation may have blank implementation and reviewer context IDs; those IDs must be populated and proven distinct before `READY_FOR_MERGE`.
 
 `environmentAuthority` records the Product Owner-approved authority matrix used to interpret evidence. Agent sandbox diagnostics are not automatically authoritative gates, but `sandboxDiagnostics` must preserve anomalies and the causal reconciliation. A sandbox anomaly must use `STOP_REQUIRED` if it plausibly indicates current-PR regression, secret exposure, data-loss risk, destructive behavior, or a gap not exercised by the authoritative gate.
 
