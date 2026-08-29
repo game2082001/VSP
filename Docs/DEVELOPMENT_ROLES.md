@@ -38,6 +38,8 @@ Independent Review Agent
 
 AI02 task classification and concrete developer/reviewer assignment are governed by `AI/OperatingSystem/TASK_CLASSIFICATION.md`. The default tools listed below describe role capability, but each Product or Engineering task must still record its `TASK CLASSIFICATION` block before implementation begins.
 
+AI02 task authorization is captured by a machine-readable Task Manifest before PR creation. The preferred intake is a Product Owner-approved GitHub Issue plus the manifest described in `AI/Orchestrator/TASK_MANIFEST_SCHEMA.md`. The manifest must validate classification, approved scope, primary developer assignment, independent reviewer requirement, Claude Cross Review requirement, Stop Conditions, and Product Owner authorization evidence before implementation starts.
+
 ---
 
 ## Product Owner
@@ -154,6 +156,8 @@ Read PROJECT.md
 Read DEVELOPMENT_GUIDE.md
         ↓
 Read Current Spec
+        ↓
+Validate AI02 Task Manifest
         ↓
 Task Plan
         ↓
