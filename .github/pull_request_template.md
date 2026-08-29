@@ -43,6 +43,7 @@ Lifecycle:
 - [ ] Local validation completed or justified as not applicable.
 - [ ] Windows CI completed.
 - [ ] Required review gates completed.
+- [ ] Environment Authority / Evidence Precedence reconciled, including any sandbox diagnostics.
 
 ## AI Governance Evidence
 
@@ -78,6 +79,12 @@ Unresolved Findings:
 PENDING
 
 Scope Drift:
+PENDING
+
+Environment Authority:
+PENDING
+
+Sandbox / Diagnostic Anomalies:
 PENDING
 
 READY_FOR_MERGE:

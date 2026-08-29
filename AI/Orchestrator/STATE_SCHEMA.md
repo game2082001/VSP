@@ -48,6 +48,15 @@ AI/Orchestrator/State/<pr-number>.state.json
   "developerEqualsReviewer": false,
   "ciStatus": "UNKNOWN",
   "claudeReviewStatus": "UNKNOWN",
+  "environmentAuthority": {
+    "sourceAuthority": "GitHub game2082001/VSP",
+    "windowsCiAuthority": "VSP-Server-01 on DESKTOP-COVI6R2",
+    "interactiveGuiAuthority": "VSP-GUI-01 on YOUSIN",
+    "releaseEvidenceAuthority": "workflow-defined exact source SHA and runner evidence",
+    "agentSandboxAuthority": "NON_AUTHORITATIVE_DIAGNOSTIC"
+  },
+  "sandboxDiagnostics": [],
+  "sandboxAnomalyDisposition": "NONE|RECORDED_AND_RECONCILED|STOP_REQUIRED",
   "claudeCrossReviewRequired": false,
   "claudeCrossReviewRunId": "",
   "claudeCrossReviewStatus": "N/A",
@@ -83,7 +92,9 @@ AI/Orchestrator/State/<pr-number>.state.json
 }
 ```
 
-AI02 fields are authoritative for Product and Engineering PR lifecycle evidence. AI01-compatible consumers may ignore unknown fields, but must not claim `READY_FOR_MERGE` if `developerEqualsReviewer` is true or if required context IDs are missing.
+AI02 fields are authoritative for Product and Engineering PR lifecycle evidence. AI01-compatible consumers may ignore unknown fields, but must not claim `READY_FOR_MERGE` if `developerEqualsReviewer` is true, if required context IDs are missing, or if a sandbox diagnostic anomaly remains unreconciled.
+
+`environmentAuthority` records the Product Owner-approved authority matrix used to interpret evidence. Agent sandbox diagnostics are not automatically authoritative gates, but `sandboxDiagnostics` must preserve anomalies and the causal reconciliation. A sandbox anomaly must use `STOP_REQUIRED` if it plausibly indicates current-PR regression, secret exposure, data-loss risk, destructive behavior, or a gap not exercised by the authoritative gate.
 
 ## Stages
 

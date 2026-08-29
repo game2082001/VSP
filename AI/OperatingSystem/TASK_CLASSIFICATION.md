@@ -3,7 +3,7 @@
 **Status:** Stable
 **Owner:** AI Development Kit
 **Established By:** VSP-AI02-001A
-**Scope:** Repository-persisted task classification, developer/reviewer role assignment, Claude Cross Review requirements, and READY_FOR_MERGE governance evidence.
+**Scope:** Repository-persisted task classification, developer/reviewer role assignment, Claude Cross Review requirements, Environment Authority / Evidence Precedence, and READY_FOR_MERGE governance evidence.
 
 ---
 
@@ -13,7 +13,7 @@ This document is the authoritative VSP-AI02 source for classifying Product and E
 
 AI02 extends the AI01 Orchestrator baseline. It does not grant autonomous merge authority, does not replace Product Owner approval, and does not allow a developer context to be the only independent reviewer of its own work.
 
-Any normal `PD`, `SEC`, `PLAYER`, `UI`, `BUG`, or `RELEASE` task must not modify or weaken this document. Changes to task classification, developer/reviewer assignment, Claude Cross Review requirements, role separation, READY_FOR_MERGE evidence, or autonomous merge authority require a dedicated `VSP-AI02-*` Governance Task and explicit Product Owner approval.
+Any normal `PD`, `SEC`, `PLAYER`, `UI`, `BUG`, or `RELEASE` task must not modify or weaken this document. Changes to task classification, developer/reviewer assignment, Claude Cross Review requirements, role separation, Environment Authority / Evidence Precedence, READY_FOR_MERGE evidence, or autonomous merge authority require a dedicated `VSP-AI02-*` Governance Task and explicit Product Owner approval.
 
 ---
 
@@ -230,7 +230,37 @@ Claude Cross Review is evidence, not Product Owner acceptance, and never grants 
 
 ---
 
-## 6. READY_FOR_MERGE Governance Evidence
+## 6. Environment Authority / Evidence Precedence
+
+AI02 gates must distinguish authoritative validation evidence from development or diagnostic observations.
+
+Current authoritative environments:
+
+| Surface | Authority |
+|---|---|
+| Source truth | GitHub repository `game2082001/VSP`: current `main`, exact PR head, exact merge ref, and GitHub PR/check/review state |
+| Development workspace | Development Server `DESKTOP-COVI6R2`, repository `C:\AI-Development\VSP` |
+| Windows CI validation | GitHub self-hosted runner `VSP-Server-01` on `DESKTOP-COVI6R2`, runner directory `C:\actions-runner`, checkout `C:\actions-runner\_work\VSP\VSP` |
+| Interactive GUI validation | GitHub self-hosted runner `VSP-GUI-01` on `YOUSIN`, with workflow-defined interactive account, SID, active console, `WTSActive`, and `WinSta0\Default` checks |
+| Release evidence | Workflow-defined exact source SHA plus workflow-defined build/test/package/security evidence on `VSP-Server-01` and GUI evidence on `VSP-GUI-01` when applicable |
+| Agent sandbox | Codex, Claude, or other temporary local workspaces used for development, diagnostics, exploration, or draft validation |
+
+Agent sandbox workspaces are non-authoritative temporary development or diagnostic environments. Non-authoritative does not mean ignorable. Any sandbox failure, anomaly, local-only failure, or diagnostic contradiction must be recorded and causally reconciled before `READY_FOR_MERGE`.
+
+A non-authoritative sandbox failure does not automatically supersede an authoritative PASS when all of the following are true:
+
+1. the sandbox environment is explicitly non-authoritative for the affected validation gate;
+2. the authoritative environment executed the applicable validation successfully for the current PR head, merge ref, or exact release source;
+3. scope and change review show no current-PR modification to the affected product, test, runtime, or environment surface;
+4. there is no evidence that the sandbox failure represents a current-PR regression, secret exposure, data-loss risk, destructive behavior, or a gap not exercised by the authoritative gate.
+
+If a sandbox failure has plausible causal relation to the current PR, exposes a security or data-loss concern, indicates destructive behavior, or reveals an authoritative gate coverage gap, the task must STOP for Product Owner review or in-scope remediation. It may not be dismissed merely because a different environment passed.
+
+Environment authority is not permanently bound to the machine names above. A Product Owner-approved migration or replacement of any authoritative environment requires a dedicated AI02 governance/environment update that records the new source of authority, runner identity, purpose, and evidence precedence before it is used as merge or release authority.
+
+---
+
+## 7. READY_FOR_MERGE Governance Evidence
 
 Every task or PR must provide this final evidence block before it can be presented as `READY_FOR_MERGE`:
 
@@ -268,6 +298,11 @@ Unresolved Findings:
 Scope Drift:
 NONE
 
+Environment Authority:
+
+Sandbox / Diagnostic Anomalies:
+NONE | RECORDED_AND_RECONCILED
+
 READY_FOR_MERGE:
 YES
 ```
@@ -282,7 +317,7 @@ STOP / NOT READY_FOR_MERGE
 
 ---
 
-## 7. Bootstrap Exception
+## 8. Bootstrap Exception
 
 `VSP-AI02-001A` has a Product Owner-approved temporary bootstrap exception:
 

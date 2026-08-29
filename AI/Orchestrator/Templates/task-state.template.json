@@ -33,6 +33,15 @@
   "developerEqualsReviewer": false,
   "ciStatus": "UNKNOWN",
   "claudeReviewStatus": "UNKNOWN",
+  "environmentAuthority": {
+    "sourceAuthority": "GitHub game2082001/VSP",
+    "windowsCiAuthority": "VSP-Server-01 on DESKTOP-COVI6R2",
+    "interactiveGuiAuthority": "VSP-GUI-01 on YOUSIN",
+    "releaseEvidenceAuthority": "workflow-defined exact source SHA and runner evidence",
+    "agentSandboxAuthority": "NON_AUTHORITATIVE_DIAGNOSTIC"
+  },
+  "sandboxDiagnostics": [],
+  "sandboxAnomalyDisposition": "NONE",
   "claudeCrossReviewRequired": false,
   "claudeCrossReviewRunId": "",
   "claudeCrossReviewStatus": "N/A",

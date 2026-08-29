@@ -60,6 +60,10 @@ The Windows CI gate uses `.github/workflows/vsp-windows-ci.yml`.
 
 For PR lifecycle validation, the gate must be evaluated against the PR current head or GitHub's current PR merge ref evidence. A red CI gate blocks Independent Review and Merge until triaged.
 
+The authoritative Windows CI environment is the GitHub self-hosted `VSP-Server-01` runner on the Product Owner-approved VSP development server environment. The current recorded authority is `DESKTOP-COVI6R2`, runner directory `C:\actions-runner`, checkout path `C:\actions-runner\_work\VSP\VSP`, and runner service `actions.runner.game2082001-VSP.VSP-Server-01`.
+
+Agent sandbox or temporary local validation is diagnostic evidence unless a task explicitly designates it as authoritative. Sandbox failures must be recorded and causally reconciled, but they do not automatically override an authoritative Windows CI PASS when the PR diff does not touch the affected surface and no regression, secret exposure, data-loss risk, destructive behavior, or authoritative-gate coverage gap is indicated. If any such causal or safety concern is plausible, the task stops for Product Owner review or in-scope remediation.
+
 ### Claude Automated Review / Cross Review Gate
 
 The Claude Automated Review gate uses `.github/workflows/claude-code-review.yml`.
@@ -91,6 +95,7 @@ Merge eligibility requires:
 4. Developer / Independent Reviewer separation evidence.
 5. No unresolved in-scope findings.
 6. No PR head drift after approval evidence.
+7. Environment Authority / Evidence Precedence reconciled, including any non-authoritative sandbox anomalies.
 
 Merge eligibility is not merge authorization. Merge remains a Product Owner decision unless a future task explicitly grants autonomous merge authority. Current AI01 Orchestrator policy stops at `READY_FOR_MERGE`.
 
