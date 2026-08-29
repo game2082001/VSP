@@ -6,12 +6,15 @@
 
 1. Read GitHub PR state.
 2. Read Git branch/head SHA.
-3. Read structured state.
-4. Read AI02 Task Classification and Task Plan authorization.
-5. Read workflow/check status.
-6. Detect Stop Conditions.
-7. Apply token budget gates.
-8. Route to the next role.
+3. Read AI02 Task Manifest authorization when the task is pre-PR or when a manifest path is recorded in state.
+4. Read structured state.
+5. Read AI02 Task Classification and Task Plan authorization.
+6. Read workflow/check status.
+7. Detect Stop Conditions.
+8. Apply token budget gates.
+9. Route to the next role.
+
+AI02 Task Manifest intake is defined in `TASK_MANIFEST_SCHEMA.md`. Manifest validation is fail-closed: missing Product Owner authorization evidence, classification/role mismatch, missing independent reviewer requirement, invalid Claude Cross Review requirement, or developer/reviewer context equality stops the task before implementation or PR creation.
 
 ## Pre-Authorized Lifecycle
 
