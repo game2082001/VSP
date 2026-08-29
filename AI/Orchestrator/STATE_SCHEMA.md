@@ -16,6 +16,7 @@ AI/Orchestrator/State/<pr-number>.state.json
 {
   "schemaVersion": "1.0",
   "taskId": "AI01-XXX",
+  "classification": "SMALL|MEDIUM|MAJOR|CRITICAL",
   "prNumber": 0,
   "repository": "game2082001/VSP",
   "baseBranch": "main",
@@ -35,15 +36,23 @@ AI/Orchestrator/State/<pr-number>.state.json
   },
   "riskCeiling": "HIGH",
   "currentStage": "PLANNED",
+  "primaryDeveloperRole": "",
+  "primaryDeveloperAdapter": "claude|codex|manual",
   "assignedImplementationRole": "",
   "implementationContextId": "",
+  "implementationRunId": "",
   "codexWorkerTouchedPr": false,
   "independentReviewerRole": "Codex Independent Reviewer",
   "independentReviewerModel": "gpt-5.6-luna medium",
   "independentReviewerContextId": "",
+  "developerEqualsReviewer": false,
   "ciStatus": "UNKNOWN",
   "claudeReviewStatus": "UNKNOWN",
+  "claudeCrossReviewRequired": false,
+  "claudeCrossReviewRunId": "",
+  "claudeCrossReviewStatus": "N/A",
   "independentReviewStatus": "NOT_REQUESTED",
+  "findings": [],
   "remediationCount": 0,
   "remediationLimit": 2,
   "tokenBudget": {
@@ -68,10 +77,13 @@ AI/Orchestrator/State/<pr-number>.state.json
   "observedHeadCommit": "",
   "lastWorkflowRunIds": [],
   "remainingKnownRisks": [],
+  "scopeDrift": "NONE",
   "readyForMerge": false,
   "updatedAtUtc": ""
 }
 ```
+
+AI02 fields are authoritative for Product and Engineering PR lifecycle evidence. AI01-compatible consumers may ignore unknown fields, but must not claim `READY_FOR_MERGE` if `developerEqualsReviewer` is true or if required context IDs are missing.
 
 ## Stages
 

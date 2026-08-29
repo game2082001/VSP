@@ -36,6 +36,8 @@ Independent Review Agent
 
 （Independent Review Agent 對 Developer 的產出把關，兩者不得為同一次異動的同一角色；何時強制審查見 `AI/OperatingSystem/AI_OPERATING_SYSTEM.md` §27 Independent Review Policy。）
 
+AI02 task classification and concrete developer/reviewer assignment are governed by `AI/OperatingSystem/TASK_CLASSIFICATION.md`. The default tools listed below describe role capability, but each Product or Engineering task must still record its `TASK CLASSIFICATION` block before implementation begins.
+
 ---
 
 ## Product Owner

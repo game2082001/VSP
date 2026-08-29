@@ -73,9 +73,38 @@ PROJECT.md 已包含所有專案規範。
 
 請先提出本次修改計畫。
 
+Product / Engineering tasks must first include the AI02 classification block from `AI/OperatingSystem/TASK_CLASSIFICATION.md`. The classification records whether the task is `SMALL`, `MEDIUM`, `MAJOR`, or `CRITICAL`, which agent is the Primary Developer, which separate context is the Independent Reviewer, whether Claude Cross Review is required, and why Developer / Reviewer separation is provably false.
+
 格式如下：
 
 ======== Task Plan ========
+
+TASK CLASSIFICATION
+
+Task:
+
+Risk Class:
+SMALL | MEDIUM | MAJOR | CRITICAL
+
+Primary Developer:
+
+Independent Reviewer:
+
+Developer == Reviewer:
+FALSE
+
+Claude Cross Review:
+REQUIRED | NOT_REQUIRED | RISK_BASED
+
+Reason:
+
+Approved Scope:
+
+Stop Conditions:
+
+Lifecycle:
+
+--------------------------------
 
 本次任務：
 

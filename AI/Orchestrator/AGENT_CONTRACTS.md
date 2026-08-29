@@ -4,7 +4,7 @@
 
 ## Agent Router / Orchestrator
 
-The Router owns task routing, gate evaluation, structured state, and recovery.
+The Router owns task routing, gate evaluation, structured state, and recovery. AI02 task classification is defined in `AI/OperatingSystem/TASK_CLASSIFICATION.md`; this document consumes that classification and does not redefine it.
 
 Allowed:
 
@@ -25,11 +25,13 @@ Not allowed:
 
 ## Codex Worker
 
-Codex Worker handles low-risk work.
+Codex Worker handles AI02 SMALL development work, MEDIUM work when assigned by classification, CI triage, documentation/configuration tasks, and structured evidence extraction.
 
 Allowed:
 
 - Low-risk analysis.
+- AI02 SMALL implementation inside approved scope.
+- AI02 MEDIUM implementation only when assigned by the task classification.
 - CI triage.
 - Small documentation/configuration fixes.
 - Small implementation tasks inside approved scope.
@@ -43,11 +45,12 @@ Not allowed:
 
 ## Claude Code
 
-Claude Code is the primary implementation/remediation agent.
+Claude Code is the primary implementation/remediation agent for AI02 MAJOR and CRITICAL tasks, and for MEDIUM tasks when assigned by classification.
 
 Allowed:
 
-- General implementation inside approved scope.
+- AI02 MAJOR and CRITICAL implementation inside approved scope.
+- AI02 MEDIUM implementation when assigned by classification.
 - High-risk implementation only after explicit approval.
 - Remediation requested by the Router.
 - Build/test execution and evidence reporting.
@@ -78,3 +81,4 @@ Not allowed:
 - Push, commit, merge, or workflow mutation.
 - Reviewing a PR from the same role/work context that modified it.
 - Trusting implementation reports without inspecting actual PR state.
+- Returning `READY_FOR_MERGE` when Developer / Reviewer separation evidence is missing or contradictory.
