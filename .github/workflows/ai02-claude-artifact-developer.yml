@@ -1,0 +1,109 @@
+name: AI02 Claude Artifact Developer
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: AI02 task ID to execute
+        required: true
+        type: string
+      manifest_path:
+        description: Repository path to the approved AI02 task manifest
+        required: true
+        type: string
+      state_path:
+        description: Repository path to the AI02 task state
+        required: true
+        type: string
+      expected_base_sha:
+        description: Expected base SHA for the developer working tree
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  claude-developer:
+    name: Claude Primary Developer Artifact Package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout expected base without write credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_base_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate AI02 task before Claude invocation
+        id: validate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if ("${{ inputs.task_id }}" -notmatch '^VSP-AI02-[A-Za-z0-9-]+$') {
+            throw "Invalid AI02 task_id input."
+          }
+
+          $validationJson = ./tools/orchestrator/claude-artifact-developer.ps1 `
+            -ManifestPath "${{ inputs.manifest_path }}" `
+            -StatePath "${{ inputs.state_path }}" `
+            -ExpectedBaseSha "${{ inputs.expected_base_sha }}" `
+            -Repository "${{ github.repository }}" `
+            -ValidateOnly
+          $validationJson
+          $validation = $validationJson | ConvertFrom-Json
+          if ($validation.taskId -ne "${{ inputs.task_id }}") {
+            throw "Validated taskId does not match workflow input."
+          }
+          if ($validation.repositoryWriteCredentialAvailableToDeveloper -ne $false) {
+            throw "Developer credential boundary validation failed."
+          }
+          "task_id=$($validation.taskId)" >> $env:GITHUB_OUTPUT
+
+      - name: Prepare Claude prompt from validated task state
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          ./tools/orchestrator/claude-artifact-developer.ps1 `
+            -ManifestPath "${{ inputs.manifest_path }}" `
+            -StatePath "${{ inputs.state_path }}" `
+            -ExpectedBaseSha "${{ inputs.expected_base_sha }}" `
+            -Repository "${{ github.repository }}" `
+            -OutputDirectory "${{ runner.temp }}/ai02-claude-developer" `
+            -PreparePrompt
+
+      - name: Run Claude Code Primary Developer
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt_file: ${{ runner.temp }}/ai02-claude-developer/claude-developer-prompt.md
+          claude_args: '--disallowedTools "Bash(git push:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr merge:*),Bash(gh api repos/*/git/refs:*),Bash(gh api repos/*/pulls:*)"'
+
+      - name: Package runner working-tree changes
+        if: always() && steps.validate.outcome == 'success'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          ./tools/orchestrator/claude-artifact-developer.ps1 `
+            -ManifestPath "${{ inputs.manifest_path }}" `
+            -StatePath "${{ inputs.state_path }}" `
+            -ExpectedBaseSha "${{ inputs.expected_base_sha }}" `
+            -Repository "${{ github.repository }}" `
+            -OutputDirectory "${{ runner.temp }}/ai02-publication-package" `
+            -Package
+
+      - name: Upload AI02 publication package artifact
+        if: always() && steps.validate.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai02-claude-publication-package-${{ inputs.task_id }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/ai02-publication-package/publication-package.zip
+            ${{ runner.temp }}/ai02-publication-package/publication-package.manifest.json
+            ${{ runner.temp }}/ai02-publication-package/publication-package.result.json
+          if-no-files-found: error
+          overwrite: false

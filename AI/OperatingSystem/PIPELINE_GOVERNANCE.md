@@ -46,6 +46,8 @@ The AI02 Task Manifest contract is defined in `AI/Orchestrator/TASK_MANIFEST_SCH
 
 `VSP-AI02-001T` adds the AI02 Repository Transport as the credentialless publication boundary for agent-prepared repository changes. Agent contexts submit a structured publication request and file content hashes; the GitHub App private key and installation token are created and used only inside the trusted GitHub Actions workflow. The transport publishes exactly one Git commit to a controlled task branch, opens a pull request, verifies remote equality, records evidence, and never merges. Workflow-write permission is not granted by default and may be requested only by an explicit AI02 governance task whose approved scope includes workflow changes. Non-workflow publication must use request-driven least privilege and must not request workflow, issue, or actions permissions from the GitHub App token.
 
+`VSP-AI02-001TI-B1` adds the Claude Artifact Developer availability surface. The workflow may run Claude Code as a validated AI02 Primary Developer inside GitHub Actions and produce a binary-safe publication artifact from runner working-tree changes. It is intentionally not a repository publication boundary: it must use read-only repository permissions, checkout with credentials disabled, never mint the VSP AI Implementation App token, never push, never open a PR, never merge, and never expose repository-write credentials to Claude. The resulting artifact is diagnostic/developer output until a later trusted intake workflow validates it and hands it to the AI02 Repository Transport.
+
 ## 3. Gate Rules
 
 ### Commit Gate

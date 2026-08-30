@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-B1",
+  "title": "Claude Artifact Developer Workflow Availability",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "approvedScope": [
+    "Create the minimal default-branch AI02 Claude artifact developer workflow.",
+    "Validate approved AI02 task manifest/state before invoking Claude.",
+    "Run Claude Code as Primary Developer in GitHub Actions with repository read-only permissions.",
+    "Package runner working-tree changes into a binary-safe artifact with file hashes and package hash.",
+    "Preserve the boundary that repository write, branch creation, PR creation, and merge are not performed by the developer workflow."
+  ],
+  "outOfScope": [
+    "Repository publication through the VSP AI Implementation GitHub App.",
+    "C1 or C2 Claude adapter activation.",
+    "Product code or product tests.",
+    "GitHub App permission changes.",
+    "Push, PR creation, merge, tag, or release behavior.",
+    "Workflow execution smoke before B1 is merged."
+  ],
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-B1",
+    "scope": "Codex may implement only this one Claude artifact developer availability bootstrap surface because the default-branch Claude developer workflow does not yet exist.",
+    "expires": "After VSP-AI02-001TI-B1 merges and the workflow is available on default branch."
+  },
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "Product Owner required Claude Cross Review for the CRITICAL B1 bootstrap surface."
+  },
+  "stopConditions": [
+    "Claude workflow would receive repository write credentials, an App installation token, PAT, or reusable Git credential.",
+    "Workflow invokes Claude before manifest/state validation succeeds.",
+    "Workflow can push, create a PR, merge, tag, or mint the VSP AI Implementation App token.",
+    "Scope expands into TI implementation, C1/C2 activation, product code, product tests, or GitHub App permission changes.",
+    "Developer and Independent Reviewer separation cannot be proven.",
+    "Windows CI, Separate Codex Independent Review, or Claude Cross Review fails."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-08-30T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/issues/0",
+    "approvalSummary": "Product Owner approved VSP-AI02-001TI-B1 as a one-time AI02 infrastructure bootstrap surface implemented by Codex with separate Codex review and Claude Cross Review."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "repositoryTransport": {
+    "required": true,
+    "requestPath": "",
+    "baseBinding": "EXACT",
+    "infrastructureSmoke": false,
+    "allowWorkflowChanges": true,
+    "openPullRequest": true,
+    "postMergeOperationalSmokeRequired": false,
+    "approvedFiles": [
+      ".github/workflows/ai02-claude-artifact-developer.yml",
+      "AI/OperatingSystem/PIPELINE_GOVERNANCE.md",
+      "AI/OperatingSystem/TASK_CLASSIFICATION.md",
+      "AI/Orchestrator/Manifests/VSP-AI02-001TI-B1.manifest.json",
+      "AI/Orchestrator/STATE_SCHEMA.md",
+      "AI/Orchestrator/State/VSP-AI02-001TI-B1.state.json",
+      "AI/Orchestrator/TASK_MANIFEST_SCHEMA.md",
+      "tools/orchestrator/claude-artifact-developer.ps1",
+      "tools/orchestrator/task-manifest.ps1"
+    ]
+  }
+}

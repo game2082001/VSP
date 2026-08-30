@@ -146,9 +146,10 @@ function Test-ManifestClassification {
             }
         }
         "CRITICAL" {
-            if ($Manifest.taskId -eq "VSP-AI02-001T" -and
+            $approvedCodexBootstrapTasks = @("VSP-AI02-001T", "VSP-AI02-001TI-B1")
+            if ($Manifest.taskId -in $approvedCodexBootstrapTasks -and
                 $Manifest.bootstrapException.authorized -eq $true -and
-                $Manifest.bootstrapException.taskId -eq "VSP-AI02-001T" -and
+                $Manifest.bootstrapException.taskId -eq $Manifest.taskId -and
                 $Manifest.normalRequiredPrimaryDeveloper -eq "Claude Code Primary Developer" -and
                 $developerRole -eq "Codex Development Agent" -and
                 $developerAdapter -eq "codex" -and

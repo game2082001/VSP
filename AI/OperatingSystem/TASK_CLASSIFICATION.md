@@ -341,3 +341,16 @@ This exception applies only to AI02 governance bootstrap work. It must not be ex
 - Product Owner remains the only merge authority.
 
 This exception applies only to `VSP-AI02-001T`. It expires after 001T merges and the post-merge GitHub App transport smoke proves operational publication. It must not be extended to C1, C2, 001D+, Product, Security, Player, UI, Bug, Release, Pilot, or GA tasks.
+
+`VSP-AI02-001TI-B1` has a Product Owner-approved temporary bootstrap exception:
+
+- Normal classification remains `CRITICAL`.
+- Normal required Primary Developer remains `Claude Code Primary Developer`.
+- Codex Development Agent may implement only because B1 creates the default-branch GitHub Actions workflow needed before Claude Code can run as a validated AI02 Primary Developer without Product Owner relay.
+- The B1 workflow may validate an AI02 task and run Claude Code in a read-only GitHub Actions developer job, then upload a binary-safe publication artifact.
+- The B1 workflow must not mint the VSP AI Implementation App token, push a branch, open a PR, merge, tag, or grant repository-write credentials to Claude.
+- Separate Codex Independent Reviewer context is still required.
+- Claude Cross Review remains REQUIRED.
+- Product Owner remains the only merge authority.
+
+This exception applies only to `VSP-AI02-001TI-B1`. It expires after B1 merges and the Claude Artifact Developer workflow is available on the default branch. It must not be extended to TI implementation, C1, C2, 001D+, Product, Security, Player, UI, Bug, Release, Pilot, or GA tasks.
