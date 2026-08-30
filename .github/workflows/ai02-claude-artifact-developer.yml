@@ -64,23 +64,39 @@ jobs:
           "task_id=$($validation.taskId)" >> $env:GITHUB_OUTPUT
 
       - name: Prepare Claude prompt from validated task state
+        id: prompt
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          ./tools/orchestrator/claude-artifact-developer.ps1 `
+          $promptResultJson = ./tools/orchestrator/claude-artifact-developer.ps1 `
             -ManifestPath "${{ inputs.manifest_path }}" `
             -StatePath "${{ inputs.state_path }}" `
             -ExpectedBaseSha "${{ inputs.expected_base_sha }}" `
             -Repository "${{ github.repository }}" `
             -OutputDirectory "${{ runner.temp }}/ai02-claude-developer" `
             -PreparePrompt
+          $promptResultJson
+          $promptResult = $promptResultJson | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace($promptResult.promptPath) -or -not (Test-Path -LiteralPath $promptResult.promptPath)) {
+            throw "Prepared Claude prompt file was not created."
+          }
+
+          $promptText = Get-Content -LiteralPath $promptResult.promptPath -Raw
+          if ([string]::IsNullOrWhiteSpace($promptText)) {
+            throw "Prepared Claude prompt is empty."
+          }
+
+          $delimiter = "AI02_CLAUDE_PROMPT_$([Guid]::NewGuid().ToString('N'))"
+          "prompt<<$delimiter" >> $env:GITHUB_OUTPUT
+          $promptText >> $env:GITHUB_OUTPUT
+          $delimiter >> $env:GITHUB_OUTPUT
 
       - name: Run Claude Code Primary Developer
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt_file: ${{ runner.temp }}/ai02-claude-developer/claude-developer-prompt.md
+          prompt: ${{ steps.prompt.outputs.prompt }}
           claude_args: '--disallowedTools "Bash(git push:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr merge:*),Bash(gh api repos/*/git/refs:*),Bash(gh api repos/*/pulls:*)"'
 
       - name: Package runner working-tree changes
