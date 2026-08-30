@@ -440,9 +440,26 @@ foreach ($file in @($request.files)) {
 
 $prNumber = 0
 if ($request.openPullRequest -eq $true) {
-    $existingPr = gh pr view $request.targetBranch --repo $Repository --json number,state 2>$null
-    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($existingPr)) {
-        $pr = $existingPr | ConvertFrom-Json
+    $owner = $Repository.Split("/")[0]
+    $encodedHead = [System.Uri]::EscapeDataString("$owner`:$($request.targetBranch)")
+    $existingPrs = Invoke-GhJson @("api", "repos/$Repository/pulls?head=$encodedHead&base=main&state=open")
+    if (@($existingPrs).Count -gt 0) {
+        $pr = @($existingPrs)[0]
+        if ([string]$pr.head.ref -ne [string]$request.targetBranch) {
+            Stop-Transport "Existing pull request head branch mismatch."
+        }
+        if ([string]$pr.base.ref -ne "main") {
+            Stop-Transport "Existing pull request base branch mismatch."
+        }
+        if ([string]$pr.head.sha -ne [string]$commit.sha) {
+            Stop-Transport "Existing pull request head SHA mismatch."
+        }
+        if ([string]$pr.base.sha -ne $executionBaseSha) {
+            Stop-Transport "Existing pull request base SHA mismatch."
+        }
+        if ([string]$pr.state -ne "open") {
+            Stop-Transport "Existing pull request is not open."
+        }
         $prNumber = [int]$pr.number
     } else {
         $body = @"
@@ -454,11 +471,33 @@ Branch: $($request.targetBranch)
 Commit: $($commit.sha)
 Merged: false
 "@
-        $created = gh pr create --repo $Repository --base main --head $request.targetBranch --title $request.title --body $body --json number
-        if ($LASTEXITCODE -ne 0) {
-            Stop-Transport "Pull request creation failed."
+        $prPayload = [pscustomobject]@{
+            title = [string]$request.title
+            head = [string]$request.targetBranch
+            base = "main"
+            body = $body
+            maintainer_can_modify = $false
+            draft = $false
+        } | ConvertTo-Json -Depth 5
+        $prFile = Join-Path $env:RUNNER_TEMP "ai02-transport-pr.json"
+        $prPayload | Set-Content -LiteralPath $prFile -Encoding utf8
+        $pr = Invoke-GhJson @("api", "repos/$Repository/pulls", "--method", "POST", "--input", $prFile)
+        if ([string]$pr.head.ref -ne [string]$request.targetBranch) {
+            Stop-Transport "Created pull request head branch mismatch."
         }
-        $prNumber = [int](($created | ConvertFrom-Json).number)
+        if ([string]$pr.base.ref -ne "main") {
+            Stop-Transport "Created pull request base branch mismatch."
+        }
+        if ([string]$pr.head.sha -ne [string]$commit.sha) {
+            Stop-Transport "Created pull request head SHA mismatch."
+        }
+        if ([string]$pr.base.sha -ne $executionBaseSha) {
+            Stop-Transport "Created pull request base SHA mismatch."
+        }
+        if ([string]$pr.state -ne "open") {
+            Stop-Transport "Created pull request is not open."
+        }
+        $prNumber = [int]$pr.number
     }
 }
 

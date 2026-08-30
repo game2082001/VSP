@@ -78,6 +78,20 @@ The non-workflow path must not request `workflows: write`, `issues: write`, or `
 
 For requests that include `.github/workflows/*` changes, validation must first prove `allowWorkflowChanges=true` and manifest-level workflow authorization. Only then may the trusted workflow request `workflows: write` in addition to the publication permissions, and `pull-requests: write` remains conditional on `openPullRequest=true`. If the VSP AI Implementation GitHub App installation does not possess workflow-write permission, token creation must fail closed before any Git Data write, branch creation, or PR creation. The transport must not silently downgrade a workflow-changing request into a non-workflow publication.
 
+## 2.2 Pull Request Creation
+
+When `openPullRequest=true`, the transport must create or detect the pull request through the GitHub REST API using the same short-lived VSP AI Implementation App token. It must not depend on runner-specific `gh pr create --json` support.
+
+The structured pull request response must be validated before `prNumber` is accepted:
+
+- `head.ref` matches the controlled target branch;
+- `head.sha` matches the created transport commit;
+- `base.ref` is `main`;
+- `base.sha` matches `executionBaseSha`;
+- `state` is `open`.
+
+If the PR API call fails or the response does not match the intended branch/base/commit, the transport must fail closed and must not report successful operational validation.
+
 ---
 
 ## 3. Publication Result
@@ -139,7 +153,7 @@ The transport must stop before publication when:
 - the compare range contains more than one commit after publication;
 - remote changed-file set differs from the request;
 - any remote file hash differs from the request;
-- PR creation/update fails;
+- PR creation/update fails or the structured PR response does not match the intended head, base, commit, or open state;
 - the workflow run attempt is not `1`;
 - remote `main` drifts between dispatch-time base resolution and branch ref publication;
 - merge would be required.
