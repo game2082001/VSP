@@ -10,7 +10,7 @@
 
 The AI02 Repository Transport is the only approved AI02 path for publishing agent-prepared repository changes without exposing reusable GitHub credentials to Codex or Claude execution contexts.
 
-The trusted boundary is the `AI02 Repository Transport` GitHub Actions workflow. It creates a short-lived VSP AI Implementation GitHub App installation token inside GitHub Actions, validates the publication request, creates one Git tree and one Git commit using Git Data semantics, updates a controlled task branch, opens or updates a pull request, verifies remote equality, and records structured evidence.
+The trusted boundary is the `AI02 Repository Transport` GitHub Actions workflow. It validates the publication request with read-only workflow credentials, creates a short-lived request-scoped VSP AI Implementation GitHub App installation token inside GitHub Actions, creates one Git tree and one Git commit using Git Data semantics, updates a controlled task branch, opens or updates a pull request, verifies remote equality, and records structured evidence.
 
 Agents must not receive:
 
@@ -64,6 +64,19 @@ The file set in `files` must exactly match `approvedFiles`. Every file content h
 The request `approvedFiles` list is not self-authorizing. It must also match the Product Owner-approved `repositoryTransport.approvedFiles` allowlist in the referenced AI02 Task Manifest. A request may set `allowWorkflowChanges=true` only when the manifest also sets `repositoryTransport.allowWorkflowChanges=true`.
 
 `baseBinding` defaults to `EXACT`. Normal Product, SEC, UI, PLAYER, release, and engineering tasks must use `EXACT`, where `baseSha` must match the current remote `main` at execution time. The only approved non-default mode is `DISPATCH_MAIN`, restricted to Product Owner-approved AI02 infrastructure smoke fixtures. For `DISPATCH_MAIN`, the workflow resolves current remote `main` at dispatch time, records that value as `executionBaseSha`, uses it as the commit parent, and rechecks remote `main` immediately before branch ref publication. The request must not supply `executionBaseSha`.
+
+## 2.1 Request-Driven GitHub App Permissions
+
+The transport must request the minimum GitHub App token permissions required by the already-validated request.
+
+For requests with no workflow file changes, the transport requests only:
+
+- `contents: write` for Git Data blob/tree/commit/ref publication;
+- `pull-requests: write` only when `openPullRequest=true`.
+
+The non-workflow path must not request `workflows: write`, `issues: write`, or `actions: read`.
+
+For requests that include `.github/workflows/*` changes, validation must first prove `allowWorkflowChanges=true` and manifest-level workflow authorization. Only then may the trusted workflow request `workflows: write` in addition to the publication permissions, and `pull-requests: write` remains conditional on `openPullRequest=true`. If the VSP AI Implementation GitHub App installation does not possess workflow-write permission, token creation must fail closed before any Git Data write, branch creation, or PR creation. The transport must not silently downgrade a workflow-changing request into a non-workflow publication.
 
 ---
 
