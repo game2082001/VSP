@@ -342,6 +342,7 @@ if ($ValidateOnly) {
         executionBaseSha = $executionBaseSha
         fileCount = @($request.files).Count
         workflowChanges = [bool]($request.files | Where-Object { $_.path.StartsWith(".github/workflows/") } | Select-Object -First 1)
+        openPullRequest = [bool]$request.openPullRequest
         validation = "VALID"
         publish = $false
     } | ConvertTo-Json -Depth 6

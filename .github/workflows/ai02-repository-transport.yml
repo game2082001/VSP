@@ -10,9 +10,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
-  issues: read
-  actions: read
 
 jobs:
   publish:
@@ -20,9 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
-      actions: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,36 +25,76 @@ jobs:
           persist-credentials: false
 
       - name: Validate publication request without write credentials
+        id: validate
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
-          ./tools/orchestrator/repository-transport.ps1 `
+          $validationJson = ./tools/orchestrator/repository-transport.ps1 `
             -RequestPath "${{ inputs.request_path }}" `
             -Repository "${{ github.repository }}" `
             -WorkflowRunId "${{ github.run_id }}" `
             -WorkflowRunAttempt "${{ github.run_attempt }}" `
             -ValidateOnly
+          $validationJson
+          $validation = $validationJson | ConvertFrom-Json
+          "workflow_changes=$($validation.workflowChanges.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "open_pull_request=$($validation.openPullRequest.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
-      - name: Create VSP AI Implementation App token
-        id: implementation-token
+      - name: Create VSP AI Implementation App token for contents
+        id: implementation-token-contents
+        if: steps.validate.outputs.workflow_changes == 'false' && steps.validate.outputs.open_pull_request == 'false'
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.VSP_AI_APP_ID }}
           private-key: ${{ secrets.VSP_AI_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: VSP
-          permission-actions: read
+          permission-contents: write
+
+      - name: Create VSP AI Implementation App token for contents and PR
+        id: implementation-token-contents-pr
+        if: steps.validate.outputs.workflow_changes == 'false' && steps.validate.outputs.open_pull_request == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.VSP_AI_APP_ID }}
+          private-key: ${{ secrets.VSP_AI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: VSP
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
+
+      - name: Create VSP AI Implementation App token with workflow write
+        id: implementation-token-workflow
+        if: steps.validate.outputs.workflow_changes == 'true' && steps.validate.outputs.open_pull_request == 'false'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.VSP_AI_APP_ID }}
+          private-key: ${{ secrets.VSP_AI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: VSP
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Create VSP AI Implementation App token with workflow write and PR
+        id: implementation-token-workflow-pr
+        if: steps.validate.outputs.workflow_changes == 'true' && steps.validate.outputs.open_pull_request == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.VSP_AI_APP_ID }}
+          private-key: ${{ secrets.VSP_AI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: VSP
+          permission-contents: write
+          permission-pull-requests: write
           permission-workflows: write
 
       - name: Publish via Git Data API
         shell: pwsh
         env:
-          GH_TOKEN: ${{ steps.implementation-token.outputs.token }}
+          GH_TOKEN: ${{ steps.implementation-token-contents.outputs.token || steps.implementation-token-contents-pr.outputs.token || steps.implementation-token-workflow.outputs.token || steps.implementation-token-workflow-pr.outputs.token }}
+          APP_SLUG: ${{ steps.implementation-token-contents.outputs.app-slug || steps.implementation-token-contents-pr.outputs.app-slug || steps.implementation-token-workflow.outputs.app-slug || steps.implementation-token-workflow-pr.outputs.app-slug }}
         run: |
           $ErrorActionPreference = "Stop"
           ./tools/orchestrator/repository-transport.ps1 `
@@ -68,7 +102,7 @@ jobs:
             -Repository "${{ github.repository }}" `
             -WorkflowRunId "${{ github.run_id }}" `
             -WorkflowRunAttempt "${{ github.run_attempt }}" `
-            -AppSlug "${{ steps.implementation-token.outputs.app-slug }}" `
+            -AppSlug "$env:APP_SLUG" `
             -Publish
 
       - name: Upload transport evidence
