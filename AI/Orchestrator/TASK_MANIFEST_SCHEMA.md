@@ -227,3 +227,18 @@ BOOTSTRAP_PUBLICATION_IDENTITY_EXCEPTION = VSP-AI02-001T_ONLY
 ```
 
 This exception must not be reused for C1/C2, later AI02 phases, product tasks, security tasks, Pilot, GA, or version changes. After merge, `VSP-AI02-001T` still is not complete until the post-merge real GitHub App transport smoke proves operational publication without Product Owner manual transport.
+
+## 9. Temporary Bootstrap Exception: VSP-AI02-001TI-B1 Only
+
+`VSP-AI02-001TI-B1` is a CRITICAL AI02 infrastructure task. Its normal required Primary Developer remains `Claude Code Primary Developer`.
+
+Because the default-branch Claude Artifact Developer workflow does not yet exist, Product Owner explicitly authorized a one-task bootstrap exception:
+
+```text
+Task: VSP-AI02-001TI-B1
+Primary Developer: Codex Development Agent
+Required Independent Reviewer: Separate Codex Independent Reviewer
+Claude Cross Review: REQUIRED
+```
+
+This exception may create only the inert Claude artifact developer availability surface. It must not be reused for TI implementation, C1/C2, later AI02 phases, product tasks, security tasks, Pilot, GA, or version changes. B1 pre-merge evidence must not claim real Claude developer execution or adapter operation; those require a later Product Owner-authorized default-branch smoke.
