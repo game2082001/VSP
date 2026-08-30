@@ -116,6 +116,16 @@ function Assert-Request {
     if ($Request.repository -ne $Repository -or $Request.repository -ne "game2082001/VSP") {
         Stop-Transport "Repository must be exactly game2082001/VSP."
     }
+    if ($Request.PSObject.Properties["executionBaseSha"] -ne $null) {
+        Stop-Transport "executionBaseSha is workflow-derived and must not be supplied by the request."
+    }
+
+    if ($Request.PSObject.Properties["baseBinding"] -ne $null) {
+        if ($Request.baseBinding -notin @("EXACT", "DISPATCH_MAIN")) {
+            Stop-Transport "Unsupported baseBinding $($Request.baseBinding)."
+        }
+    }
+
     if ($Request.baseSha -notmatch "^[0-9a-f]{40}$") {
         Stop-Transport "baseSha must be a 40-character lowercase SHA."
     }
@@ -217,6 +227,11 @@ if ($WorkflowRunAttempt -ne "1") {
     Stop-Transport "Publication workflow must run on attempt 1."
 }
 
+$baseBinding = "EXACT"
+if ($request.PSObject.Properties["baseBinding"] -ne $null) {
+    $baseBinding = [string]$request.baseBinding
+}
+
 $manifest = Read-Json $request.manifestPath
 $state = Read-Json $request.statePath
 if ($manifest.taskId -ne $request.taskId -or $state.taskId -ne $request.taskId) {
@@ -243,6 +258,48 @@ if ($request.allowWorkflowChanges -eq $true -and $manifest.repositoryTransport.a
 if ($request.openPullRequest -eq $true -and $manifest.repositoryTransport.openPullRequest -ne $true) {
     Stop-Transport "Manifest does not authorize pull request creation."
 }
+if ($baseBinding -eq "DISPATCH_MAIN") {
+    if ($request.taskId -ne "VSP-AI02-001T") {
+        Stop-Transport "DISPATCH_MAIN is restricted to the approved repository transport smoke task."
+    }
+    if ($manifest.repositoryTransport.baseBinding -ne "DISPATCH_MAIN") {
+        Stop-Transport "Manifest does not authorize DISPATCH_MAIN base binding."
+    }
+    if ($state.repositoryTransport.baseBinding -ne "DISPATCH_MAIN") {
+        Stop-Transport "State does not authorize DISPATCH_MAIN base binding."
+    }
+    if ($manifest.repositoryTransport.infrastructureSmoke -ne $true) {
+        Stop-Transport "Manifest does not authorize DISPATCH_MAIN infrastructure smoke."
+    }
+    if ($state.repositoryTransport.infrastructureSmoke -ne $true) {
+        Stop-Transport "State does not authorize DISPATCH_MAIN infrastructure smoke."
+    }
+    if ($manifest.classification -ne "SMALL") {
+        Stop-Transport "DISPATCH_MAIN is restricted to approved AI02 infrastructure smoke fixtures."
+    }
+    if ($request.allowWorkflowChanges -ne $false) {
+        Stop-Transport "DISPATCH_MAIN smoke requests must not change workflow files."
+    }
+    if ($request.targetBranch -ne "ai02/vsp-ai02-001t/transport-smoke") {
+        Stop-Transport "DISPATCH_MAIN smoke target branch is not authorized."
+    }
+    if (@($request.files).Count -ne 1) {
+        Stop-Transport "DISPATCH_MAIN smoke must publish exactly one approved evidence file."
+    }
+    foreach ($file in @($request.files)) {
+        if ([string]$file.path -ne "AI/Orchestrator/Smoke/VSP-AI02-001T.transport-smoke.evidence.txt") {
+            Stop-Transport "DISPATCH_MAIN smoke file is not authorized."
+        }
+        if (-not ([string]$file.path).StartsWith("AI/Orchestrator/Smoke/")) {
+            Stop-Transport "DISPATCH_MAIN smoke may only publish AI02 smoke evidence files."
+        }
+        if ([string]$file.path -match "^(VSP|VSP\.Tests|Docs|\.github)/") {
+            Stop-Transport "DISPATCH_MAIN smoke must not publish product, test, docs, or workflow files."
+        }
+    }
+} elseif ($baseBinding -ne "EXACT") {
+    Stop-Transport "Unsupported baseBinding $baseBinding."
+}
 $manifestApprovedFiles = @($manifest.repositoryTransport.approvedFiles | ForEach-Object { [string]$_ } | Sort-Object)
 $requestApprovedFiles = @($request.approvedFiles | ForEach-Object { [string]$_ } | Sort-Object)
 if ($manifestApprovedFiles.Count -eq 0) {
@@ -257,16 +314,22 @@ for ($i = 0; $i -lt $manifestApprovedFiles.Count; $i++) {
     }
 }
 
-$localBase = (git rev-parse $request.baseSha).Trim()
-if ($localBase -ne $request.baseSha) {
-    Stop-Transport "Approved base SHA is not present in checkout."
-}
 $remoteMain = (gh api "repos/$Repository/branches/main" --jq ".commit.sha")
 if ($LASTEXITCODE -ne 0) {
     Stop-Transport "Unable to read remote main."
 }
-if ($remoteMain -ne $request.baseSha) {
-    Stop-Transport "Base drift: remote main is $remoteMain, request base is $($request.baseSha)."
+
+$executionBaseSha = [string]$request.baseSha
+if ($baseBinding -eq "DISPATCH_MAIN") {
+    $executionBaseSha = [string]$remoteMain
+}
+
+$localBase = (git rev-parse $executionBaseSha).Trim()
+if ($localBase -ne $executionBaseSha) {
+    Stop-Transport "Approved base SHA is not present in checkout."
+}
+if ($remoteMain -ne $executionBaseSha) {
+    Stop-Transport "Base drift: remote main is $remoteMain, execution base is $executionBaseSha."
 }
 
 if ($ValidateOnly) {
@@ -275,6 +338,8 @@ if ($ValidateOnly) {
         repository = $request.repository
         targetBranch = $request.targetBranch
         baseSha = $request.baseSha
+        baseBinding = $baseBinding
+        executionBaseSha = $executionBaseSha
         fileCount = @($request.files).Count
         workflowChanges = [bool]($request.files | Where-Object { $_.path.StartsWith(".github/workflows/") } | Select-Object -First 1)
         validation = "VALID"
@@ -289,7 +354,7 @@ if (-not $Publish) {
 
 Assert-AppScope
 
-$baseCommit = Invoke-GhJson @("api", "repos/$Repository/git/commits/$($request.baseSha)")
+$baseCommit = Invoke-GhJson @("api", "repos/$Repository/git/commits/$executionBaseSha")
 $baseTreeSha = [string]$baseCommit.tree.sha
 
 $treeEntries = @()
@@ -314,11 +379,19 @@ $tree = Invoke-GhJson @("api", "repos/$Repository/git/trees", "--method", "POST"
 $commitPayload = [pscustomobject]@{
     message = [string]$request.commitMessage
     tree = [string]$tree.sha
-    parents = @([string]$request.baseSha)
+    parents = @($executionBaseSha)
 } | ConvertTo-Json -Depth 5
 $commitFile = Join-Path $env:RUNNER_TEMP "ai02-transport-commit.json"
 $commitPayload | Set-Content -LiteralPath $commitFile -Encoding utf8
 $commit = Invoke-GhJson @("api", "repos/$Repository/git/commits", "--method", "POST", "--input", $commitFile)
+
+$remoteMainBeforeRef = (gh api "repos/$Repository/branches/main" --jq ".commit.sha")
+if ($LASTEXITCODE -ne 0) {
+    Stop-Transport "Unable to recheck remote main before ref publication."
+}
+if ($remoteMainBeforeRef -ne $executionBaseSha) {
+    Stop-Transport "Base drift before ref publication: remote main is $remoteMainBeforeRef, execution base is $executionBaseSha."
+}
 
 $refName = "heads/$($request.targetBranch)"
 $existingRef = gh api "repos/$Repository/git/ref/$refName" 2>$null
@@ -340,7 +413,7 @@ if ($LASTEXITCODE -eq 0) {
     Invoke-GhJson @("api", "repos/$Repository/git/refs", "--method", "POST", "--input", $refFile) | Out-Null
 }
 
-$compare = Invoke-GhJson @("api", "repos/$Repository/compare/$($request.baseSha)...$($request.targetBranch)")
+$compare = Invoke-GhJson @("api", "repos/$Repository/compare/$executionBaseSha...$($request.targetBranch)")
 $remoteFiles = @($compare.files | ForEach-Object { $_.filename })
 $expectedFiles = @($request.files | ForEach-Object { $_.path })
 $unexpected = @($remoteFiles | Where-Object { $expectedFiles -notcontains $_ })
@@ -375,7 +448,7 @@ if ($request.openPullRequest -eq $true) {
 AI02 Repository Transport publication.
 
 Task: $($request.taskId)
-Base: $($request.baseSha)
+Base: $executionBaseSha
 Branch: $($request.targetBranch)
 Commit: $($commit.sha)
 Merged: false
@@ -393,6 +466,8 @@ $result = [pscustomobject]@{
     taskId = $request.taskId
     repository = $request.repository
     approvedBaseSha = $request.baseSha
+    baseBinding = $baseBinding
+    executionBaseSha = $executionBaseSha
     targetBranch = $request.targetBranch
     treeSha = [string]$tree.sha
     commitSha = [string]$commit.sha
