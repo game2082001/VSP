@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001T",
+  "title": "Repository Transport Operational Smoke",
+  "classification": "SMALL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "approvedScope": [
+    "Use the already-merged AI02 Repository Transport workflow to publish exactly one harmless AI02 smoke evidence file.",
+    "Verify GitHub App-backed repository transport without exposing reusable credentials to an agent context."
+  ],
+  "outOfScope": [
+    "Modify VSP product code.",
+    "Modify VSP product tests.",
+    "Modify workflow files.",
+    "Modify AI02 authorization or governance rules.",
+    "Merge the smoke pull request."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-08-30T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/issues/0",
+    "approvalSummary": "Product Owner approved VSP-AI02-001T post-merge repository transport smoke after VSP-AI02-001T1 places a valid repository-resident request."
+  },
+  "repositoryTransport": {
+    "required": true,
+    "requestPath": "AI/Orchestrator/Transport/VSP-AI02-001T.smoke.publication-request.json",
+    "allowWorkflowChanges": false,
+    "openPullRequest": true,
+    "postMergeOperationalSmokeRequired": true,
+    "approvedFiles": [
+      "AI/Orchestrator/Smoke/VSP-AI02-001T.transport-smoke.evidence.txt"
+    ]
+  }
+}
