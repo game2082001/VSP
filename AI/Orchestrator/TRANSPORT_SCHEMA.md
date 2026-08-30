@@ -38,6 +38,7 @@ Required shape:
   "title": "VSP-AI02-001T Repository Transport",
   "repository": "game2082001/VSP",
   "baseSha": "0000000000000000000000000000000000000000",
+  "baseBinding": "EXACT",
   "targetBranch": "ai02/vsp-ai02-001t/repository-transport",
   "commitMessage": "VSP-AI02-001T: add repository transport",
   "manifestPath": "AI/Orchestrator/Manifests/VSP-AI02-001T.manifest.json",
@@ -62,6 +63,8 @@ The file set in `files` must exactly match `approvedFiles`. Every file content h
 
 The request `approvedFiles` list is not self-authorizing. It must also match the Product Owner-approved `repositoryTransport.approvedFiles` allowlist in the referenced AI02 Task Manifest. A request may set `allowWorkflowChanges=true` only when the manifest also sets `repositoryTransport.allowWorkflowChanges=true`.
 
+`baseBinding` defaults to `EXACT`. Normal Product, SEC, UI, PLAYER, release, and engineering tasks must use `EXACT`, where `baseSha` must match the current remote `main` at execution time. The only approved non-default mode is `DISPATCH_MAIN`, restricted to Product Owner-approved AI02 infrastructure smoke fixtures. For `DISPATCH_MAIN`, the workflow resolves current remote `main` at dispatch time, records that value as `executionBaseSha`, uses it as the commit parent, and rechecks remote `main` immediately before branch ref publication. The request must not supply `executionBaseSha`.
+
 ---
 
 ## 3. Publication Result
@@ -80,6 +83,8 @@ Required shape:
   "taskId": "VSP-AI02-001T",
   "repository": "game2082001/VSP",
   "approvedBaseSha": "0000000000000000000000000000000000000000",
+  "baseBinding": "EXACT",
+  "executionBaseSha": "0000000000000000000000000000000000000000",
   "targetBranch": "ai02/vsp-ai02-001t/repository-transport",
   "treeSha": "",
   "commitSha": "",
@@ -107,7 +112,9 @@ The transport must stop before publication when:
 - repository is not exactly `game2082001/VSP`;
 - task manifest or state is malformed, missing, or mismatched;
 - Product Owner authorization is missing;
-- `baseSha` does not match current remote `main`;
+- `baseBinding` is absent or `EXACT` and `baseSha` does not match current remote `main`;
+- `baseBinding` is `DISPATCH_MAIN` without explicit manifest and state authorization for an AI02 infrastructure smoke fixture;
+- a request supplies `executionBaseSha`;
 - `targetBranch` is `main`, a tag, or outside `ai02/<task>/<purpose>`;
 - changed files differ from the approved file allowlist;
 - a workflow file changes without `allowWorkflowChanges=true`;
@@ -121,6 +128,7 @@ The transport must stop before publication when:
 - any remote file hash differs from the request;
 - PR creation/update fails;
 - the workflow run attempt is not `1`;
+- remote `main` drifts between dispatch-time base resolution and branch ref publication;
 - merge would be required.
 
 ---

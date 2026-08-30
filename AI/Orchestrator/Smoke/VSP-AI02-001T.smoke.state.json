@@ -30,6 +30,8 @@
     "required": true,
     "status": "POST_MERGE_SMOKE_REQUEST_READY",
     "requestPath": "AI/Orchestrator/Transport/VSP-AI02-001T.smoke.publication-request.json",
+    "baseBinding": "DISPATCH_MAIN",
+    "infrastructureSmoke": true,
     "approvedFiles": [
       "AI/Orchestrator/Smoke/VSP-AI02-001T.transport-smoke.evidence.txt"
     ],

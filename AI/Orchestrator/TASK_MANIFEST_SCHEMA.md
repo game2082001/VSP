@@ -95,6 +95,8 @@ Manifest artifacts may also be attached to, copied from, or referenced by the Pr
   "repositoryTransport": {
     "required": false,
     "requestPath": "",
+    "baseBinding": "EXACT",
+    "infrastructureSmoke": false,
     "allowWorkflowChanges": false,
     "openPullRequest": true,
     "postMergeOperationalSmokeRequired": false,
@@ -102,6 +104,10 @@ Manifest artifacts may also be attached to, copied from, or referenced by the Pr
   }
 }
 ```
+
+`repositoryTransport.baseBinding` defaults to `EXACT`. `DISPATCH_MAIN` is reserved for Product Owner-approved AI02 infrastructure smoke fixtures and must not be used by ordinary Product, SEC, UI, PLAYER, release, or engineering tasks.
+
+`repositoryTransport.infrastructureSmoke` must be `true` for the narrow `DISPATCH_MAIN` repository transport smoke path and must be omitted or `false` for ordinary tasks.
 
 ---
 

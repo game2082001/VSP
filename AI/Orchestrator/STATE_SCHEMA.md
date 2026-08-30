@@ -112,6 +112,9 @@ AI/Orchestrator/State/<task-id>.state.json
     "workflowRunAttempt": "",
     "appSlug": "",
     "baseSha": "",
+    "baseBinding": "EXACT",
+    "infrastructureSmoke": false,
+    "executionBaseSha": "",
     "targetBranch": "",
     "treeSha": "",
     "commitSha": "",
@@ -135,7 +138,7 @@ AI02 fields are authoritative for Product and Engineering PR lifecycle evidence.
 
 `environmentAuthority` records the Product Owner-approved authority matrix used to interpret evidence. Agent sandbox diagnostics are not automatically authoritative gates, but `sandboxDiagnostics` must preserve anomalies and the causal reconciliation. A sandbox anomaly must use `STOP_REQUIRED` if it plausibly indicates current-PR regression, secret exposure, data-loss risk, destructive behavior, or a gap not exercised by the authoritative gate.
 
-`repositoryTransport` records AI02 credentialless publication evidence. A task that uses the AI02 Repository Transport must record the publication request path, trusted workflow run, VSP AI Implementation App slug, approved base SHA, controlled branch, resulting tree/commit/PR, and explicit `remoteTreeMatchesRequest=true`, `singleAtomicCommit=true`, `productOwnerManualTransport=false`, `agentCredentialExposure=false`, and `merged=false` evidence. Missing or false transport evidence is `STOP / NOT READY_FOR_MERGE` for tasks that depend on the transport.
+`repositoryTransport` records AI02 credentialless publication evidence. A task that uses the AI02 Repository Transport must record the publication request path, trusted workflow run, VSP AI Implementation App slug, approved base SHA, base binding mode, execution base SHA, controlled branch, resulting tree/commit/PR, and explicit `remoteTreeMatchesRequest=true`, `singleAtomicCommit=true`, `productOwnerManualTransport=false`, `agentCredentialExposure=false`, and `merged=false` evidence. Missing or false transport evidence is `STOP / NOT READY_FOR_MERGE` for tasks that depend on the transport. `baseBinding` defaults to `EXACT`; `DISPATCH_MAIN` may only be used for Product Owner-approved AI02 infrastructure smoke fixtures and must capture `executionBaseSha` at workflow execution. `infrastructureSmoke` must remain omitted or `false` for ordinary tasks.
 
 ## Stages
 

@@ -3,6 +3,8 @@
   "taskId": "VSP-AI02-001T",
   "repository": "game2082001/VSP",
   "approvedBaseSha": "0000000000000000000000000000000000000000",
+  "baseBinding": "EXACT",
+  "executionBaseSha": "0000000000000000000000000000000000000000",
   "targetBranch": "ai02/vsp-ai02-001t/repository-transport",
   "treeSha": "",
   "commitSha": "",

@@ -27,6 +27,8 @@
   "repositoryTransport": {
     "required": true,
     "requestPath": "AI/Orchestrator/Transport/VSP-AI02-001T.smoke.publication-request.json",
+    "baseBinding": "DISPATCH_MAIN",
+    "infrastructureSmoke": true,
     "allowWorkflowChanges": false,
     "openPullRequest": true,
     "postMergeOperationalSmokeRequired": true,

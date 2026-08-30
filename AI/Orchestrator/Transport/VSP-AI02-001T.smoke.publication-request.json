@@ -4,6 +4,7 @@
   "title": "VSP-AI02-001T Repository Transport Smoke",
   "repository": "game2082001/VSP",
   "baseSha": "58f5a8d524f02fb059b0bf173ec749a8d026b8ca",
+  "baseBinding": "DISPATCH_MAIN",
   "targetBranch": "ai02/vsp-ai02-001t/transport-smoke",
   "commitMessage": "VSP-AI02-001T: publish repository transport smoke evidence",
   "manifestPath": "AI/Orchestrator/Smoke/VSP-AI02-001T.smoke.manifest.json",

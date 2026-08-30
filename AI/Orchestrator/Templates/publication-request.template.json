@@ -4,6 +4,7 @@
   "title": "AI02 Repository Transport publication",
   "repository": "game2082001/VSP",
   "baseSha": "0000000000000000000000000000000000000000",
+  "baseBinding": "EXACT",
   "targetBranch": "ai02/vsp-ai02-001t/repository-transport",
   "commitMessage": "VSP-AI02-001T: publish approved repository transport change",
   "manifestPath": "AI/Orchestrator/Manifests/VSP-AI02-001T.manifest.json",
