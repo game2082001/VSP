@@ -7,7 +7,7 @@
   "classificationConsistencyStatus": "VALID",
   "repository": "game2082001/VSP",
   "baseBranch": "main",
-  "headBranch": "ai02/vsp-ai02-001t/transport-smoke",
+  "headBranch": "ai02/vsp-ai02-001t/transport-smoke-r2",
   "approvedScope": "Post-merge repository transport smoke publishes exactly one harmless AI02 smoke evidence file.",
   "outOfScope": "VSP product code/tests, workflows, AI02 governance rule changes, merge automation, C1/C2.",
   "primaryDeveloperRole": "Codex Development Agent",
@@ -35,7 +35,7 @@
     "approvedFiles": [
       "AI/Orchestrator/Smoke/VSP-AI02-001T.transport-smoke.evidence.txt"
     ],
-    "targetBranch": "ai02/vsp-ai02-001t/transport-smoke",
+    "targetBranch": "ai02/vsp-ai02-001t/transport-smoke-r2",
     "remoteTreeMatchesRequest": false,
     "singleAtomicCommit": false,
     "productOwnerManualTransport": false,

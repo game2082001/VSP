@@ -280,8 +280,17 @@ if ($baseBinding -eq "DISPATCH_MAIN") {
     if ($request.allowWorkflowChanges -ne $false) {
         Stop-Transport "DISPATCH_MAIN smoke requests must not change workflow files."
     }
-    if ($request.targetBranch -ne "ai02/vsp-ai02-001t/transport-smoke") {
-        Stop-Transport "DISPATCH_MAIN smoke target branch is not authorized."
+    if ($request.targetBranch -eq "ai02/vsp-ai02-001t/transport-smoke") {
+        Stop-Transport "DISPATCH_MAIN smoke must not reuse the preserved historical failure branch."
+    }
+    if ($manifest.repositoryTransport.targetBranch -ne $request.targetBranch) {
+        Stop-Transport "Manifest does not authorize DISPATCH_MAIN smoke target branch."
+    }
+    if ($state.repositoryTransport.targetBranch -ne $request.targetBranch) {
+        Stop-Transport "State does not authorize DISPATCH_MAIN smoke target branch."
+    }
+    if ($request.targetBranch -ne "ai02/vsp-ai02-001t/transport-smoke-r2") {
+        Stop-Transport "DISPATCH_MAIN smoke target branch is not authorized for the approved R2 replacement smoke."
     }
     if (@($request.files).Count -ne 1) {
         Stop-Transport "DISPATCH_MAIN smoke must publish exactly one approved evidence file."
