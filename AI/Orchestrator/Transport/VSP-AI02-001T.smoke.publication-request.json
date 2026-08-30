@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001T",
+  "title": "VSP-AI02-001T Repository Transport Smoke",
+  "repository": "game2082001/VSP",
+  "baseSha": "58f5a8d524f02fb059b0bf173ec749a8d026b8ca",
+  "targetBranch": "ai02/vsp-ai02-001t/transport-smoke",
+  "commitMessage": "VSP-AI02-001T: publish repository transport smoke evidence",
+  "manifestPath": "AI/Orchestrator/Smoke/VSP-AI02-001T.smoke.manifest.json",
+  "statePath": "AI/Orchestrator/Smoke/VSP-AI02-001T.smoke.state.json",
+  "allowWorkflowChanges": false,
+  "openPullRequest": true,
+  "approvedFiles": [
+    "AI/Orchestrator/Smoke/VSP-AI02-001T.transport-smoke.evidence.txt"
+  ],
+  "files": [
+    {
+      "path": "AI/Orchestrator/Smoke/VSP-AI02-001T.transport-smoke.evidence.txt",
+      "mode": "100644",
+      "sha256": "05654a34a27b430e10a8c350f32d3be4f40e2ab8136a85e3018df92fc6fb3f42",
+      "contentBase64": "VlNQLUFJMDItMDAxVCBSZXBvc2l0b3J5IFRyYW5zcG9ydCBTbW9rZSBFdmlkZW5jZQpQdXJwb3NlOiBwcm92ZSBHaXRIdWItQXBwLWJhY2tlZCBjcmVkZW50aWFsbGVzcyByZXBvc2l0b3J5IHRyYW5zcG9ydCBjYW4gcHVibGlzaCBvbmUgaGFybWxlc3MgQUkwMiBldmlkZW5jZSBmaWxlLgpQcm9kdWN0IGNvZGUvdGVzdHM6IG5vbmUuCg=="
+    }
+  ]
+}
