@@ -29,6 +29,7 @@
     "requestPath": "AI/Orchestrator/Transport/VSP-AI02-001T.smoke.publication-request.json",
     "baseBinding": "DISPATCH_MAIN",
     "infrastructureSmoke": true,
+    "targetBranch": "ai02/vsp-ai02-001t/transport-smoke-r2",
     "allowWorkflowChanges": false,
     "openPullRequest": true,
     "postMergeOperationalSmokeRequired": true,
