@@ -169,7 +169,13 @@ function Write-DeveloperPrompt {
     $approvedScope = @($Manifest.approvedScope) -join "`n- "
     $stopConditions = @($Manifest.stopConditions) -join "`n- "
     $outOfScope = @($Manifest.outOfScope) -join "`n- "
-    $approvedFiles = (Get-AllowedFiles -Manifest $Manifest) -join "`n- "
+    $allowedFiles = @(Get-AllowedFiles -Manifest $Manifest)
+    $approvedFiles = $allowedFiles -join "`n- "
+    $expectedMarkers = @()
+    if ($null -ne $Manifest.smokeFixture -and $null -ne $Manifest.smokeFixture.expectedContentMarkers) {
+        $expectedMarkers = @($Manifest.smokeFixture.expectedContentMarkers | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    }
+    $expectedMarkerText = if ($expectedMarkers.Count -gt 0) { $expectedMarkers -join "`n- " } else { "No additional content markers supplied by the validated manifest." }
 
     $text = @"
 You are Claude Code acting as the AI02 Primary Developer.
@@ -188,8 +194,29 @@ Out of Scope:
 Stop Conditions:
 - $stopConditions
 
-Allowed publication files:
+TASK:
+- Create or modify exactly the files authorized by the validated publication allowlist.
+- For this task, the complete required changed-file set is:
 - $approvedFiles
+
+MANDATORY OUTPUT:
+- Every path listed above must exist in the repository working tree before you finish.
+- The final git changed-file set must exactly equal the allowlist above.
+- The required output content must include these validated markers:
+- $expectedMarkerText
+
+FORBIDDEN:
+- Do not modify any repository file outside the allowlist above.
+- Do not make product code, product test, workflow, transport, intake, governance, credential, branch, pull request, merge, tag, release, or deployment changes unless those exact paths are in the validated allowlist.
+
+COMPLETION CONDITION:
+- Do not declare completion until the required file exists.
+- Do not declare completion until `git diff --name-only HEAD --` plus untracked files exactly equals the allowlist.
+- Do not declare completion until the required output content markers are present.
+
+NO SUBSTITUTE:
+- Analysis, explanation, recommendation, or a textual response without the required working-tree modification does not satisfy this task.
+- If you cannot make the required working-tree change exactly, stop and report the blocking reason without modifying other files.
 
 Rules:
 - Do not push branches, create pull requests, merge, tag, or request repository-write credentials.
@@ -264,6 +291,31 @@ function New-PublicationPackage {
             mode = "100644"
             size = $item.Length
             sha256 = Get-FileSha256 -Path $repoPath
+        }
+    }
+
+    if ($null -ne $Manifest.smokeFixture -and
+        $Manifest.smokeFixture.infrastructureSmoke -eq $true -and
+        -not [string]::IsNullOrWhiteSpace([string]$Manifest.smokeFixture.approvedOutputPath)) {
+        $approvedOutputPath = Assert-RepoRelativePath -Path ([string]$Manifest.smokeFixture.approvedOutputPath) -Name "smokeFixture.approvedOutputPath"
+        if ($changed.Count -ne 1 -or (($changed | ForEach-Object { $_.Replace('\', '/') }) -notcontains $approvedOutputPath)) {
+            Stop-Developer "infrastructure smoke changed-file set must contain exactly the approved output path."
+        }
+
+        if (-not (Test-Path -LiteralPath $approvedOutputPath -PathType Leaf)) {
+            Stop-Developer "infrastructure smoke approved output file is missing."
+        }
+
+        $content = Get-Content -LiteralPath $approvedOutputPath -Raw
+        if ([string]::IsNullOrWhiteSpace($content)) {
+            Stop-Developer "infrastructure smoke approved output file is empty."
+        }
+
+        foreach ($marker in @($Manifest.smokeFixture.expectedContentMarkers)) {
+            $markerText = [string]$marker
+            if (-not [string]::IsNullOrWhiteSpace($markerText) -and -not $content.Contains($markerText)) {
+                Stop-Developer "infrastructure smoke approved output file is missing an expected content marker."
+            }
         }
     }
 
