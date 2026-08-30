@@ -1,0 +1,81 @@
+name: AI02 Repository Transport
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_path:
+        description: Repository path to the AI02 publication request
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  actions: read
+
+jobs:
+  publish:
+    name: GitHub App Repository Publication
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate publication request without write credentials
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          ./tools/orchestrator/repository-transport.ps1 `
+            -RequestPath "${{ inputs.request_path }}" `
+            -Repository "${{ github.repository }}" `
+            -WorkflowRunId "${{ github.run_id }}" `
+            -WorkflowRunAttempt "${{ github.run_attempt }}" `
+            -ValidateOnly
+
+      - name: Create VSP AI Implementation App token
+        id: implementation-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.VSP_AI_APP_ID }}
+          private-key: ${{ secrets.VSP_AI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: VSP
+          permission-actions: read
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+          permission-workflows: write
+
+      - name: Publish via Git Data API
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ steps.implementation-token.outputs.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          ./tools/orchestrator/repository-transport.ps1 `
+            -RequestPath "${{ inputs.request_path }}" `
+            -Repository "${{ github.repository }}" `
+            -WorkflowRunId "${{ github.run_id }}" `
+            -WorkflowRunAttempt "${{ github.run_attempt }}" `
+            -AppSlug "${{ steps.implementation-token.outputs.app-slug }}" `
+            -Publish
+
+      - name: Upload transport evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai02-repository-transport-evidence
+          path: |
+            AI/Orchestrator/Transport/publication-result.json
+          if-no-files-found: ignore

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001T",
+  "repository": "game2082001/VSP",
+  "approvedBaseSha": "0000000000000000000000000000000000000000",
+  "targetBranch": "ai02/vsp-ai02-001t/repository-transport",
+  "treeSha": "",
+  "commitSha": "",
+  "prNumber": 0,
+  "appSlug": "vsp-ai-implementation",
+  "workflowRunId": "",
+  "workflowRunAttempt": "1",
+  "remoteTreeMatchesRequest": true,
+  "singleAtomicCommit": true,
+  "productOwnerManualTransport": false,
+  "agentCredentialExposure": false,
+  "merged": false,
+  "publishedAtUtc": ""
+}

@@ -35,6 +35,21 @@ Implementation
 
 The Router must not ask the Product Owner again for commit, push, PR creation/update, CI, automated review, independent review, or in-scope remediation while the work remains inside approved scope and within configured budgets.
 
+## Repository Publication Transport
+
+For AI02 tasks that require credentialless branch publication, the Router uses the AI02 Repository Transport rather than passing GitHub credentials to an agent context.
+
+```text
+Agent publication request
+-> AI02 Repository Transport workflow
+-> VSP AI Implementation GitHub App token inside GitHub Actions
+-> Git Data API blobs/tree/commit/ref
+-> controlled branch and PR
+-> remote equality evidence
+```
+
+The transport must validate repository, approved task ID, Product Owner authorization, approved base SHA, controlled branch name, exact file allowlist, workflow-change authorization, file content hashes, and commit message task identity before publication. It must reject direct `main` writes, tag writes, arbitrary repositories, base drift, malformed manifest/state/request data, unauthorized files, unapproved workflow changes, and any attempt to merge.
+
 ## Gate Polling
 
 Queued, pending, and in-progress CI or Automated Review gates are normal lifecycle states. The Router must continue polling until a gate reaches a terminal result or the configured timeout/tolerance is exceeded.

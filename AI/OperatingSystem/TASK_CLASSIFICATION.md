@@ -328,3 +328,16 @@ STOP / NOT READY_FOR_MERGE
 - Product Owner remains the only merge authority.
 
 This exception applies only to AI02 governance bootstrap work. It must not be extended to normal Product, Security, Player, UI, Bug, Release, Pilot, or GA tasks.
+
+`VSP-AI02-001T` has a Product Owner-approved temporary bootstrap exception:
+
+- Normal classification remains `CRITICAL`.
+- Normal required Primary Developer remains `Claude Code Primary Developer`.
+- Codex Development Agent may implement only because `VSP-AI02-001T` creates the credentialless GitHub App repository-write transport needed before the Claude Developer Adapter can be published and activated.
+- `BOOTSTRAP_PUBLICATION_IDENTITY_EXCEPTION = VSP-AI02-001T_ONLY` must be recorded because 001T's own PR publication may use the current GitHub connector/API before the transport exists on the default branch.
+- The exception must not expose GitHub App private keys, installation tokens, PATs, or reusable credentials to agent contexts.
+- Separate Codex Independent Reviewer context is still required.
+- Claude Cross Review remains REQUIRED.
+- Product Owner remains the only merge authority.
+
+This exception applies only to `VSP-AI02-001T`. It expires after 001T merges and the post-merge GitHub App transport smoke proves operational publication. It must not be extended to C1, C2, 001D+, Product, Security, Player, UI, Bug, Release, Pilot, or GA tasks.
