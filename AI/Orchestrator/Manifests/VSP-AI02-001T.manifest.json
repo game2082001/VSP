@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001T",
+  "title": "Verified GitHub App Repository Write Transport",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "approvedScope": [
+    "Create an AI02 Repository Transport GitHub Action.",
+    "Create a credentialless repository transport helper.",
+    "Create publication request and result schemas/templates.",
+    "Update AI02 router, state, and pipeline governance for repository transport.",
+    "Use GitHub App token generation only inside the trusted GitHub Actions boundary.",
+    "Validate approved task, base SHA, branch, files, workflow-change authorization, content hashes, and publication evidence.",
+    "Support one coherent Git Data API commit, controlled branch, pull request, and remote equality verification."
+  ],
+  "outOfScope": [
+    "Modify VSP product code.",
+    "Modify VSP product tests.",
+    "Expose GitHub App private key, installation token, PAT, or reusable credentials to agent contexts.",
+    "Use broad PAT credentials.",
+    "Merge pull requests.",
+    "Start VSP-AI02-001C1, VSP-AI02-001C2, VSP-AI02-001D, SEC-001A/B/C, Pilot, GA, or version bump."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "",
+    "runId": ""
+  },
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001T",
+    "identity": "AI02 infrastructure bootstrap exception - VSP-AI02-001T ONLY",
+    "expires": "ON MERGE + OPERATIONAL VALIDATION OF 001T",
+    "publicationIdentityException": "BOOTSTRAP_PUBLICATION_IDENTITY_EXCEPTION = VSP-AI02-001T_ONLY"
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL AI02 infrastructure task requires Claude Cross Review."
+  },
+  "repositoryTransport": {
+    "required": true,
+    "requestPath": "AI/Orchestrator/Transport/VSP-AI02-001T.publication-request.json",
+    "allowWorkflowChanges": true,
+    "openPullRequest": true,
+    "postMergeOperationalSmokeRequired": true,
+    "approvedFiles": [
+      ".github/workflows/ai02-repository-transport.yml",
+      "AI/OperatingSystem/PIPELINE_GOVERNANCE.md",
+      "AI/OperatingSystem/TASK_CLASSIFICATION.md",
+      "AI/Orchestrator/Manifests/VSP-AI02-001T.manifest.json",
+      "AI/Orchestrator/ROUTER_POLICY.md",
+      "AI/Orchestrator/STATE_SCHEMA.md",
+      "AI/Orchestrator/State/VSP-AI02-001T.state.json",
+      "AI/Orchestrator/TASK_MANIFEST_SCHEMA.md",
+      "AI/Orchestrator/TRANSPORT_SCHEMA.md",
+      "AI/Orchestrator/Templates/publication-request.template.json",
+      "AI/Orchestrator/Templates/publication-result.template.json",
+      "AI/Orchestrator/Templates/task-state.template.json",
+      "tools/orchestrator/repository-transport.ps1",
+      "tools/orchestrator/task-manifest.ps1"
+    ]
+  },
+  "stopConditions": [
+    "GitHub App private key, installation token, PAT, or reusable repository credential would be exposed to Codex or Claude.",
+    "Transport cannot bind to repository game2082001/VSP.",
+    "Transport cannot bind to Product Owner-approved AI02 task ID and approved base SHA.",
+    "Transport permits direct writes to main, tag writes, arbitrary repositories, uncontrolled branches, unauthorized files, or unapproved workflow changes.",
+    "Transport cannot create one coherent Git Data API commit.",
+    "Transport cannot verify remote tree equality after publication.",
+    "Publication result cannot record commit, branch, pull request, app identity, run ID, and merged=false evidence.",
+    "Scope drift into product code, product tests, C1/C2/001D, SEC tasks, Pilot, GA, or version bump.",
+    "Developer and Independent Reviewer are the same context.",
+    "Windows CI or Claude Cross Review fails.",
+    "Unresolved findings remain."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-08-30T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/issues/0",
+    "approvalSummary": "Product Owner approved VSP-AI02-001T implementation with Codex bootstrap developer exception and one-time bootstrap publication exception."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  }
+}

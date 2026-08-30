@@ -44,6 +44,8 @@ AI02 task classification is governed by [`TASK_CLASSIFICATION.md`](TASK_CLASSIFI
 
 The AI02 Task Manifest contract is defined in `AI/Orchestrator/TASK_MANIFEST_SCHEMA.md`. The manifest is the machine-readable Product Owner authorization record before PR creation. Missing or invalid task manifest evidence is a fail-closed condition and must not be bypassed by chat history alone.
 
+`VSP-AI02-001T` adds the AI02 Repository Transport as the credentialless publication boundary for agent-prepared repository changes. Agent contexts submit a structured publication request and file content hashes; the GitHub App private key and installation token are created and used only inside the trusted GitHub Actions workflow. The transport publishes exactly one Git commit to a controlled task branch, opens a pull request, verifies remote equality, records evidence, and never merges. Workflow-write permission is not granted by default and may be requested only by an explicit AI02 governance task whose approved scope includes workflow changes.
+
 ## 3. Gate Rules
 
 ### Commit Gate

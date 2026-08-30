@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001T",
+  "title": "AI02 Repository Transport publication",
+  "repository": "game2082001/VSP",
+  "baseSha": "0000000000000000000000000000000000000000",
+  "targetBranch": "ai02/vsp-ai02-001t/repository-transport",
+  "commitMessage": "VSP-AI02-001T: publish approved repository transport change",
+  "manifestPath": "AI/Orchestrator/Manifests/VSP-AI02-001T.manifest.json",
+  "statePath": "AI/Orchestrator/State/VSP-AI02-001T.state.json",
+  "allowWorkflowChanges": true,
+  "openPullRequest": true,
+  "approvedFiles": [
+    ".github/workflows/ai02-repository-transport.yml"
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/ai02-repository-transport.yml",
+      "mode": "100644",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "contentBase64": ""
+    }
+  ]
+}

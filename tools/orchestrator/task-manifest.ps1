@@ -146,6 +146,15 @@ function Test-ManifestClassification {
             }
         }
         "CRITICAL" {
+            if ($Manifest.taskId -eq "VSP-AI02-001T" -and
+                $Manifest.bootstrapException.authorized -eq $true -and
+                $Manifest.bootstrapException.taskId -eq "VSP-AI02-001T" -and
+                $Manifest.normalRequiredPrimaryDeveloper -eq "Claude Code Primary Developer" -and
+                $developerRole -eq "Codex Development Agent" -and
+                $developerAdapter -eq "codex" -and
+                $claudeRequired) {
+                return
+            }
             if ($developerRole -ne "Claude Code Primary Developer" -or $developerAdapter -ne "claude") {
                 throw "Manifest validation failed: CRITICAL tasks require Claude Code Primary Developer."
             }
@@ -306,6 +315,25 @@ function New-OrchestratorStateFromManifest {
         lastKnownCommit = ""
         observedHeadCommit = ""
         lastWorkflowRunIds = @()
+        repositoryTransport = [pscustomobject]@{
+            required = [bool]$Manifest.repositoryTransport.required
+            status = if ($Manifest.repositoryTransport.required -eq $true) { "PENDING" } else { "NOT_REQUIRED" }
+            requestPath = [string]$Manifest.repositoryTransport.requestPath
+            approvedFiles = @($Manifest.repositoryTransport.approvedFiles)
+            workflowRunId = ""
+            workflowRunAttempt = ""
+            appSlug = ""
+            approvedBaseSha = ""
+            targetBranch = ""
+            treeSha = ""
+            commitSha = ""
+            prNumber = 0
+            remoteTreeMatchesRequest = $false
+            singleAtomicCommit = $false
+            productOwnerManualTransport = $false
+            agentCredentialExposure = $false
+            merged = $false
+        }
         remainingKnownRisks = @()
         scopeDrift = "NONE"
         readyForMerge = $false

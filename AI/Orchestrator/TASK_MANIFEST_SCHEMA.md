@@ -91,6 +91,14 @@ Manifest artifacts may also be attached to, copied from, or referenced by the Pr
     "requiredIndependentReview": true,
     "inScopeRemediation": true,
     "remediationCommitPushAndGates": true
+  },
+  "repositoryTransport": {
+    "required": false,
+    "requestPath": "",
+    "allowWorkflowChanges": false,
+    "openPullRequest": true,
+    "postMergeOperationalSmokeRequired": false,
+    "approvedFiles": []
   }
 }
 ```
@@ -150,6 +158,7 @@ The manifest is invalid when:
 - `developerEqualsReviewer` would be true in generated state.
 - CRITICAL tasks do not require Claude Cross Review.
 - Any execution authorization value is missing or not boolean.
+- Repository transport is required but its request path, workflow-change authorization, pull request authorization, or approved file allowlist is missing or inconsistent with the publication request.
 
 Missing implementation or reviewer context IDs are allowed at intake time, before implementation/review contexts exist. They must be filled before `READY_FOR_MERGE`; missing separation evidence at merge eligibility remains:
 
@@ -194,3 +203,21 @@ AI02-001B intake tooling is intentionally inert. It must not:
 - trigger GitHub Actions;
 - open or merge PRs;
 - modify product code or product tests.
+
+---
+
+## 8. Temporary Bootstrap Exception: VSP-AI02-001T Only
+
+`VSP-AI02-001T` is a CRITICAL AI02 infrastructure task. Its normal required Primary Developer remains `Claude Code Primary Developer`.
+
+Because the Claude autonomous developer adapter and credentialless repository transport do not yet exist, Product Owner explicitly authorized a one-task bootstrap exception:
+
+```text
+Task: VSP-AI02-001T
+Primary Developer: Codex Development Agent
+Required Independent Reviewer: Separate Codex Independent Reviewer
+Claude Cross Review: REQUIRED
+BOOTSTRAP_PUBLICATION_IDENTITY_EXCEPTION = VSP-AI02-001T_ONLY
+```
+
+This exception must not be reused for C1/C2, later AI02 phases, product tasks, security tasks, Pilot, GA, or version changes. After merge, `VSP-AI02-001T` still is not complete until the post-merge real GitHub App transport smoke proves operational publication without Product Owner manual transport.
