@@ -99,6 +99,22 @@ jobs:
           prompt: ${{ steps.prompt.outputs.prompt }}
           claude_args: '--disallowedTools "Bash(git push:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr merge:*),Bash(gh api repos/*/git/refs:*),Bash(gh api repos/*/pulls:*)"'
 
+      - name: Record post-Claude working-tree diagnostics
+        if: always() && steps.validate.outcome == 'success'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          ./tools/orchestrator/claude-artifact-developer.ps1 `
+            -ManifestPath "${{ inputs.manifest_path }}" `
+            -StatePath "${{ inputs.state_path }}" `
+            -ExpectedBaseSha "${{ inputs.expected_base_sha }}" `
+            -Repository "${{ github.repository }}" `
+            -ClaudeConclusion "${{ steps.claude.conclusion }}" `
+            -ClaudeSessionId "${{ steps.claude.outputs.session_id }}" `
+            -ClaudeExecutionFile "${{ steps.claude.outputs.execution_file }}" `
+            -ClaudePermissionDenialCount "${{ steps.claude.outputs.permission_denials_count }}" `
+            -DiagnosePostClaude
+
       - name: Package runner working-tree changes
         if: always() && steps.validate.outcome == 'success'
         shell: pwsh

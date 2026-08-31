@@ -16,7 +16,17 @@ param(
 
     [switch] $PreparePrompt,
 
-    [switch] $Package
+    [switch] $Package,
+
+    [switch] $DiagnosePostClaude,
+
+    [string] $ClaudeConclusion = "",
+
+    [string] $ClaudeSessionId = "",
+
+    [string] $ClaudeExecutionFile = "",
+
+    [string] $ClaudePermissionDenialCount = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -361,12 +371,106 @@ function New-PublicationPackage {
     return $result
 }
 
-if ($ValidateOnly -and ($PreparePrompt -or $Package)) {
-    Stop-Developer "ValidateOnly cannot be combined with PreparePrompt or Package."
+function Get-ChangedFiles {
+    $changed = @()
+    $changed += Invoke-Git -Arguments @("diff", "--name-only", "HEAD", "--")
+    $changed += Invoke-Git -Arguments @("ls-files", "--others", "--exclude-standard")
+    return @($changed | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Replace('\', '/') } | Sort-Object -Unique)
 }
 
-if (-not ($ValidateOnly -or $PreparePrompt -or $Package)) {
-    Stop-Developer "Specify ValidateOnly, PreparePrompt, or Package."
+function Get-PostClaudeDiagnostics {
+    param(
+        [Parameter(Mandatory = $true)] $Manifest,
+        [Parameter(Mandatory = $true)] $State
+    )
+
+    $repoRoot = (Invoke-Git -Arguments @("rev-parse", "--show-toplevel")).Trim()
+    $allowedFiles = @(Get-AllowedFiles -Manifest $Manifest)
+    $approvedOutputPath = ""
+    if ($null -ne $Manifest.smokeFixture -and -not [string]::IsNullOrWhiteSpace([string]$Manifest.smokeFixture.approvedOutputPath)) {
+        $approvedOutputPath = Assert-RepoRelativePath -Path ([string]$Manifest.smokeFixture.approvedOutputPath) -Name "smokeFixture.approvedOutputPath"
+    } elseif ($allowedFiles.Count -eq 1) {
+        $approvedOutputPath = $allowedFiles[0]
+    }
+
+    $authorizedFile = $null
+    $approvedBasenameMatches = @()
+    if (-not [string]::IsNullOrWhiteSpace($approvedOutputPath)) {
+        $authorizedFullPath = Join-Path $repoRoot $approvedOutputPath
+        $exists = Test-Path -LiteralPath $authorizedFullPath -PathType Leaf
+        $item = $null
+        $sha256 = ""
+        $length = $null
+        if ($exists) {
+            $item = Get-Item -LiteralPath $authorizedFullPath -Force
+            $length = $item.Length
+            $sha256 = Get-FileSha256 -Path $authorizedFullPath
+        }
+
+        $authorizedFile = [pscustomobject]@{
+            path = $approvedOutputPath
+            exists = $exists
+            isFile = $exists
+            size = $length
+            sha256 = $sha256
+        }
+
+        $basename = Split-Path -Leaf $approvedOutputPath
+        if (-not [string]::IsNullOrWhiteSpace($basename)) {
+            $approvedBasenameMatches = @(
+                Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Force -Filter $basename |
+                    Where-Object { $_.FullName -notlike (Join-Path $repoRoot ".git*") } |
+                    ForEach-Object {
+                        $relative = [IO.Path]::GetRelativePath($repoRoot, $_.FullName).Replace('\', '/')
+                        [pscustomobject]@{
+                            path = $relative
+                            size = $_.Length
+                            sha256 = Get-FileSha256 -Path $_.FullName
+                        }
+                    }
+            )
+        }
+    }
+
+    [pscustomobject]@{
+        schemaVersion = "1.0"
+        taskId = $Manifest.taskId
+        repository = $Repository
+        expectedBaseSha = $ExpectedBaseSha
+        currentDirectory = (Get-Location).Path
+        repositoryRoot = $repoRoot
+        gitStatusShort = @(Invoke-Git -Arguments @("status", "--short", "--untracked-files=all"))
+        gitDiffNameOnly = @(Invoke-Git -Arguments @("diff", "--name-only", "HEAD", "--"))
+        gitUntrackedFiles = @(Invoke-Git -Arguments @("ls-files", "--others", "--exclude-standard"))
+        gitIgnoredFiles = @(Invoke-Git -Arguments @("ls-files", "--others", "--ignored", "--exclude-standard"))
+        changedFilesDetectedByPackager = @(Get-ChangedFiles)
+        approvedFiles = @($allowedFiles)
+        authorizedOutputFile = $authorizedFile
+        approvedBasenameSearch = [pscustomobject]@{
+            scope = "repository-root"
+            excludes = @(".git")
+            matches = @($approvedBasenameMatches)
+        }
+        claude = [pscustomobject]@{
+            conclusion = $ClaudeConclusion
+            sessionId = $ClaudeSessionId
+            executionFile = $ClaudeExecutionFile
+            permissionDenialCount = $ClaudePermissionDenialCount
+        }
+        secretBoundary = [pscustomobject]@{
+            environmentDumped = $false
+            fileContentsLogged = $false
+            fullClaudeTranscriptLogged = $false
+        }
+    }
+}
+
+if (($ValidateOnly.IsPresent + $PreparePrompt.IsPresent + $Package.IsPresent + $DiagnosePostClaude.IsPresent) -gt 1) {
+    Stop-Developer "Specify only one mode: ValidateOnly, PreparePrompt, Package, or DiagnosePostClaude."
+}
+
+if (-not ($ValidateOnly -or $PreparePrompt -or $Package -or $DiagnosePostClaude)) {
+    Stop-Developer "Specify ValidateOnly, PreparePrompt, Package, or DiagnosePostClaude."
 }
 
 $manifestPathNormalized = Assert-RepoRelativePath -Path $ManifestPath -Name "ManifestPath"
@@ -400,6 +504,11 @@ if ($PreparePrompt) {
         promptPath = $promptPath
         repositoryWriteCredentialAvailableToDeveloper = $false
     } | ConvertTo-Json -Depth 8
+    return
+}
+
+if ($DiagnosePostClaude) {
+    Get-PostClaudeDiagnostics -Manifest $manifest -State $state | ConvertTo-Json -Depth 12
     return
 }
 
