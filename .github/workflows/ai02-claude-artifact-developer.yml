@@ -109,6 +109,7 @@ jobs:
             -StatePath "${{ inputs.state_path }}" `
             -ExpectedBaseSha "${{ inputs.expected_base_sha }}" `
             -Repository "${{ github.repository }}" `
+            -OutputDirectory "${{ runner.temp }}/ai02-claude-diagnostics" `
             -ClaudeConclusion "${{ steps.claude.conclusion }}" `
             -ClaudeSessionId "${{ steps.claude.outputs.session_id }}" `
             -ClaudeExecutionFile "${{ steps.claude.outputs.execution_file }}" `
@@ -137,5 +138,14 @@ jobs:
             ${{ runner.temp }}/ai02-publication-package/publication-package.zip
             ${{ runner.temp }}/ai02-publication-package/publication-package.manifest.json
             ${{ runner.temp }}/ai02-publication-package/publication-package.result.json
+          if-no-files-found: error
+          overwrite: false
+
+      - name: Upload sanitized Claude diagnostic artifact
+        if: always() && steps.validate.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai02-claude-developer-sanitized-diagnostics-${{ inputs.task_id }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/ai02-claude-diagnostics/post-claude-diagnostics.sanitized.json
           if-no-files-found: error
           overwrite: false

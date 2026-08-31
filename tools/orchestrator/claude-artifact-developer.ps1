@@ -378,6 +378,236 @@ function Get-ChangedFiles {
     return @($changed | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Replace('\', '/') } | Sort-Object -Unique)
 }
 
+function ConvertTo-SafeDiagnosticString {
+    param([AllowNull()][object] $Value)
+
+    if ($null -eq $Value) {
+        return "UNKNOWN"
+    }
+
+    $text = ([string]$Value).Trim()
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        return "UNKNOWN"
+    }
+
+    if ($text.Length -gt 120) {
+        return "REDACTED"
+    }
+
+    if ($text -match '(?i)(token|secret|password|private[-_ ]?key|authorization|bearer|oauth|pat|api[-_ ]?key)' -or
+        $text -match '://.*@' -or
+        $text -match '[A-Za-z0-9_=-]{32,}') {
+        return "REDACTED"
+    }
+
+    if ($text -notmatch '^[A-Za-z0-9 ._:/()@,+-]+$') {
+        return "REDACTED"
+    }
+
+    return $text
+}
+
+function Add-SafeUniqueValue {
+    param(
+        [AllowNull()][object] $Values,
+        [AllowNull()][object] $Value
+    )
+
+    if ($null -eq $Values) {
+        return
+    }
+
+    $safe = ConvertTo-SafeDiagnosticString -Value $Value
+    if ($safe -ne "UNKNOWN" -and -not $Values.Contains($safe)) {
+        $Values.Add($safe) | Out-Null
+    }
+}
+
+function Get-JsonObjectsFromExecutionFile {
+    param([Parameter(Mandatory = $true)][string] $Path)
+
+    $objects = @()
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return @()
+    }
+
+    try {
+        $raw = Get-Content -LiteralPath $Path -Raw
+        if (-not [string]::IsNullOrWhiteSpace($raw)) {
+            $parsed = $raw | ConvertFrom-Json
+            foreach ($item in @($parsed)) {
+                $objects += $item
+            }
+            return @($objects)
+        }
+    } catch {
+        $objects = @()
+    }
+
+    try {
+        foreach ($line in @(Get-Content -LiteralPath $Path)) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
+            }
+            try {
+                $objects += ($line | ConvertFrom-Json)
+            } catch {
+                return @()
+            }
+        }
+    } catch {
+        return @()
+    }
+
+    return @($objects)
+}
+
+function Get-PropertyValue {
+    param(
+        [AllowNull()][object] $Object,
+        [Parameter(Mandatory = $true)][string[]] $Names
+    )
+
+    if ($null -eq $Object) {
+        return $null
+    }
+
+    foreach ($name in $Names) {
+        $property = $Object.PSObject.Properties[$name]
+        if ($null -ne $property) {
+            return $property.Value
+        }
+    }
+
+    return $null
+}
+
+function Visit-ClaudeExecutionNode {
+    param(
+        [AllowNull()][object] $Node,
+        [Parameter(Mandatory = $true)] $Accumulator
+    )
+
+    if ($null -eq $Node) {
+        return
+    }
+
+    if ($Node -is [string] -or $Node.GetType().IsPrimitive) {
+        return
+    }
+
+    if ($Node -is [System.Collections.IEnumerable] -and -not ($Node -is [System.Collections.IDictionary]) -and -not ($Node -is [pscustomobject])) {
+        foreach ($item in $Node) {
+            Visit-ClaudeExecutionNode -Node $item -Accumulator $Accumulator
+        }
+        return
+    }
+
+    $type = Get-PropertyValue -Object $Node -Names @("type", "event", "kind")
+    $name = Get-PropertyValue -Object $Node -Names @("name", "tool_name", "toolName", "tool")
+    $status = Get-PropertyValue -Object $Node -Names @("status", "result", "outcome", "subtype")
+    $error = Get-PropertyValue -Object $Node -Names @("error", "reason", "message", "category")
+    $turnCount = Get-PropertyValue -Object $Node -Names @("num_turns", "numTurns", "turn_count", "turnCount")
+
+    $safeType = ConvertTo-SafeDiagnosticString -Value $type
+    $safeName = ConvertTo-SafeDiagnosticString -Value $name
+    $safeStatus = ConvertTo-SafeDiagnosticString -Value $status
+    $safeError = ConvertTo-SafeDiagnosticString -Value $error
+
+    if ($safeName -ne "UNKNOWN") {
+        Add-SafeUniqueValue -Values $Accumulator.toolNames -Value $safeName
+        if ($safeName -match '(?i)^write$|^strreplaceeditor$|^multi_edit$|^edit$') {
+            $Accumulator.writeAttempted = $true
+        }
+        if ($safeName -match '(?i)^edit$|^multi_edit$|^strreplaceeditor$') {
+            $Accumulator.editAttempted = $true
+        }
+        if ($safeName -match '(?i)^bash$') {
+            $Accumulator.bashAttempted = $true
+        }
+    }
+
+    if ($safeStatus -ne "UNKNOWN") {
+        Add-SafeUniqueValue -Values $Accumulator.toolStatuses -Value $safeStatus
+    }
+
+    if ($safeType -eq "result" -and $safeStatus -ne "UNKNOWN") {
+        $Accumulator.finalResultSubtype = $safeStatus
+    }
+
+    if ($null -ne $turnCount -and ([string]$turnCount) -match '^\d+$') {
+        $Accumulator.claudeTurnCount = [string]$turnCount
+    }
+
+    if (($safeType -match '(?i)denied|permission') -or
+        ($safeStatus -match '(?i)denied|permission|rejected') -or
+        ($safeError -match '(?i)denied|permission|rejected')) {
+        if ($safeName -ne "UNKNOWN") {
+            Add-SafeUniqueValue -Values $Accumulator.deniedTools -Value $safeName
+        }
+        if ($safeStatus -ne "UNKNOWN") {
+            Add-SafeUniqueValue -Values $Accumulator.denialCategories -Value $safeStatus
+        } elseif ($safeType -ne "UNKNOWN") {
+            Add-SafeUniqueValue -Values $Accumulator.denialCategories -Value $safeType
+        }
+        Add-SafeUniqueValue -Values $Accumulator.sanitizedDenialReasons -Value $safeError
+    }
+
+    foreach ($property in @($Node.PSObject.Properties)) {
+        $propertyName = [string]$property.Name
+        if ($propertyName -match '(?i)prompt|content|text|input|output|stdout|stderr|transcript|environment|env') {
+            continue
+        }
+        Visit-ClaudeExecutionNode -Node $property.Value -Accumulator $Accumulator
+    }
+}
+
+function Get-SanitizedClaudeExecutionDiagnostics {
+    param(
+        [Parameter(Mandatory = $true)] $Manifest,
+        [Parameter(Mandatory = $true)][string] $ExecutionFile
+    )
+
+    $objects = @(Get-JsonObjectsFromExecutionFile -Path $ExecutionFile)
+    $accumulator = [pscustomobject]@{
+        toolNames = New-Object System.Collections.ArrayList
+        toolStatuses = New-Object System.Collections.ArrayList
+        deniedTools = New-Object System.Collections.ArrayList
+        denialCategories = New-Object System.Collections.ArrayList
+        sanitizedDenialReasons = New-Object System.Collections.ArrayList
+        writeAttempted = $false
+        editAttempted = $false
+        bashAttempted = $false
+        claudeTurnCount = "UNKNOWN"
+        finalResultSubtype = "UNKNOWN"
+    }
+
+    foreach ($object in $objects) {
+        Visit-ClaudeExecutionNode -Node $object -Accumulator $accumulator
+    }
+
+    [pscustomobject]@{
+        schemaVersion = "1.0"
+        taskId = [string]$Manifest.taskId
+        workflowRunId = [string]$env:GITHUB_RUN_ID
+        runAttempt = [string]$env:GITHUB_RUN_ATTEMPT
+        claudeSessionId = ConvertTo-SafeDiagnosticString -Value $ClaudeSessionId
+        claudeConclusion = ConvertTo-SafeDiagnosticString -Value $ClaudeConclusion
+        claudeTurnCount = $accumulator.claudeTurnCount
+        toolNames = @($accumulator.toolNames)
+        toolStatuses = @($accumulator.toolStatuses)
+        writeAttempted = $accumulator.writeAttempted
+        editAttempted = $accumulator.editAttempted
+        bashAttempted = $accumulator.bashAttempted
+        permissionDenialCount = ConvertTo-SafeDiagnosticString -Value $ClaudePermissionDenialCount
+        deniedTools = @($accumulator.deniedTools)
+        denialCategories = @($accumulator.denialCategories)
+        sanitizedDenialReasons = @($accumulator.sanitizedDenialReasons)
+        finalResultSubtype = $accumulator.finalResultSubtype
+        rawExecutionOutputUploaded = $false
+    }
+}
+
 function Get-PostClaudeDiagnostics {
     param(
         [Parameter(Mandatory = $true)] $Manifest,
@@ -432,7 +662,9 @@ function Get-PostClaudeDiagnostics {
         }
     }
 
-    [pscustomobject]@{
+    $sanitizedClaudeExecution = Get-SanitizedClaudeExecutionDiagnostics -Manifest $Manifest -ExecutionFile $ClaudeExecutionFile
+
+    $diagnostics = [pscustomobject]@{
         schemaVersion = "1.0"
         taskId = $Manifest.taskId
         repository = $Repository
@@ -461,8 +693,18 @@ function Get-PostClaudeDiagnostics {
             environmentDumped = $false
             fileContentsLogged = $false
             fullClaudeTranscriptLogged = $false
+            rawClaudeExecutionOutputUploaded = $false
         }
+        sanitizedClaudeExecution = $sanitizedClaudeExecution
     }
+
+    if (-not [string]::IsNullOrWhiteSpace($OutputDirectory)) {
+        New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+        $diagnosticPath = Join-Path $OutputDirectory "post-claude-diagnostics.sanitized.json"
+        $diagnostics | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $diagnosticPath -Encoding utf8
+    }
+
+    return $diagnostics
 }
 
 if (($ValidateOnly.IsPresent + $PreparePrompt.IsPresent + $Package.IsPresent + $DiagnosePostClaude.IsPresent) -gt 1) {
