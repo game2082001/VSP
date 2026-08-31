@@ -139,7 +139,8 @@ function Invoke-Developer {
     param(
         [Parameter(Mandatory = $true)][string] $Root,
         [Parameter(Mandatory = $true)][string] $ExpectedBaseSha,
-        [string] $Mode = "Package"
+        [string] $Mode = "Package",
+        [string] $ClaudeExecutionFile = "/tmp/claude-execution.json"
     )
 
     Push-Location $Root
@@ -191,7 +192,7 @@ function Invoke-Developer {
                 "-ClaudeSessionId",
                 "test-session",
                 "-ClaudeExecutionFile",
-                "/tmp/claude-execution.json",
+                $ClaudeExecutionFile,
                 "-ClaudePermissionDenialCount",
                 "6"
             )
@@ -275,6 +276,68 @@ try {
     if ($absentDiagnostics.claude.sessionId -ne "test-session" -or $absentDiagnostics.claude.permissionDenialCount -ne "6") {
         throw "Diagnostics did not preserve Claude action identity metadata."
     }
+    if ($absentDiagnostics.sanitizedClaudeExecution.rawExecutionOutputUploaded -ne $false) {
+        throw "Sanitized Claude execution diagnostics unexpectedly marked raw output as uploaded."
+    }
+
+    $safeExecutionFile = Join-Path $tempRoot "claude-execution-safe.json"
+    @(
+        '{"type":"tool_use","name":"Write","status":"success"}',
+        '{"type":"tool_result","tool_name":"Bash","status":"permission_denied","reason":"Permission denied by policy"}',
+        '{"type":"result","subtype":"success","num_turns":3}'
+    ) | Set-Content -LiteralPath $safeExecutionFile -Encoding utf8
+    $safeExecutionDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $safeExecutionFile | ConvertFrom-Json
+    if (($safeExecutionDiagnostics.sanitizedClaudeExecution.toolNames | Where-Object { $_ -eq "Write" }).Count -ne 1) {
+        throw "Sanitized diagnostics did not capture safe Write tool name."
+    }
+    if (($safeExecutionDiagnostics.sanitizedClaudeExecution.deniedTools | Where-Object { $_ -eq "Bash" }).Count -ne 1) {
+        throw "Sanitized diagnostics did not capture denied Bash tool."
+    }
+    if ($safeExecutionDiagnostics.sanitizedClaudeExecution.writeAttempted -ne $true -or
+        $safeExecutionDiagnostics.sanitizedClaudeExecution.bashAttempted -ne $true -or
+        $safeExecutionDiagnostics.sanitizedClaudeExecution.finalResultSubtype -ne "success" -or
+        $safeExecutionDiagnostics.sanitizedClaudeExecution.claudeTurnCount -ne "3") {
+        throw "Sanitized diagnostics did not capture expected execution summary fields."
+    }
+    if (($safeExecutionDiagnostics | ConvertTo-Json -Depth 20).Contains("Permission denied by policy") -ne $true) {
+        throw "Sanitized diagnostics did not preserve safe denial reason."
+    }
+    Remove-Item -LiteralPath $safeExecutionFile -Force
+
+    $sensitiveExecutionFile = Join-Path $tempRoot "claude-execution-sensitive.json"
+    @(
+        '{"type":"tool_use","name":"Edit","status":"success","input":"secret repository file contents"}',
+        '{"type":"tool_result","tool_name":"Write","status":"permission_denied","reason":"token ghp_abcdefghijklmnopqrstuvwxyz1234567890 leaked"}'
+    ) | Set-Content -LiteralPath $sensitiveExecutionFile -Encoding utf8
+    $sensitiveExecutionDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $sensitiveExecutionFile | ConvertFrom-Json
+    $sensitiveJson = $sensitiveExecutionDiagnostics | ConvertTo-Json -Depth 20
+    if ($sensitiveJson.Contains("secret repository file contents") -or $sensitiveJson.Contains("ghp_abcdefghijklmnopqrstuvwxyz1234567890")) {
+        throw "Sanitized diagnostics leaked sensitive tool input or denial reason."
+    }
+    if (($sensitiveExecutionDiagnostics.sanitizedClaudeExecution.sanitizedDenialReasons | Where-Object { $_ -eq "REDACTED" }).Count -lt 1) {
+        throw "Sanitized diagnostics did not redact sensitive denial reason."
+    }
+    Remove-Item -LiteralPath $sensitiveExecutionFile -Force
+
+    $unknownExecutionFile = Join-Path $tempRoot "claude-execution-unknown.json"
+    Set-Content -LiteralPath $unknownExecutionFile -Value "{not-json" -Encoding utf8
+    $unknownExecutionDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $unknownExecutionFile | ConvertFrom-Json
+    if ($unknownExecutionDiagnostics.sanitizedClaudeExecution.finalResultSubtype -ne "UNKNOWN" -or
+        $unknownExecutionDiagnostics.sanitizedClaudeExecution.toolNames.Count -ne 0) {
+        throw "Unknown Claude execution schema did not fail safely."
+    }
+
+    $diagnosticOutputDirectory = Split-Path -Parent ([string]$unknownExecutionDiagnostics.claude.executionFile)
+    if (Test-Path -LiteralPath (Join-Path $diagnosticOutputDirectory "claude-execution-unknown.json")) {
+        # The source file can exist in temp during the run, but the diagnostic artifact must not be renamed to a raw execution output.
+        if (Test-Path -LiteralPath (Join-Path $diagnosticOutputDirectory "post-claude-diagnostics.sanitized.json") -PathType Leaf) {
+            $sanitizedArtifactJson = Get-Content -LiteralPath (Join-Path $diagnosticOutputDirectory "post-claude-diagnostics.sanitized.json") -Raw
+            if ($sanitizedArtifactJson.Contains("{not-json")) {
+                throw "Sanitized diagnostic artifact contains raw execution output."
+            }
+        }
+    }
+    Remove-Item -LiteralPath $unknownExecutionFile -Force
 
     New-Item -ItemType Directory -Force -Path (Join-RepoPath -Root $tempRoot -Segments @("AI", "Orchestrator", "Wrong")) | Out-Null
     $wrongPath = Join-RepoPath -Root $tempRoot -Segments @("AI", "Orchestrator", "Wrong", "VSP-AI02-001TI-B1.claude-developer-smoke.txt")
@@ -355,6 +418,10 @@ try {
         postClaudeDiagnosticsUntracked = "PASS"
         postClaudeDiagnosticsIgnored = "PASS"
         postClaudeDiagnosticsSecretBoundary = "PASS"
+        sanitizedClaudeExecutionSafeFixture = "PASS"
+        sanitizedClaudeExecutionUnknownSchema = "PASS"
+        sanitizedClaudeExecutionRedaction = "PASS"
+        rawExecutionFileArtifactRetention = "FALSE"
         exactRequiredFileOnly = "PASS"
         repositoryWriteCredentialBoundary = "UNCHANGED"
         artifactPipeline = "UNCHANGED"
