@@ -183,6 +183,26 @@ function Invoke-Developer {
             }
             return $stdout
         }
+        if ($Mode -eq "DiagnosePostClaude") {
+            $scriptArgs += @(
+                "-DiagnosePostClaude",
+                "-ClaudeConclusion",
+                "success",
+                "-ClaudeSessionId",
+                "test-session",
+                "-ClaudeExecutionFile",
+                "/tmp/claude-execution.json",
+                "-ClaudePermissionDenialCount",
+                "6"
+            )
+            $process = Start-Process -FilePath "pwsh" -ArgumentList $scriptArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+            $stdout = (Read-TextFileOrEmpty -Path $stdoutPath).Trim()
+            $combined = ($stdout + "`n" + (Read-TextFileOrEmpty -Path $stderrPath)).Trim()
+            if ($process.ExitCode -ne 0) {
+                throw "claude-artifact-developer.ps1 DiagnosePostClaude failed. Output: $combined"
+            }
+            return $stdout
+        }
 
         $scriptArgs += "-Package"
         $process = Start-Process -FilePath "pwsh" -ArgumentList $scriptArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
@@ -240,11 +260,59 @@ try {
         }
     }
 
+    $absentDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude | ConvertFrom-Json
+    if ($absentDiagnostics.authorizedOutputFile.exists -ne $false) {
+        throw "Diagnostics did not report the authorized file as absent."
+    }
+    if ($absentDiagnostics.secretBoundary.environmentDumped -ne $false -or
+        $absentDiagnostics.secretBoundary.fileContentsLogged -ne $false -or
+        $absentDiagnostics.secretBoundary.fullClaudeTranscriptLogged -ne $false) {
+        throw "Diagnostics secret boundary changed unexpectedly."
+    }
+    if ($absentDiagnostics.approvedBasenameSearch.scope -ne "repository-root") {
+        throw "Diagnostics search scope is not repository-root."
+    }
+    if ($absentDiagnostics.claude.sessionId -ne "test-session" -or $absentDiagnostics.claude.permissionDenialCount -ne "6") {
+        throw "Diagnostics did not preserve Claude action identity metadata."
+    }
+
+    New-Item -ItemType Directory -Force -Path (Join-RepoPath -Root $tempRoot -Segments @("AI", "Orchestrator", "Wrong")) | Out-Null
+    $wrongPath = Join-RepoPath -Root $tempRoot -Segments @("AI", "Orchestrator", "Wrong", "VSP-AI02-001TI-B1.claude-developer-smoke.txt")
+    Set-Content -LiteralPath $wrongPath -Value "Task: VSP-AI02-001TI-B1-SMOKE`nAI02 Claude Artifact Developer smoke`nNo product behavior change`n" -Encoding utf8
+    $wrongPathDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude | ConvertFrom-Json
+    if ($wrongPathDiagnostics.authorizedOutputFile.exists -ne $false) {
+        throw "Diagnostics incorrectly treated wrong-path smoke file as authorized output."
+    }
+    if (($wrongPathDiagnostics.approvedBasenameSearch.matches | Where-Object { $_.path -eq "AI/Orchestrator/Wrong/VSP-AI02-001TI-B1.claude-developer-smoke.txt" }).Count -ne 1) {
+        throw "Diagnostics did not find wrong-path approved basename under repository root."
+    }
+    if (($wrongPathDiagnostics.gitUntrackedFiles | Where-Object { $_ -eq "AI/Orchestrator/Wrong/VSP-AI02-001TI-B1.claude-developer-smoke.txt" }).Count -ne 1) {
+        throw "Diagnostics did not report wrong-path untracked file."
+    }
+    Remove-Item -LiteralPath $wrongPath -Force
+
+    Set-Content -LiteralPath (Join-Path $tempRoot ".gitignore") -Value "ignored-smoke.txt`n" -Encoding utf8
+    Set-Content -LiteralPath (Join-Path $tempRoot "ignored-smoke.txt") -Value "ignored" -Encoding utf8
+    $ignoredDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude | ConvertFrom-Json
+    if (($ignoredDiagnostics.gitIgnoredFiles | Where-Object { $_ -eq "ignored-smoke.txt" }).Count -ne 1) {
+        throw "Diagnostics did not distinguish ignored files."
+    }
+    Remove-Item -LiteralPath (Join-Path $tempRoot ".gitignore") -Force
+    Remove-Item -LiteralPath (Join-Path $tempRoot "ignored-smoke.txt") -Force
+
     Assert-Fails -Name "zero changed files after Claude" -ExpectedMessage "changed files do not exactly match approved publication files" -Script { Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base }
 
     New-Item -ItemType Directory -Force -Path (Join-RepoPath -Root $tempRoot -Segments @("AI", "Orchestrator", "Smoke")) | Out-Null
     $smokeOutput = Join-RepoPath -Root $tempRoot -Segments @("AI", "Orchestrator", "Smoke", "VSP-AI02-001TI-B1.claude-developer-smoke.txt")
     Set-Content -LiteralPath $smokeOutput -Value "Task: VSP-AI02-001TI-B1-SMOKE`nAI02 Claude Artifact Developer smoke`nNo product behavior change`nB3 exact output validation`n" -Encoding utf8
+    $presentDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude | ConvertFrom-Json
+    if ($presentDiagnostics.authorizedOutputFile.exists -ne $true -or [string]::IsNullOrWhiteSpace($presentDiagnostics.authorizedOutputFile.sha256)) {
+        throw "Diagnostics did not report authorized file existence and hash."
+    }
+    if (($presentDiagnostics.gitUntrackedFiles | Where-Object { $_ -eq "AI/Orchestrator/Smoke/VSP-AI02-001TI-B1.claude-developer-smoke.txt" }).Count -ne 1) {
+        throw "Diagnostics did not report authorized untracked file."
+    }
+
     Set-Content -LiteralPath (Join-Path $tempRoot "extra.txt") -Value "extra" -Encoding utf8
     Assert-Fails -Name "extra changed file" -ExpectedMessage "changed files do not exactly match approved publication files" -Script { Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base }
     Remove-Item -LiteralPath (Join-Path $tempRoot "extra.txt") -Force
@@ -281,6 +349,12 @@ try {
         missingRequiredFileFailClosed = "PASS"
         emptyRequiredFileFailClosed = "PASS"
         missingContentMarkerFailClosed = "PASS"
+        postClaudeDiagnosticsAbsent = "PASS"
+        postClaudeDiagnosticsPresent = "PASS"
+        postClaudeDiagnosticsWrongPath = "PASS"
+        postClaudeDiagnosticsUntracked = "PASS"
+        postClaudeDiagnosticsIgnored = "PASS"
+        postClaudeDiagnosticsSecretBoundary = "PASS"
         exactRequiredFileOnly = "PASS"
         repositoryWriteCredentialBoundary = "UNCHANGED"
         artifactPipeline = "UNCHANGED"
