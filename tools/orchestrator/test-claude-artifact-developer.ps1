@@ -326,6 +326,9 @@ try {
         $unknownExecutionDiagnostics.sanitizedClaudeExecution.toolNames.Count -ne 0) {
         throw "Unknown Claude execution schema did not fail safely."
     }
+    if ($unknownExecutionDiagnostics.sanitizedClaudeExecution.parseStatus -ne "PARSED") {
+        throw "Unknown Claude execution schema should produce safe empty parsed diagnostics."
+    }
 
     $diagnosticOutputDirectory = Split-Path -Parent ([string]$unknownExecutionDiagnostics.claude.executionFile)
     if (Test-Path -LiteralPath (Join-Path $diagnosticOutputDirectory "claude-execution-unknown.json")) {
@@ -338,6 +341,53 @@ try {
         }
     }
     Remove-Item -LiteralPath $unknownExecutionFile -Force
+
+    $deepExecutionFile = Join-Path $tempRoot "claude-execution-deep.json"
+    $deepNode = [ordered]@{
+        type = "tool_use"
+        name = "Write"
+        status = "success"
+        child = $null
+    }
+    $cursor = $deepNode
+    for ($i = 0; $i -lt 40; $i++) {
+        $next = [ordered]@{
+            nested = $i
+            child = $null
+        }
+        $cursor.child = $next
+        $cursor = $next
+    }
+    $deepNode | ConvertTo-Json -Depth 80 | Set-Content -LiteralPath $deepExecutionFile -Encoding utf8
+    $deepDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $deepExecutionFile | ConvertFrom-Json
+    if ($deepDiagnostics.sanitizedClaudeExecution.maxDepthReached -ne $true) {
+        throw "Deep Claude execution diagnostics did not report the max-depth boundary."
+    }
+    if (($deepDiagnostics.sanitizedClaudeExecution.toolNames | Where-Object { $_ -eq "Write" }).Count -ne 1) {
+        throw "Deep Claude execution diagnostics failed to extract known root tool metadata."
+    }
+    Remove-Item -LiteralPath $deepExecutionFile -Force
+
+    $largeArrayExecutionFile = Join-Path $tempRoot "claude-execution-large-array.json"
+    $largeItems = @()
+    for ($i = 0; $i -lt 450; $i++) {
+        $largeItems += [ordered]@{
+            type = "tool_result"
+            tool_name = "Bash"
+            status = "permission_denied"
+            reason = "Permission denied by policy"
+        }
+    }
+    $largeItems | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $largeArrayExecutionFile -Encoding utf8
+    $largeArrayDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $largeArrayExecutionFile | ConvertFrom-Json
+    if ($largeArrayDiagnostics.sanitizedClaudeExecution.maxNodesReached -ne $true -or
+        $largeArrayDiagnostics.sanitizedClaudeExecution.inspectedNodeCount -gt 2000) {
+        throw "Large Claude execution diagnostics did not enforce bounded inspection."
+    }
+    if (($largeArrayDiagnostics.sanitizedClaudeExecution.deniedTools | Where-Object { $_ -eq "Bash" }).Count -ne 1) {
+        throw "Large Claude execution diagnostics failed to extract denied tool metadata before bounding."
+    }
+    Remove-Item -LiteralPath $largeArrayExecutionFile -Force
 
     New-Item -ItemType Directory -Force -Path (Join-RepoPath -Root $tempRoot -Segments @("AI", "Orchestrator", "Wrong")) | Out-Null
     $wrongPath = Join-RepoPath -Root $tempRoot -Segments @("AI", "Orchestrator", "Wrong", "VSP-AI02-001TI-B1.claude-developer-smoke.txt")
@@ -421,6 +471,8 @@ try {
         sanitizedClaudeExecutionSafeFixture = "PASS"
         sanitizedClaudeExecutionUnknownSchema = "PASS"
         sanitizedClaudeExecutionRedaction = "PASS"
+        sanitizedClaudeExecutionMaxDepth = "PASS"
+        sanitizedClaudeExecutionMaxNodes = "PASS"
         rawExecutionFileArtifactRetention = "FALSE"
         exactRequiredFileOnly = "PASS"
         repositoryWriteCredentialBoundary = "UNCHANGED"
