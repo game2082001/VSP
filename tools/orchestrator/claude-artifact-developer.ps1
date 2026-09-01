@@ -482,26 +482,30 @@ function Get-PropertyValue {
     return $null
 }
 
-function Visit-ClaudeExecutionNode {
+function New-ClaudeExecutionAccumulator {
+    [pscustomobject]@{
+        toolNames = New-Object System.Collections.ArrayList
+        toolStatuses = New-Object System.Collections.ArrayList
+        deniedTools = New-Object System.Collections.ArrayList
+        denialCategories = New-Object System.Collections.ArrayList
+        sanitizedDenialReasons = New-Object System.Collections.ArrayList
+        writeAttempted = $false
+        editAttempted = $false
+        bashAttempted = $false
+        claudeTurnCount = "UNKNOWN"
+        finalResultSubtype = "UNKNOWN"
+        parseStatus = "PARSED"
+        maxDepthReached = $false
+        maxNodesReached = $false
+        inspectedNodeCount = 0
+    }
+}
+
+function Visit-ClaudeExecutionKnownFields {
     param(
         [AllowNull()][object] $Node,
         [Parameter(Mandatory = $true)] $Accumulator
     )
-
-    if ($null -eq $Node) {
-        return
-    }
-
-    if ($Node -is [string] -or $Node.GetType().IsPrimitive) {
-        return
-    }
-
-    if ($Node -is [System.Collections.IEnumerable] -and -not ($Node -is [System.Collections.IDictionary]) -and -not ($Node -is [pscustomobject])) {
-        foreach ($item in $Node) {
-            Visit-ClaudeExecutionNode -Node $item -Accumulator $Accumulator
-        }
-        return
-    }
 
     $type = Get-PropertyValue -Object $Node -Names @("type", "event", "kind")
     $name = Get-PropertyValue -Object $Node -Names @("name", "tool_name", "toolName", "tool")
@@ -552,13 +556,62 @@ function Visit-ClaudeExecutionNode {
         }
         Add-SafeUniqueValue -Values $Accumulator.sanitizedDenialReasons -Value $safeError
     }
+}
+
+function Visit-ClaudeExecutionNode {
+    param(
+        [AllowNull()][object] $Node,
+        [Parameter(Mandatory = $true)] $Accumulator,
+        [int] $Depth = 0,
+        [int] $MaxDepth = 8,
+        [int] $MaxNodes = 2000,
+        [int] $MaxArrayItems = 200
+    )
+
+    if ($null -eq $Node) {
+        return
+    }
+
+    if ($Accumulator.inspectedNodeCount -ge $MaxNodes) {
+        $Accumulator.maxNodesReached = $true
+        return
+    }
+    $Accumulator.inspectedNodeCount++
+
+    if ($Depth -gt $MaxDepth) {
+        $Accumulator.maxDepthReached = $true
+        return
+    }
+
+    if ($Node -is [string] -or $Node.GetType().IsPrimitive) {
+        return
+    }
+
+    if ($Node -is [System.Collections.IEnumerable] -and -not ($Node -is [System.Collections.IDictionary]) -and -not ($Node -is [pscustomobject])) {
+        $visited = 0
+        foreach ($item in $Node) {
+            if ($visited -ge $MaxArrayItems) {
+                $Accumulator.maxNodesReached = $true
+                break
+            }
+            Visit-ClaudeExecutionNode -Node $item -Accumulator $Accumulator -Depth ($Depth + 1) -MaxDepth $MaxDepth -MaxNodes $MaxNodes -MaxArrayItems $MaxArrayItems
+            $visited++
+        }
+        return
+    }
+
+    Visit-ClaudeExecutionKnownFields -Node $Node -Accumulator $Accumulator
 
     foreach ($property in @($Node.PSObject.Properties)) {
+        if ($Accumulator.inspectedNodeCount -ge $MaxNodes) {
+            $Accumulator.maxNodesReached = $true
+            break
+        }
         $propertyName = [string]$property.Name
         if ($propertyName -match '(?i)prompt|content|text|input|output|stdout|stderr|transcript|environment|env') {
             continue
         }
-        Visit-ClaudeExecutionNode -Node $property.Value -Accumulator $Accumulator
+        Visit-ClaudeExecutionNode -Node $property.Value -Accumulator $Accumulator -Depth ($Depth + 1) -MaxDepth $MaxDepth -MaxNodes $MaxNodes -MaxArrayItems $MaxArrayItems
     }
 }
 
@@ -569,21 +622,15 @@ function Get-SanitizedClaudeExecutionDiagnostics {
     )
 
     $objects = @(Get-JsonObjectsFromExecutionFile -Path $ExecutionFile)
-    $accumulator = [pscustomobject]@{
-        toolNames = New-Object System.Collections.ArrayList
-        toolStatuses = New-Object System.Collections.ArrayList
-        deniedTools = New-Object System.Collections.ArrayList
-        denialCategories = New-Object System.Collections.ArrayList
-        sanitizedDenialReasons = New-Object System.Collections.ArrayList
-        writeAttempted = $false
-        editAttempted = $false
-        bashAttempted = $false
-        claudeTurnCount = "UNKNOWN"
-        finalResultSubtype = "UNKNOWN"
-    }
+    $accumulator = New-ClaudeExecutionAccumulator
 
     foreach ($object in $objects) {
-        Visit-ClaudeExecutionNode -Node $object -Accumulator $accumulator
+        try {
+            Visit-ClaudeExecutionNode -Node $object -Accumulator $accumulator
+        } catch {
+            $accumulator.parseStatus = "UNKNOWN"
+            break
+        }
     }
 
     [pscustomobject]@{
@@ -604,6 +651,10 @@ function Get-SanitizedClaudeExecutionDiagnostics {
         denialCategories = @($accumulator.denialCategories)
         sanitizedDenialReasons = @($accumulator.sanitizedDenialReasons)
         finalResultSubtype = $accumulator.finalResultSubtype
+        parseStatus = $accumulator.parseStatus
+        maxDepthReached = $accumulator.maxDepthReached
+        maxNodesReached = $accumulator.maxNodesReached
+        inspectedNodeCount = $accumulator.inspectedNodeCount
         rawExecutionOutputUploaded = $false
     }
 }
