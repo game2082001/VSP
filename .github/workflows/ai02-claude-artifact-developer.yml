@@ -97,7 +97,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ steps.prompt.outputs.prompt }}
-          claude_args: '--disallowedTools "Bash(git push:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr merge:*),Bash(gh api repos/*/git/refs:*),Bash(gh api repos/*/pulls:*)"'
+          claude_args: '--allowedTools "Read,Write,Edit" --disallowedTools "Bash(git push:*),Bash(gh pr create:*),Bash(gh pr edit:*),Bash(gh pr merge:*),Bash(gh api repos/*/git/refs:*),Bash(gh api repos/*/pulls:*)"'
 
       - name: Record post-Claude working-tree diagnostics
         if: always() && steps.validate.outcome == 'success'

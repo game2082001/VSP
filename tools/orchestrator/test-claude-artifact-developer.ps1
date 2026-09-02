@@ -17,6 +17,7 @@ function Join-RepoPath {
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-RepoPath -Root $PSScriptRoot -Segments @("..", ".."))).Path
 $scriptUnderTest = Join-RepoPath -Root $repoRoot -Segments @("tools", "orchestrator", "claude-artifact-developer.ps1")
+$workflowUnderTest = Join-RepoPath -Root $repoRoot -Segments @(".github", "workflows", "ai02-claude-artifact-developer.yml")
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("ai02-claude-artifact-test-" + [Guid]::NewGuid().ToString("N"))
 
 function Invoke-CheckedGit {
@@ -242,6 +243,43 @@ function Assert-Fails {
 }
 
 try {
+    $workflowText = Get-Content -LiteralPath $workflowUnderTest -Raw
+    if (-not $workflowText.Contains('persist-credentials: false')) {
+        throw "Claude artifact developer workflow no longer disables checkout credential persistence."
+    }
+    if (-not $workflowText.Contains('permissions:') -or -not $workflowText.Contains('contents: read')) {
+        throw "Claude artifact developer workflow no longer records contents: read permission."
+    }
+    if (-not $workflowText.Contains('--allowedTools "Read,Write,Edit"')) {
+        throw "Claude artifact developer workflow does not explicitly allow minimum repository-local file tools."
+    }
+    if ($workflowText -match '--allowedTools\s+"[^"]*Bash') {
+        throw "Claude artifact developer workflow must not broadly allow Bash for the smoke file operation."
+    }
+    foreach ($forbiddenBoundary in @(
+        "VSP_AI_APP_PRIVATE_KEY",
+        "create-github-app-token",
+        "git push",
+        "gh pr create",
+        "gh pr merge"
+    )) {
+        if ($workflowText.Contains($forbiddenBoundary) -and
+            $forbiddenBoundary -notin @("git push", "gh pr create", "gh pr merge")) {
+            throw "Claude artifact developer workflow unexpectedly references repository-write credential boundary: $forbiddenBoundary"
+        }
+    }
+    foreach ($requiredDisallowed in @(
+        'Bash(git push:*)',
+        'Bash(gh pr create:*)',
+        'Bash(gh pr merge:*)',
+        'Bash(gh api repos/*/git/refs:*)',
+        'Bash(gh api repos/*/pulls:*)'
+    )) {
+        if (-not $workflowText.Contains($requiredDisallowed)) {
+            throw "Claude artifact developer workflow is missing disallowed repository-write command guard: $requiredDisallowed"
+        }
+    }
+
     New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
     $base = Write-Fixture -Root $tempRoot
 
@@ -474,6 +512,8 @@ try {
         sanitizedClaudeExecutionMaxDepth = "PASS"
         sanitizedClaudeExecutionMaxNodes = "PASS"
         rawExecutionFileArtifactRetention = "FALSE"
+        claudeToolPermissionConfiguration = "MINIMUM_FILE_TOOLS_ONLY"
+        broadBashAllowed = "FALSE"
         exactRequiredFileOnly = "PASS"
         repositoryWriteCredentialBoundary = "UNCHANGED"
         artifactPipeline = "UNCHANGED"
