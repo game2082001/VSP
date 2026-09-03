@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-LOCALAI-001A",
+  "sourceSha": "0000000000000000000000000000000000000000",
+  "analysisType": "pr-diff",
+  "model": "qwen3:8b",
+  "modelVersion": "UNKNOWN",
+  "runtime": "Ollama",
+  "runtimeVersion": "UNKNOWN",
+  "result": "INCONCLUSIVE",
+  "findings": [
+    {
+      "severity": "INFO",
+      "file": "AI/Orchestrator/example.md",
+      "startLine": 1,
+      "endLine": 1,
+      "reason": "Bounded advisory reason. This is not approval.",
+      "suggestedVerification": "Concrete verification suggestion.",
+      "confidence": "low"
+    }
+  ],
+  "scopeDriftSuspected": false,
+  "testGapSuspected": false,
+  "confidence": "low",
+  "requestInputDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "analysisTimestampUtc": "2026-09-03T00:00:00Z",
+  "governance": {
+    "repositoryWrite": false,
+    "githubWrite": false,
+    "productionCredentialAccess": false,
+    "mergeAuthorization": "NEVER"
+  }
+}

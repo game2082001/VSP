@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0",
+  "type": "localAiAdvisoryResponseSchema",
+  "required": [
+    "schemaVersion",
+    "taskId",
+    "sourceSha",
+    "analysisType",
+    "model",
+    "modelVersion",
+    "runtime",
+    "result",
+    "findings",
+    "scopeDriftSuspected",
+    "testGapSuspected",
+    "confidence",
+    "requestInputDigest",
+    "analysisTimestampUtc",
+    "governance"
+  ],
+  "allowedResults": [
+    "PASS",
+    "FINDINGS",
+    "INCONCLUSIVE"
+  ],
+  "allowedFindingSeverities": [
+    "P0",
+    "P1",
+    "P2",
+    "P3",
+    "INFO"
+  ],
+  "allowedConfidence": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "governanceRequiredValues": {
+    "repositoryWrite": false,
+    "githubWrite": false,
+    "productionCredentialAccess": false,
+    "mergeAuthorization": "NEVER"
+  },
+  "bounds": {
+    "maxFindings": 50,
+    "maxReasonChars": 2000,
+    "maxSuggestedVerificationChars": 1000,
+    "maxResponseBytes": 120000
+  },
+  "allowedTopLevelProperties": [
+    "schemaVersion",
+    "taskId",
+    "sourceSha",
+    "analysisType",
+    "model",
+    "modelVersion",
+    "runtime",
+    "runtimeVersion",
+    "result",
+    "findings",
+    "scopeDriftSuspected",
+    "testGapSuspected",
+    "confidence",
+    "requestInputDigest",
+    "analysisTimestampUtc",
+    "governance"
+  ],
+  "forbiddenAuthorityValues": [
+    "APPROVED",
+    "READY_FOR_MERGE",
+    "MERGE_AUTHORIZED",
+    "RELEASE_AUTHORIZED",
+    "REMEDIATION_AUTHORIZED",
+    "MERGE AUTHORIZED",
+    "RELEASE AUTHORIZED",
+    "REMEDIATION AUTHORIZED",
+    "MERGE AUTHORIZATION",
+    "RELEASE AUTHORIZATION",
+    "REMEDIATION AUTHORIZATION",
+    "READY FOR MERGE"
+  ]
+}
