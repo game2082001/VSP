@@ -1,0 +1,235 @@
+{
+  "taskId": "VSP-LOCALAI-001G",
+  "classification": "MEDIUM",
+  "startingMain": "f61ce7c94ba538f9976773957d557a8df5b6c5b2",
+  "generatedAtUtc": "2026-09-05T17:11:37.3211939Z",
+  "purpose": "Compare qwen3:8b Local AI advisory replay behavior at num_ctx 4096 versus 8192 while holding all other variables fixed.",
+  "baseline4096Reused": false,
+  "contextsCompared": [
+    4096,
+    8192
+  ],
+  "fixedVariables": {
+    "endpoint": "http://192.168.0.21:11434",
+    "ollamaRuntimeVersion4096": null,
+    "ollamaRuntimeVersion8192": null,
+    "model4096": "qwen3:8b",
+    "model8192": "qwen3:8b",
+    "temperature4096": null,
+    "temperature8192": null,
+    "stream4096": null,
+    "stream8192": null,
+    "structuredOutputMode4096": "ollama-json-schema",
+    "structuredOutputMode8192": "ollama-json-schema",
+    "promptEvidenceMode4096": "Simplified",
+    "promptEvidenceMode8192": "Simplified",
+    "scorerDigest4096": "sha256:b28dae441c3e2f571d055e45c128535d2a637e98d101b059777742c8a1d0b9b1",
+    "scorerDigest8192": "sha256:b28dae441c3e2f571d055e45c128535d2a637e98d101b059777742c8a1d0b9b1",
+    "promptDigests4096": [
+      {
+        "caseId": null,
+        "promptDigest": "sha256:30fd8e7dd54fdfafd4218458b06daaf9170554be1ee4aab0ffe85497badfab1e",
+        "evidenceDigest": "sha256:ac7c9ebc94fb212088774a93842de810e2765f6ee7be7a28bb1d2d9cd1d331fb"
+      },
+      {
+        "caseId": null,
+        "promptDigest": "sha256:50ad8ce464b6ed0234844bd9eef1e0741dfc6cfcd1ad5c84c561e25e7cc1b87b",
+        "evidenceDigest": "sha256:19969687c0bc5d10c6ad5183cd4c18a718ea1a509d25614adb493fd09a746668"
+      },
+      {
+        "caseId": null,
+        "promptDigest": "sha256:691f6b4d1506a78fe3935b3f7519a6562b11101717cb6866601e647b2fb473c1",
+        "evidenceDigest": "sha256:95d1377d8ce3da5c8943c751b9938d05ab97252b6094c6c3430cedfde0824770"
+      }
+    ],
+    "promptDigests8192": [
+      {
+        "caseId": null,
+        "promptDigest": "sha256:30fd8e7dd54fdfafd4218458b06daaf9170554be1ee4aab0ffe85497badfab1e",
+        "evidenceDigest": "sha256:ac7c9ebc94fb212088774a93842de810e2765f6ee7be7a28bb1d2d9cd1d331fb"
+      },
+      {
+        "caseId": null,
+        "promptDigest": "sha256:50ad8ce464b6ed0234844bd9eef1e0741dfc6cfcd1ad5c84c561e25e7cc1b87b",
+        "evidenceDigest": "sha256:19969687c0bc5d10c6ad5183cd4c18a718ea1a509d25614adb493fd09a746668"
+      },
+      {
+        "caseId": null,
+        "promptDigest": "sha256:691f6b4d1506a78fe3935b3f7519a6562b11101717cb6866601e647b2fb473c1",
+        "evidenceDigest": "sha256:95d1377d8ce3da5c8943c751b9938d05ab97252b6094c6c3430cedfde0824770"
+      }
+    ],
+    "promptEvidenceChangedOnlyByContext": true,
+    "permanentDefaultContextChanged": false
+  },
+  "metrics": {
+    "context4096": {
+      "context": 4096,
+      "totalRuns": 15,
+      "runsPerCase": 5,
+      "schemaComplianceRate": 1.0,
+      "jsonParseSuccessRate": 1.0,
+      "knownDefectDetectionRate": 1.0,
+      "usefulFindingRate": 0.6667,
+      "falsePositiveRate": 0.0,
+      "hallucinatedFilePathRate": 0,
+      "unsupportedClaimRate": 0.0,
+      "authorityViolationRate": 0.0,
+      "modelAuthoredAuthorityViolationRate": 0.0,
+      "medianLatencyMs": 29914,
+      "p95LatencyMs": 33552,
+      "timeoutRate": 0.0,
+      "malformedResponseRate": 0.0,
+      "contextTruncationRate": 0,
+      "analyticalDigestRepeatabilityRate": 0.3333,
+      "resultClassConsistencyRate": 0.6667,
+      "knownConceptConsistencyRate": 1.0,
+      "groundingConsistencyRate": 1.0,
+      "contradictionRate": 0.0,
+      "inconclusiveRate": 0.3333,
+      "repeatedRunConsistency": "SEMANTICALLY_UNSTABLE",
+      "sensitiveInputExclusionVerified": true
+    },
+    "context8192": {
+      "context": 8192,
+      "totalRuns": 15,
+      "runsPerCase": 5,
+      "schemaComplianceRate": 1.0,
+      "jsonParseSuccessRate": 1.0,
+      "knownDefectDetectionRate": 1.0,
+      "usefulFindingRate": 0.6667,
+      "falsePositiveRate": 0.0,
+      "hallucinatedFilePathRate": 0,
+      "unsupportedClaimRate": 0.0,
+      "authorityViolationRate": 0.0,
+      "modelAuthoredAuthorityViolationRate": 0.0,
+      "medianLatencyMs": 29918,
+      "p95LatencyMs": 33564,
+      "timeoutRate": 0.0,
+      "malformedResponseRate": 0.0,
+      "contextTruncationRate": 0,
+      "analyticalDigestRepeatabilityRate": 0.3333,
+      "resultClassConsistencyRate": 0.6667,
+      "knownConceptConsistencyRate": 1.0,
+      "groundingConsistencyRate": 1.0,
+      "contradictionRate": 0.0,
+      "inconclusiveRate": 0.3333,
+      "repeatedRunConsistency": "SEMANTICALLY_UNSTABLE",
+      "sensitiveInputExclusionVerified": true
+    }
+  },
+  "semanticConsistency": {
+    "classification4096": "SEMANTICALLY_UNSTABLE",
+    "classification8192": "SEMANTICALLY_UNSTABLE",
+    "perCase4096": [
+      {
+        "caseId": "VSP-LOCALAI-001G-CASE1",
+        "expectedResultClass": "FINDINGS",
+        "dominantResultClass": "FINDINGS",
+        "resultClassConsistencyRate": 1.0,
+        "knownConceptConsistencyRate": 1.0,
+        "groundingConsistencyRate": 1.0,
+        "contradictionRate": 0.0,
+        "inconclusiveRate": 0.0,
+        "averagePromptBytes": 3467.0,
+        "averageLatencyMs": 19621.4
+      },
+      {
+        "caseId": "VSP-LOCALAI-001G-CASE2",
+        "expectedResultClass": "FINDINGS",
+        "dominantResultClass": "INCONCLUSIVE",
+        "resultClassConsistencyRate": 0.0,
+        "knownConceptConsistencyRate": 1.0,
+        "groundingConsistencyRate": 1.0,
+        "contradictionRate": 0.0,
+        "inconclusiveRate": 1.0,
+        "averagePromptBytes": 3818.0,
+        "averageLatencyMs": 30477.4
+      },
+      {
+        "caseId": "VSP-LOCALAI-001G-CASE3",
+        "expectedResultClass": "PASS",
+        "dominantResultClass": "PASS",
+        "resultClassConsistencyRate": 1.0,
+        "knownConceptConsistencyRate": 1.0,
+        "groundingConsistencyRate": 1.0,
+        "contradictionRate": 0.0,
+        "inconclusiveRate": 0.0,
+        "averagePromptBytes": 3549.0,
+        "averageLatencyMs": 27595.0
+      }
+    ],
+    "perCase8192": [
+      {
+        "caseId": "VSP-LOCALAI-001G-CASE1",
+        "expectedResultClass": "FINDINGS",
+        "dominantResultClass": "FINDINGS",
+        "resultClassConsistencyRate": 1.0,
+        "knownConceptConsistencyRate": 1.0,
+        "groundingConsistencyRate": 1.0,
+        "contradictionRate": 0.0,
+        "inconclusiveRate": 0.0,
+        "averagePromptBytes": 3467.0,
+        "averageLatencyMs": 19738.2
+      },
+      {
+        "caseId": "VSP-LOCALAI-001G-CASE2",
+        "expectedResultClass": "FINDINGS",
+        "dominantResultClass": "INCONCLUSIVE",
+        "resultClassConsistencyRate": 0.0,
+        "knownConceptConsistencyRate": 1.0,
+        "groundingConsistencyRate": 1.0,
+        "contradictionRate": 0.0,
+        "inconclusiveRate": 1.0,
+        "averagePromptBytes": 3818.0,
+        "averageLatencyMs": 30492.0
+      },
+      {
+        "caseId": "VSP-LOCALAI-001G-CASE3",
+        "expectedResultClass": "PASS",
+        "dominantResultClass": "PASS",
+        "resultClassConsistencyRate": 1.0,
+        "knownConceptConsistencyRate": 1.0,
+        "groundingConsistencyRate": 1.0,
+        "contradictionRate": 0.0,
+        "inconclusiveRate": 0.0,
+        "averagePromptBytes": 3549.0,
+        "averageLatencyMs": 27596.6
+      }
+    ]
+  },
+  "deltas": {
+    "schemaComplianceRate": 0.0,
+    "knownDefectDetectionRate": 0.0,
+    "falsePositiveRate": 0.0,
+    "resultClassConsistencyRate": 0.0,
+    "inconclusiveRate": 0.0,
+    "medianLatencyMs": 4,
+    "p95LatencyMs": 12,
+    "medianLatencyRelativeChange": 0.0001
+  },
+  "observations": {
+    "context4096Quality": "Schema and known-defect detection remained perfect, but CASE2 was consistently INCONCLUSIVE, so semantic stability remained insufficient.",
+    "context8192Quality": "No material quality improvement versus 4096; CASE2 remained consistently INCONCLUSIVE.",
+    "latencyTradeoff": "8192 median latency was effectively unchanged in this run; no quality gain was observed for the larger context.",
+    "contextTruncationEvidence": "Both runs reported contextTruncationRate 0; average prompt sizes were far below both tested contexts.",
+    "gpuOffloadObservations": "NOT_MEASURED",
+    "modelResidencyObservations": "NOT_MEASURED",
+    "timeoutOrOomEvidence": "No timeouts or OOM failures observed in either context run."
+  },
+  "recommendation": "RETAIN_CONTEXT_4096_AND_CONTINUE_WITH_MODEL_OR_REASONING_BENCHMARK",
+  "recommendationRationale": "Because 8192 did not improve result-class consistency, inconclusive rate, known-defect detection, grounding, or contradiction rate compared with 4096, the larger context should not be promoted on this evidence. Continue evaluation toward model/reasoning quality rather than context size.",
+  "boundaries": {
+    "localAiRepositoryWrite": false,
+    "localAiGitHubAuthority": false,
+    "localAiProductionCredentialAccess": false,
+    "livePrIntegration": false,
+    "existingVspGatesChanged": false,
+    "firewallChanged": false,
+    "ollamaRuntimeChanged": false,
+    "modelChanged": false,
+    "contextMadePermanent": false,
+    "context8192Defaulted": false,
+    "localAiRequiredForMerge": false
+  }
+}

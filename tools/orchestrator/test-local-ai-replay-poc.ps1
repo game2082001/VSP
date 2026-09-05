@@ -14,6 +14,7 @@ if ($result.taskId -ne "VSP-LOCALAI-001B") { throw "Unexpected default task ID."
 if ($result.replayAttemptId -ne "attempt1") { throw "Unexpected default replay attempt ID." }
 if ($result.cases -ne 3) { throw "Expected exactly 3 replay cases." }
 if ($result.runsPerCase -ne 3) { throw "Expected 3 runs per case." }
+if ($result.context -ne 4096) { throw "Default context must remain 4096." }
 if ($result.requestSchemaVersion -ne "1.0") { throw "Unexpected request schema version." }
 if ($result.responseSchemaVersion -ne "1.0") { throw "Unexpected response schema version." }
 if ($result.structuredOutputMode -ne "ollama-json") { throw "Unexpected default structured output mode." }
@@ -46,6 +47,7 @@ if ($structured.taskId -ne "VSP-LOCALAI-001E") { throw "Unexpected structured ta
 if ($structured.replayAttemptId -ne "attempt2-analysis-schema") { throw "Unexpected structured replay attempt ID." }
 if ($structured.cases -ne 3) { throw "Expected exactly 3 structured replay cases." }
 if ($structured.runsPerCase -ne 5) { throw "Expected 5 structured runs per case." }
+if ($structured.context -ne 4096) { throw "Structured default context must remain 4096." }
 if ($structured.structuredOutputMode -ne "ollama-json-schema") { throw "Structured output mode was not schema-constrained." }
 if ($structured.modelGeneratedFields -ne "analysis-only") { throw "Structured model-generated field mode was not analysis-only." }
 if (@($structured.trustedOrchestratorAttachedFields).Count -eq 0) { throw "Structured mode must attach trusted orchestration fields." }
@@ -76,6 +78,7 @@ if ($simplified.status -ne "PASS") { throw "Simplified ValidateOnly status was n
 if ($simplified.taskId -ne "VSP-LOCALAI-001F") { throw "Unexpected simplified task ID." }
 if ($simplified.replayAttemptId -ne "attempt1-simplified-prompt-evidence") { throw "Unexpected simplified replay attempt ID." }
 if ($simplified.runsPerCase -ne 5) { throw "Expected 5 simplified runs per case." }
+if ($simplified.context -ne 4096) { throw "Simplified default context must remain 4096." }
 if ($simplified.structuredOutputMode -ne "ollama-json-schema") { throw "Simplified run must use Ollama JSON Schema." }
 if ($simplified.promptEvidenceMode -ne "Simplified") { throw "Simplified prompt/evidence mode was not reported." }
 if ($simplified.simplifiedPromptContract.trustedInstructionsLayerPresent -ne $true) { throw "Simplified trusted instruction layer missing." }
@@ -93,6 +96,17 @@ if ($simplified.livePrGateIntegration -ne $false) { throw "Simplified Local AI l
 if ($simplified.firewallChanged -ne $false) { throw "Simplified firewall must not be changed." }
 if ($simplified.ollamaModelContextChanged -ne $false) { throw "Simplified Ollama model/context must not be changed." }
 
+$contextJson = & pwsh -NoProfile -File $script -ValidateOnly -ExperimentTaskId "VSP-LOCALAI-001G" -ReplayAttemptId "validate-context-8192" -RunsPerCase 5 -UseStructuredOutputSchema -PromptEvidenceMode Simplified -ContextSize 8192 -OutputDirectory "AI/Orchestrator/LocalAI/VSP-LOCALAI-001G"
+if ($LASTEXITCODE -ne 0) {
+    throw "Local AI 8192 context ValidateOnly failed."
+}
+
+$contextResult = $contextJson | ConvertFrom-Json
+if ($contextResult.status -ne "PASS") { throw "8192 context ValidateOnly status was not PASS." }
+if ($contextResult.context -ne 8192) { throw "8192 context was not reported." }
+if ($contextResult.ollamaModelContextChanged -ne $false) { throw "8192 context benchmark must not claim permanent Ollama model/context change." }
+if ($contextResult.simplifiedPromptContract.singleObjectiveLayerPresent -ne $true) { throw "8192 context validation lost simplified prompt contract." }
+
 [pscustomobject]@{
     status = "PASS"
     validateOnly = "PASS"
@@ -100,6 +114,7 @@ if ($simplified.ollamaModelContextChanged -ne $false) { throw "Simplified Ollama
     defaultRunsPerCase = 3
     structuredRunsPerCase = 5
     simplifiedRunsPerCase = 5
+    contextBenchmarkSupported = $true
     defaultStructuredOutputMode = $result.structuredOutputMode
     experimentalStructuredOutputMode = $structured.structuredOutputMode
     simplifiedPromptEvidenceMode = $simplified.promptEvidenceMode

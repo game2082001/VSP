@@ -3,8 +3,11 @@ param(
     [string] $Model = "qwen3:8b",
     [int] $RunsPerCase = 3,
     [int] $TimeoutSeconds = 120,
+    [ValidateSet(4096, 8192)]
+    [int] $ContextSize = 4096,
     [string] $ExperimentTaskId = "VSP-LOCALAI-001B",
     [string] $ReplayAttemptId = "attempt1",
+    [string] $ReportName = "",
     [string] $OutputDirectory = "AI/Orchestrator/LocalAI/VSP-LOCALAI-001B",
     [ValidateSet("Legacy", "Simplified")]
     [string] $PromptEvidenceMode = "Legacy",
@@ -759,6 +762,7 @@ function Invoke-LocalAi {
         [Parameter(Mandatory = $true)][string] $Endpoint,
         [Parameter(Mandatory = $true)][string] $Model,
         [Parameter(Mandatory = $true)][int] $TimeoutSeconds,
+        [Parameter(Mandatory = $true)][int] $ContextSize,
         [Parameter(Mandatory = $true)][bool] $UseStructuredOutputSchema
     )
 
@@ -779,7 +783,7 @@ function Invoke-LocalAi {
             }
         )
         options = @{
-            num_ctx = 4096
+            num_ctx = $ContextSize
             temperature = 0
         }
     } | ConvertTo-Json -Depth 30
@@ -895,6 +899,9 @@ function Get-RunSemanticFacts {
 $repoRoot = (Resolve-Path -LiteralPath (Join-RepoPath -Root $PSScriptRoot -Segments @("..", ".."))).Path
 $requestSchema = Read-JsonFile -Path (Join-RepoPath -Root $repoRoot -Segments @("AI", "Orchestrator", "Templates", "local-ai-advisory-request.schema.json"))
 $responseSchema = Read-JsonFile -Path (Join-RepoPath -Root $repoRoot -Segments @("AI", "Orchestrator", "Templates", "local-ai-advisory-response.schema.json"))
+if ([string]::IsNullOrWhiteSpace($ReportName)) {
+    $ReportName = $ExperimentTaskId
+}
 
 $cases = @(Get-ReplayCases)
 foreach ($case in $cases) {
@@ -1049,6 +1056,7 @@ if ($ValidateOnly) {
         replayAttemptId = $ReplayAttemptId
         cases = $cases.Count
         runsPerCase = $RunsPerCase
+        context = $ContextSize
         requestSchemaVersion = $requestSchema.schemaVersion
         responseSchemaVersion = $responseSchema.schemaVersion
         structuredOutputMode = if ($UseStructuredOutputSchema) { "ollama-json-schema" } else { "ollama-json" }
@@ -1101,7 +1109,7 @@ $allRuns = @()
 
 foreach ($case in $cases) {
     for ($i = 1; $i -le $RunsPerCase; $i++) {
-        $modelResult = Invoke-LocalAi -Request $case -Endpoint $Endpoint -Model $Model -TimeoutSeconds $TimeoutSeconds -UseStructuredOutputSchema ([bool]$UseStructuredOutputSchema)
+        $modelResult = Invoke-LocalAi -Request $case -Endpoint $Endpoint -Model $Model -TimeoutSeconds $TimeoutSeconds -ContextSize $ContextSize -UseStructuredOutputSchema ([bool]$UseStructuredOutputSchema)
         $parsed = $null
         $schemaStatus = "INVALID"
         $result = "INCONCLUSIVE"
@@ -1174,7 +1182,7 @@ foreach ($case in $cases) {
             model = $Model
             runtime = "Ollama"
             runtimeVersion = "0.33.2"
-            context = 4096
+            context = $ContextSize
             ok = $modelResult.ok
             result = $result
             schemaStatus = $schemaStatus
@@ -1305,7 +1313,7 @@ $report = [pscustomobject]@{
     model = $Model
     runtime = "Ollama"
     runtimeVersion = "0.33.2"
-    context = 4096
+    context = $ContextSize
     requestSchemaVersion = $requestSchema.schemaVersion
     responseSchemaVersion = $responseSchema.schemaVersion
     structuredOutputMode = if ($UseStructuredOutputSchema) { "ollama-json-schema" } else { "ollama-json" }
@@ -1315,7 +1323,7 @@ $report = [pscustomobject]@{
     generationSettings = [pscustomobject]@{
         stream = $false
         temperature = 0
-        context = 4096
+        context = $ContextSize
         format = if ($UseStructuredOutputSchema) { "json-schema-analysis-only" } else { "json-full-response" }
     }
     baselineComparison = [pscustomobject]@{
@@ -1392,6 +1400,12 @@ $report = [pscustomobject]@{
             taskId = $_.taskId
             sourceSha = $_.sourceSha
             requestDigest = $_.inputDigest
+            promptDigest = Get-Sha256Text -Text (Get-LocalAiPrompt -Request $_ -Model $Model -UseStructuredOutputSchema ([bool]$UseStructuredOutputSchema))
+            evidenceDigest = Get-CanonicalJsonDigest -Value ([pscustomobject][ordered]@{
+                    selectedSourceSnippets = @($_.selectedSourceSnippets)
+                    sanitizedEvidence = @($_.sanitizedEvidence)
+                    acceptanceCriteria = @($_.acceptanceCriteria)
+                })
             changedFiles = @($_.changedFiles)
         }
     })
@@ -1407,6 +1421,20 @@ $report = [pscustomobject]@{
         runs = @($semanticRuns)
     }
     metrics = $metrics
+    fixedVariableProof = [pscustomobject]@{
+        model = $Model
+        runtime = "Ollama"
+        runtimeVersion = "0.33.2"
+        stream = $false
+        temperature = 0
+        structuredOutputMode = if ($UseStructuredOutputSchema) { "ollama-json-schema" } else { "ollama-json" }
+        promptEvidenceMode = $PromptEvidenceMode
+        schemaVersion = $responseSchema.schemaVersion
+        scorerIdentity = "invoke-local-ai-replay-poc semantic scorer with 001F result-class and known-concept methodology"
+        scorerDigest = Get-Sha256Text -Text ((Get-Command Test-DetectsKnownDefect).Definition + (Get-Command Get-RunSemanticFacts).Definition + (Get-Command Test-UnsupportedClaims).Definition + (Get-Command Test-PromptInjectionEscape).Definition)
+        promptEvidenceChangedOnlyByContext = $true
+        permanentDefaultContextChanged = $false
+    }
     authority = [pscustomobject]@{
         localAiRepositoryWrite = $false
         localAiGitHubAuthority = $false
@@ -1442,6 +1470,6 @@ $report = [pscustomobject]@{
     ) { "CONTINUE_WITH_CONTEXT_BENCHMARK" } else { "CONTINUE_WITH_MODEL_BENCHMARK" }
 }
 
-$reportPath = Join-Path $OutputDirectory "$ExperimentTaskId.replay-report.json"
+$reportPath = Join-Path $OutputDirectory "$ReportName.replay-report.json"
 $report | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $reportPath -Encoding utf8
 $report | ConvertTo-Json -Depth 30
