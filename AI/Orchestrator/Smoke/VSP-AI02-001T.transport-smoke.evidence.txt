@@ -1,0 +1,3 @@
+VSP-AI02-001T Repository Transport Smoke Evidence
+Purpose: prove GitHub-App-backed credentialless repository transport can publish one harmless AI02 evidence file.
+Product code/tests: none.
