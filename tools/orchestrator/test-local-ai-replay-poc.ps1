@@ -29,7 +29,10 @@ if ($result.scoringSelfTests.case2EmptyAnalysisWithGovernanceMetadataDetected -n
 if ($result.scoringSelfTests.case2GenuineModelAnalysisDetected -ne $true) { throw "CASE2 known-defect scoring did not detect genuine model-authored analysis." }
 if ($result.scoringSelfTests.modelAuthoredAuthorityTextDetected -ne $true) { throw "Model-authored authority text was not detected." }
 if ($result.scoringSelfTests.unsupportedClaimDetectedFromModelAnalysis -ne $true) { throw "Unsupported claim detection did not inspect model-authored analysis." }
+if ($result.scoringSelfTests.defaultFullResponseUnsupportedClaimDetected -ne $true) { throw "Default mode did not inspect the full model-authored response for unsupported claims." }
+if ($result.scoringSelfTests.safeGovernanceEnvelopeDoesNotCreateDetection -ne $true) { throw "Safe governance envelope metadata created a false CASE2 detection." }
 if ($result.digestSelfTests.identicalAnalysisDigestStable -ne $true) { throw "Identical analytical output did not produce a stable analytical digest." }
+if ($result.digestSelfTests.propertyOrderIndependentAnalysisDigestStable -ne $true) { throw "Analytical digest changed when JSON property order changed." }
 if ($result.digestSelfTests.timestampedEvidenceEnvelopeDigestDistinct -ne $true) { throw "Timestamped evidence envelope digest was not distinguished from analytical digest." }
 
 $structuredJson = & pwsh -NoProfile -File $script -ValidateOnly -ExperimentTaskId "VSP-LOCALAI-001E" -ReplayAttemptId "attempt2-analysis-schema" -RunsPerCase 5 -UseStructuredOutputSchema -OutputDirectory "AI/Orchestrator/LocalAI/VSP-LOCALAI-001E"
@@ -52,7 +55,10 @@ if ($structured.scoringSelfTests.case2EmptyAnalysisWithGovernanceMetadataDetecte
 if ($structured.scoringSelfTests.case2GenuineModelAnalysisDetected -ne $true) { throw "Structured CASE2 scoring did not detect genuine model-authored analysis." }
 if ($structured.scoringSelfTests.modelAuthoredAuthorityTextDetected -ne $true) { throw "Structured model-authored authority text was not detected." }
 if ($structured.scoringSelfTests.unsupportedClaimDetectedFromModelAnalysis -ne $true) { throw "Structured unsupported claim detection did not inspect model-authored analysis." }
+if ($structured.scoringSelfTests.defaultFullResponseUnsupportedClaimDetected -ne $true) { throw "Structured validation did not preserve default full-response unsupported-claim coverage." }
+if ($structured.scoringSelfTests.safeGovernanceEnvelopeDoesNotCreateDetection -ne $true) { throw "Structured safe governance envelope metadata created a false CASE2 detection." }
 if ($structured.digestSelfTests.identicalAnalysisDigestStable -ne $true) { throw "Structured identical analytical output did not produce a stable analytical digest." }
+if ($structured.digestSelfTests.propertyOrderIndependentAnalysisDigestStable -ne $true) { throw "Structured analytical digest changed when JSON property order changed." }
 if ($structured.digestSelfTests.timestampedEvidenceEnvelopeDigestDistinct -ne $true) { throw "Structured timestamped evidence envelope digest was not distinguished from analytical digest." }
 if ($structured.localAiRepositoryWrite -ne $false) { throw "Structured Local AI repository write boundary changed." }
 if ($structured.localAiGitHubAuthority -ne $false) { throw "Structured Local AI GitHub authority boundary changed." }
