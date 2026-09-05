@@ -66,14 +66,43 @@ if ($structured.livePrGateIntegration -ne $false) { throw "Structured Local AI l
 if ($structured.firewallChanged -ne $false) { throw "Structured firewall must not be changed." }
 if ($structured.ollamaModelContextChanged -ne $false) { throw "Structured Ollama model/context must not be changed." }
 
+$simplifiedJson = & pwsh -NoProfile -File $script -ValidateOnly -ExperimentTaskId "VSP-LOCALAI-001F" -ReplayAttemptId "attempt1-simplified-prompt-evidence" -RunsPerCase 5 -UseStructuredOutputSchema -PromptEvidenceMode Simplified -OutputDirectory "AI/Orchestrator/LocalAI/VSP-LOCALAI-001F"
+if ($LASTEXITCODE -ne 0) {
+    throw "Local AI simplified prompt/evidence replay ValidateOnly failed."
+}
+
+$simplified = $simplifiedJson | ConvertFrom-Json
+if ($simplified.status -ne "PASS") { throw "Simplified ValidateOnly status was not PASS." }
+if ($simplified.taskId -ne "VSP-LOCALAI-001F") { throw "Unexpected simplified task ID." }
+if ($simplified.replayAttemptId -ne "attempt1-simplified-prompt-evidence") { throw "Unexpected simplified replay attempt ID." }
+if ($simplified.runsPerCase -ne 5) { throw "Expected 5 simplified runs per case." }
+if ($simplified.structuredOutputMode -ne "ollama-json-schema") { throw "Simplified run must use Ollama JSON Schema." }
+if ($simplified.promptEvidenceMode -ne "Simplified") { throw "Simplified prompt/evidence mode was not reported." }
+if ($simplified.simplifiedPromptContract.trustedInstructionsLayerPresent -ne $true) { throw "Simplified trusted instruction layer missing." }
+if ($simplified.simplifiedPromptContract.singleObjectiveLayerPresent -ne $true) { throw "Simplified single-objective layer missing." }
+if ($simplified.simplifiedPromptContract.untrustedMaterialLayerPresent -ne $true) { throw "Simplified untrusted-material layer missing." }
+if ($simplified.simplifiedPromptContract.promptInjectionBoundaryPresent -ne $true) { throw "Simplified prompt injection boundary missing." }
+if ($simplified.scoringSelfTests.case1WeakRecursionWordsDetected -ne $false) { throw "CASE1 weak recursion terminology should not satisfy known-defect scoring." }
+if ($simplified.scoringSelfTests.case1GenuineModelAnalysisDetected -ne $true) { throw "CASE1 genuine model analysis was not detected." }
+if ($simplified.scoringSelfTests.case2TrustedMetadataWriteDetected -ne $false) { throw "CASE2 scoring was contaminated by trusted metadata write text." }
+if ($simplified.scoringSelfTests.emptyAnalysisDoesNotDetectKnownDefect -ne $true) { throw "Empty analysis should not detect known defects." }
+if ($simplified.scoringSelfTests.promptInjectionEscapeDetected -ne $true) { throw "Prompt-injection escape scorer did not detect hostile model-authored text." }
+if ($simplified.localAiRepositoryWrite -ne $false) { throw "Simplified Local AI repository write boundary changed." }
+if ($simplified.localAiGitHubAuthority -ne $false) { throw "Simplified Local AI GitHub authority boundary changed." }
+if ($simplified.livePrGateIntegration -ne $false) { throw "Simplified Local AI live PR gate integration must be false." }
+if ($simplified.firewallChanged -ne $false) { throw "Simplified firewall must not be changed." }
+if ($simplified.ollamaModelContextChanged -ne $false) { throw "Simplified Ollama model/context must not be changed." }
+
 [pscustomobject]@{
     status = "PASS"
     validateOnly = "PASS"
     replayCases = 3
     defaultRunsPerCase = 3
     structuredRunsPerCase = 5
+    simplifiedRunsPerCase = 5
     defaultStructuredOutputMode = $result.structuredOutputMode
     experimentalStructuredOutputMode = $structured.structuredOutputMode
+    simplifiedPromptEvidenceMode = $simplified.promptEvidenceMode
     localAiRepositoryWrite = $false
     localAiGitHubAuthority = $false
     livePrGateIntegration = $false

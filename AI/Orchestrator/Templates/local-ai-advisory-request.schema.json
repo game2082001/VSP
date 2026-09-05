@@ -30,6 +30,7 @@
     "maxSelectedSourceSnippetChars": 4000,
     "maxSanitizedEvidenceItems": 30,
     "maxSanitizedEvidenceChars": 4000,
+    "maxAnalysisObjectiveChars": 1200,
     "maxReviewRubricChars": 12000,
     "maxRequestBytes": 200000
   },
@@ -40,6 +41,7 @@
     "sourceSha",
     "baseSha",
     "headSha",
+    "analysisObjective",
     "approvedScope",
     "prohibitedScope",
     "acceptanceCriteria",
