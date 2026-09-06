@@ -42,6 +42,7 @@
     "baseSha",
     "headSha",
     "analysisObjective",
+    "resultClassificationRubricMode",
     "approvedScope",
     "prohibitedScope",
     "acceptanceCriteria",
