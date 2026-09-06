@@ -126,6 +126,39 @@ if (-not (@($calibrated.resultClassificationCalibration.syntheticExamples | Wher
 if ($calibrated.ollamaModelContextChanged -ne $false) { throw "Calibration benchmark must not claim permanent Ollama model/context change." }
 if ($calibrated.livePrGateIntegration -ne $false) { throw "Calibration must not integrate Local AI into live PR gates." }
 
+$modelBenchmarkJson = & pwsh -NoProfile -File $script -ValidateOnly -ExperimentTaskId "VSP-LOCALAI-001J" -ReplayAttemptId "validate-model-benchmark" -RunsPerCase 5 -UseStructuredOutputSchema -PromptEvidenceMode Simplified -ResultClassificationRubric Calibrated -Model "qwen3:8b" -ContextSize 4096 -OutputDirectory "AI/Orchestrator/LocalAI/VSP-LOCALAI-001J"
+if ($LASTEXITCODE -ne 0) {
+    throw "Local AI model benchmark ValidateOnly failed."
+}
+
+$modelBenchmark = $modelBenchmarkJson | ConvertFrom-Json
+if ($modelBenchmark.status -ne "PASS") { throw "Model benchmark ValidateOnly status was not PASS." }
+if ($modelBenchmark.taskId -ne "VSP-LOCALAI-001J") { throw "Unexpected model benchmark task ID." }
+if ($modelBenchmark.context -ne 4096) { throw "Model benchmark must keep context 4096." }
+if ($modelBenchmark.runsPerCase -ne 5) { throw "Model benchmark must use five runs per case." }
+if ($modelBenchmark.structuredOutputMode -ne "ollama-json-schema") { throw "Model benchmark must use Ollama JSON Schema structured output." }
+if ($modelBenchmark.promptEvidenceMode -ne "Simplified") { throw "Model benchmark must use the simplified evidence prompt." }
+if ($modelBenchmark.resultClassificationRubric -ne "Calibrated") { throw "Model benchmark must use the calibrated result-classification rubric." }
+if ($modelBenchmark.ollamaModelContextChanged -ne $false) { throw "Model benchmark must not claim permanent Ollama model/context change." }
+if ($modelBenchmark.localAiRepositoryWrite -ne $false) { throw "Model benchmark Local AI repository write boundary changed." }
+if ($modelBenchmark.localAiGitHubAuthority -ne $false) { throw "Model benchmark Local AI GitHub authority boundary changed." }
+if ($modelBenchmark.livePrGateIntegration -ne $false) { throw "Model benchmark must not integrate Local AI into live PR gates." }
+
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$modelComparisonPath = Join-Path $repoRoot "AI/Orchestrator/LocalAI/VSP-LOCALAI-001J/VSP-LOCALAI-001J.model-comparison-report.json"
+if (-not (Test-Path -LiteralPath $modelComparisonPath -PathType Leaf)) { throw "Model comparison report is missing." }
+$modelComparison = Get-Content -LiteralPath $modelComparisonPath -Raw | ConvertFrom-Json
+if ($modelComparison.taskId -ne "VSP-LOCALAI-001J") { throw "Model comparison report task ID mismatch." }
+if ($modelComparison.methodology.totalRuns -ne 45) { throw "Model comparison report must record 45 total runs." }
+if (@($modelComparison.modelResults).Count -ne 3) { throw "Model comparison report must include exactly three models." }
+if ($modelComparison.finalRecommendation -ne "RECOMMEND_QWEN2_5_CODER_7B") { throw "Unexpected model comparison recommendation." }
+if ($modelComparison.boundaries.localAiRepositoryWrite -ne $false) { throw "Model comparison repository-write boundary changed." }
+if ($modelComparison.boundaries.localAiGitHubAuthority -ne $false) { throw "Model comparison GitHub-authority boundary changed." }
+if ($modelComparison.boundaries.livePrIntegration -ne $false) { throw "Model comparison live PR integration boundary changed." }
+if ($modelComparison.boundaries.permanentDefaultModelChanged -ne $false) { throw "Model comparison must not claim permanent default model change." }
+if ($modelComparison.boundaries.contextChanged -ne $false) { throw "Model comparison must not claim context change." }
+if ((@($modelComparison.downloadsPerformed) -join "|") -ne "qwen2.5-coder:7b|llama3.1:8b") { throw "Model comparison downloads did not match the approved candidate set." }
+
 [pscustomobject]@{
     status = "PASS"
     validateOnly = "PASS"
@@ -135,6 +168,7 @@ if ($calibrated.livePrGateIntegration -ne $false) { throw "Calibration must not 
     simplifiedRunsPerCase = 5
     contextBenchmarkSupported = $true
     classificationCalibrationSupported = $true
+    modelBenchmarkSupported = $true
     defaultStructuredOutputMode = $result.structuredOutputMode
     experimentalStructuredOutputMode = $structured.structuredOutputMode
     simplifiedPromptEvidenceMode = $simplified.promptEvidenceMode
