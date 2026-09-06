@@ -107,6 +107,25 @@ if ($contextResult.context -ne 8192) { throw "8192 context was not reported." }
 if ($contextResult.ollamaModelContextChanged -ne $false) { throw "8192 context benchmark must not claim permanent Ollama model/context change." }
 if ($contextResult.simplifiedPromptContract.singleObjectiveLayerPresent -ne $true) { throw "8192 context validation lost simplified prompt contract." }
 
+$calibratedJson = & pwsh -NoProfile -File $script -ValidateOnly -ExperimentTaskId "VSP-LOCALAI-001H" -ReplayAttemptId "validate-classification-calibration" -RunsPerCase 5 -UseStructuredOutputSchema -PromptEvidenceMode Simplified -ResultClassificationRubric Calibrated -OutputDirectory "AI/Orchestrator/LocalAI/VSP-LOCALAI-001H"
+if ($LASTEXITCODE -ne 0) {
+    throw "Local AI classification calibration ValidateOnly failed."
+}
+
+$calibrated = $calibratedJson | ConvertFrom-Json
+if ($calibrated.status -ne "PASS") { throw "Calibration ValidateOnly status was not PASS." }
+if ($calibrated.resultClassificationRubric -ne "Calibrated") { throw "Calibration rubric mode was not reported." }
+if ($calibrated.context -ne 4096) { throw "Calibration benchmark must keep context 4096." }
+if ($calibrated.resultClassificationCalibration.finalRubric -notmatch "FINDINGS") { throw "Calibration rubric did not describe FINDINGS." }
+if ($calibrated.resultClassificationCalibration.finalRubric -notmatch "PASS only") { throw "Calibration rubric did not describe PASS boundary." }
+if ($calibrated.resultClassificationCalibration.finalRubric -notmatch "INCONCLUSIVE only") { throw "Calibration rubric did not describe INCONCLUSIVE boundary." }
+if (@($calibrated.resultClassificationCalibration.syntheticExamples).Count -lt 5) { throw "Calibration examples missing." }
+if (-not (@($calibrated.resultClassificationCalibration.syntheticExamples | Where-Object { $_.expectedResult -eq "FINDINGS" }).Count -gt 0)) { throw "Calibration examples missing FINDINGS example." }
+if (-not (@($calibrated.resultClassificationCalibration.syntheticExamples | Where-Object { $_.expectedResult -eq "PASS" }).Count -gt 0)) { throw "Calibration examples missing PASS example." }
+if (-not (@($calibrated.resultClassificationCalibration.syntheticExamples | Where-Object { $_.expectedResult -eq "INCONCLUSIVE" }).Count -gt 0)) { throw "Calibration examples missing INCONCLUSIVE example." }
+if ($calibrated.ollamaModelContextChanged -ne $false) { throw "Calibration benchmark must not claim permanent Ollama model/context change." }
+if ($calibrated.livePrGateIntegration -ne $false) { throw "Calibration must not integrate Local AI into live PR gates." }
+
 [pscustomobject]@{
     status = "PASS"
     validateOnly = "PASS"
@@ -115,6 +134,7 @@ if ($contextResult.simplifiedPromptContract.singleObjectiveLayerPresent -ne $tru
     structuredRunsPerCase = 5
     simplifiedRunsPerCase = 5
     contextBenchmarkSupported = $true
+    classificationCalibrationSupported = $true
     defaultStructuredOutputMode = $result.structuredOutputMode
     experimentalStructuredOutputMode = $structured.structuredOutputMode
     simplifiedPromptEvidenceMode = $simplified.promptEvidenceMode
