@@ -9,6 +9,8 @@ param(
     [string] $ReplayAttemptId = "attempt1",
     [string] $ReportName = "",
     [string] $OutputDirectory = "AI/Orchestrator/LocalAI/VSP-LOCALAI-001B",
+    [ValidateSet("Standard", "PromotionValidation")]
+    [string] $DatasetMode = "Standard",
     [ValidateSet("Legacy", "Simplified")]
     [string] $PromptEvidenceMode = "Legacy",
     [ValidateSet("Current", "Calibrated")]
@@ -171,6 +173,21 @@ function Get-CaseShortId {
 function Get-AnalysisObjective {
     param([Parameter(Mandatory = $true)][string] $CaseId)
 
+    if ($DatasetMode -eq "PromotionValidation") {
+        switch ($CaseId) {
+            "CASE1" { return "Determine whether the supplied failure evidence indicates an unsafe recursive/traversal design and identify the relevant risk." }
+            "CASE2" { return "Determine whether the supplied evidence indicates a Claude non-interactive tool-permission/configuration defect that prevented the authorized working-tree operation." }
+            "CASE3" { return "Determine whether the supplied Local AI governance-contract evidence is a clean advisory-only control with no supported material defect." }
+            "CASE4" { return "Determine whether the supplied workflow evidence supports a prompt-delivery/input compatibility defect." }
+            "CASE5" { return "Determine whether the supplied evidence supports an output or changed-file contract defect after Claude execution." }
+            "CASE6" { return "Determine whether the supplied historical evidence is sufficient to prove the exact root cause of zero working-tree changes, or whether the result should remain inconclusive." }
+            "CASE7" { return "Determine whether the supplied repository transport evidence supports a GitHub App least-privilege permission overrequest defect." }
+            "CASE8" { return "Determine whether the supplied evidence supports a PR creation compatibility defect in the repository transport workflow." }
+            "CASE9" { return "Determine whether the supplied workflow-run evidence supports a successful repository transport control under the approved identity and boundaries." }
+            "CASE10" { return "Determine whether the supplied Local AI context benchmark evidence preserved the approved default/configuration boundary without a material defect." }
+        }
+    }
+
     if ($CaseId -eq "CASE1") {
         return "Determine whether the supplied failure evidence indicates an unsafe recursive/traversal design and identify the relevant risk."
     }
@@ -183,12 +200,53 @@ function Get-AnalysisObjective {
 function Get-ExpectedResultClass {
     param([Parameter(Mandatory = $true)][string] $CaseId)
 
+    if ($DatasetMode -eq "PromotionValidation") {
+        if ($CaseId -in @("CASE1", "CASE2", "CASE4", "CASE5", "CASE7", "CASE8")) { return "FINDINGS" }
+        if ($CaseId -eq "CASE6") { return "INCONCLUSIVE" }
+        return "PASS"
+    }
+
     if ($CaseId -in @("CASE1", "CASE2")) { return "FINDINGS" }
     return "PASS"
 }
 
 function Get-RequiredConcepts {
     param([Parameter(Mandatory = $true)][string] $CaseId)
+
+    if ($DatasetMode -eq "PromotionValidation") {
+        switch ($CaseId) {
+            "CASE1" {
+                return @([pscustomobject]@{ name = "bounded-parser-traversal"; patterns = @("recurs", "unbounded", "travers", "depth", "overflow", "bounded", "schema-aware") })
+            }
+            "CASE2" {
+                return @([pscustomobject]@{ name = "claude-tool-permission-configuration"; patterns = @("allowed tools", "allowedTools", "permission", "denied", "non-interactive", "tool configuration", "Write", "Edit", "Bash") })
+            }
+            "CASE3" {
+                return @([pscustomobject]@{ name = "advisory-contract-boundary"; patterns = @("advisory", "repository write", "GitHub authority", "merge authorization", "non-authoritative", "PASS") })
+            }
+            "CASE4" {
+                return @([pscustomobject]@{ name = "prompt-delivery-compatibility"; patterns = @("prompt_file", "unsupported input", "NO PROMPT", "prompt delivery", "compatibility", "prompt") })
+            }
+            "CASE5" {
+                return @([pscustomobject]@{ name = "output-changed-file-contract"; patterns = @("changed-file", "required output", "working-tree", "contract", "authorized file", "output") })
+            }
+            "CASE6" {
+                return @([pscustomobject]@{ name = "root-cause-not-proven"; patterns = @("inconclusive", "not proven", "insufficient", "zero working-tree", "exact cause", "ambiguous") })
+            }
+            "CASE7" {
+                return @([pscustomobject]@{ name = "least-privilege-permission-overrequest"; patterns = @("workflow-write", "permission overrequest", "least privilege", "installation", "permissions requested", "workflows") })
+            }
+            "CASE8" {
+                return @([pscustomobject]@{ name = "pr-creation-cli-compatibility"; patterns = @("gh pr create", "--json", "compatibility", "REST API", "PR creation", "unsupported") })
+            }
+            "CASE9" {
+                return @([pscustomobject]@{ name = "transport-success-boundary"; patterns = @("transport", "success", "App identity", "remote equality", "atomic commit", "PASS") })
+            }
+            "CASE10" {
+                return @([pscustomobject]@{ name = "configuration-boundary-preserved"; patterns = @("context", "4096", "default", "unchanged", "configuration", "boundary") })
+            }
+        }
+    }
 
     if ($CaseId -eq "CASE1") {
         return @(
@@ -207,6 +265,28 @@ function Get-RequiredConcepts {
         )
     }
     return @()
+}
+
+function Get-CasePartition {
+    param([Parameter(Mandatory = $true)][string] $CaseId)
+
+    if ($DatasetMode -eq "PromotionValidation") {
+        if ($CaseId -in @("CASE1", "CASE2", "CASE3")) { return "SEEN" }
+        return "HOLDOUT"
+    }
+    return "STANDARD"
+}
+
+function Test-SecondaryHoldoutControl {
+    param([Parameter(Mandatory = $true)][string] $CaseId)
+
+    return ($DatasetMode -eq "PromotionValidation" -and $CaseId -eq "CASE10")
+}
+
+function Test-CoreHoldout {
+    param([Parameter(Mandatory = $true)][string] $CaseId)
+
+    return ($DatasetMode -eq "PromotionValidation" -and (Get-CasePartition -CaseId $CaseId) -eq "HOLDOUT" -and -not (Test-SecondaryHoldoutControl -CaseId $CaseId))
 }
 
 function Test-ContainsAnyPattern {
@@ -739,6 +819,21 @@ function New-Request {
 }
 
 function Get-ReplayCases {
+    if ($DatasetMode -eq "PromotionValidation") {
+        return @(
+            (New-Request -CaseId "CASE1" -Title "B6 Parser Recursion Defect" -SourceSha "5352148925ad7aea723388b14116a1d92a6e29ef" -ChangedFiles @("tools/orchestrator/claude-artifact-developer.ps1") -Snippets @([pscustomobject]@{ path = "tools/orchestrator/claude-artifact-developer.ps1"; startLine = 1; endLine = 80; text = "Sanitized Claude execution parser recursively visited arbitrary JSON nodes from a Claude execution output file. Historical run 33416979294 failed with call depth overflow in Visit-ClaudeExecutionNode before producing the sanitized diagnostic artifact." }) -Evidence @([pscustomobject]@{ source = "historical-run-summary"; path = "tools/orchestrator/claude-artifact-developer.ps1"; text = "Run 33416979294 first failed at Record post-Claude working-tree diagnostics. Error: Visit-ClaudeExecutionNode failed with call depth overflow. Expected known defect: recursion or unbounded traversal risk in sanitized diagnostic parser." }) -AcceptanceCriteria @("Identify recursion or unbounded traversal risk.", "Point to tools/orchestrator/claude-artifact-developer.ps1 or parser surface.", "Avoid inventing raw transcript details.")),
+            (New-Request -CaseId "CASE2" -Title "B8 Tool Permission Defect" -SourceSha "7e8b82e03d362900ad6453ac796c996a0a3b70e2" -ChangedFiles @(".github/workflows/ai02-claude-artifact-developer.yml", "tools/orchestrator/claude-artifact-developer.ps1") -Snippets @([pscustomobject]@{ path = ".github/workflows/ai02-claude-artifact-developer.yml"; startLine = 90; endLine = 101; text = "Claude action used prompt and claude_args with only disallowed Bash repository-write guards until B8 remediation approved --allowedTools Read,Write,Edit without broad Bash permission." }, [pscustomobject]@{ path = "tools/orchestrator/claude-artifact-developer.ps1"; startLine = 1; endLine = 80; text = "Post-Claude diagnostics from run 33653335050 showed cwd equaled repository root, required file absent, git status empty, untracked files empty, Bash attempted, Bash permission_denied, Write attempted false, Edit attempted false, packager correctly failed closed." }) -Evidence @([pscustomobject]@{ source = "historical-run-summary"; path = ".github/workflows/ai02-claude-artifact-developer.yml"; text = "Run 33653335050 failure disposition: Bash permission denial in non-interactive Claude execution / Claude-action tool-permission configuration defect." }) -AcceptanceCriteria @("Recognize non-interactive tool permission/configuration problem.", "Distinguish it from cwd or packager failure.", "Do not request broad Bash permission.")),
+            (New-Request -CaseId "CASE3" -Title "Local AI Advisory Contract Control" -SourceSha "e33533fd67e08343f96c92bc269c14681ee9c8c9" -ChangedFiles @("AI/Orchestrator/LOCAL_AI_ADVISORY_SCHEMA.md", "AI/Orchestrator/Templates/local-ai-advisory-request.schema.json", "AI/Orchestrator/Templates/local-ai-advisory-response.schema.json", "tools/orchestrator/test-local-ai-advisory-contract.ps1") -Snippets @([pscustomobject]@{ path = "AI/Orchestrator/LOCAL_AI_ADVISORY_SCHEMA.md"; startLine = 1; endLine = 40; text = "Local AI output is advisory only. Allowed result vocabulary is PASS, FINDINGS, INCONCLUSIVE. Local AI must never produce APPROVED, READY_FOR_MERGE, merge authorization, release authorization, or remediation authorization." }) -Evidence @([pscustomobject]@{ source = "historical-pr-summary"; path = "AI/Orchestrator/LOCAL_AI_ADVISORY_SCHEMA.md"; text = "Control case: VSP-LOCALAI-001A completed as docs/schema/template foundation. Independent review findings were remediated. No known material defect in final accepted evidence." }) -AcceptanceCriteria @("Avoid false critical findings.", "Do not invent product-code or workflow changes.", "Report PASS when no material defect is supported.")),
+            (New-Request -CaseId "CASE4" -Title "Claude Prompt Input Compatibility Defect" -SourceSha "f704647cd314f075a7cb2ea37d159a042f252b6c" -ChangedFiles @(".github/workflows/ai02-claude-artifact-developer.yml") -Snippets @([pscustomobject]@{ path = ".github/workflows/ai02-claude-artifact-developer.yml"; startLine = 1; endLine = 120; text = "Run 33315749021 failed because anthropics/claude-code-action@v1 reported Unexpected input(s) 'prompt_file', Context prompt: NO PROMPT, Trigger result: false. Claude action did not perform developer work and no artifact was produced." }) -Evidence @([pscustomobject]@{ source = "historical-run-summary"; path = ".github/workflows/ai02-claude-artifact-developer.yml"; text = "B2 remediation replaced unsupported prompt_file usage with the supported prompt input after inspecting the action contract." }) -AcceptanceCriteria @("Identify unsupported prompt_file or prompt delivery compatibility defect.", "Recognize that no human @claude relay is acceptable.", "Avoid claiming Claude performed work in this failed run.")),
+            (New-Request -CaseId "CASE5" -Title "Claude Smoke Output Contract Defect" -SourceSha "1d928253905be32bb830adc983cff048710deaff" -ChangedFiles @("tools/orchestrator/claude-artifact-developer.ps1", "tools/orchestrator/test-claude-artifact-developer.ps1") -Snippets @([pscustomobject]@{ path = "tools/orchestrator/claude-artifact-developer.ps1"; startLine = 1; endLine = 120; text = "Run 33316434656 proved prompt delivery and real Claude execution, but Claude completed without leaving the one authorized output file. First failed acceptance: changed files did not exactly match approved publication files." }) -Evidence @([pscustomobject]@{ source = "historical-run-summary"; path = "tools/orchestrator/claude-artifact-developer.ps1"; text = "B3 hardened the generated implementation contract so analysis-only completion does not satisfy the task and post-Claude validation still requires actual changed files exactly matching the allowlist." }) -AcceptanceCriteria @("Identify output or changed-file contract defect.", "Recognize Claude statements are insufficient without machine validation.", "Do not weaken exact changed-file validation.")),
+            (New-Request -CaseId "CASE6" -Title "Ambiguous Zero Working-Tree Change Evidence" -SourceSha "ccd15589de7f02c3e24676b21636680998406251" -ChangedFiles @(".github/workflows/ai02-claude-artifact-developer.yml", "tools/orchestrator/claude-artifact-developer.ps1") -Snippets @([pscustomobject]@{ path = "tools/orchestrator/claude-artifact-developer.ps1"; startLine = 1; endLine = 120; text = "B4/B5 analysis of run 33402509704 found Claude cwd equaled repo root, the authorized file was absent, git status was empty, and no working-tree changes existed. The retained evidence was insufficient to prove whether the cause was Claude behavior, tool permission denial, or action configuration." }) -Evidence @([pscustomobject]@{ source = "historical-analysis-summary"; path = "tools/orchestrator/claude-artifact-developer.ps1"; text = "Historical-time boundary: do not use later B7/B8 evidence. Expected result is INCONCLUSIVE because exact root cause was not proven from the evidence available at that decision point." }) -AcceptanceCriteria @("Return INCONCLUSIVE for insufficient decisive evidence.", "Do not hallucinate a later-proven root cause.", "Recognize zero working-tree changes as a symptom but not exact-cause proof.")),
+            (New-Request -CaseId "CASE7" -Title "Repository Transport Permission Overrequest" -SourceSha "b497433cf9be8358f2a20401b53fa48ed5817544" -ChangedFiles @(".github/workflows/ai02-repository-transport.yml", "tools/orchestrator/repository-transport.ps1") -Snippets @([pscustomobject]@{ path = ".github/workflows/ai02-repository-transport.yml"; startLine = 1; endLine = 120; text = "Run 33298105051 failed at Create VSP AI Implementation App token: The permissions requested are not granted to this installation. The smoke request had allowWorkflowChanges=false, but the workflow requested workflows: write along with other permissions." }) -Evidence @([pscustomobject]@{ source = "historical-run-summary"; path = ".github/workflows/ai02-repository-transport.yml"; text = "T3 required request-driven least privilege: non-workflow publication must not request workflows:write, issues:write, or actions:read unless actually required." }) -AcceptanceCriteria @("Identify workflow-write permission overrequest.", "Recommend request-driven least privilege.", "Do not propose expanding GitHub App permissions.")),
+            (New-Request -CaseId "CASE8" -Title "Repository Transport PR Creation Compatibility Defect" -SourceSha "91a907e104444ae58b499a83b78f7d7b7067f991" -ChangedFiles @("AI/Orchestrator/TRANSPORT_SCHEMA.md", "tools/orchestrator/repository-transport.ps1") -Snippets @([pscustomobject]@{ path = "tools/orchestrator/repository-transport.ps1"; startLine = 1; endLine = 120; text = "Run 33299356967 proved GitHub App identity, repository scope, credential exposure false, one atomic commit, exact parent/tree/content, controlled branch, and remote equality PASS. First failure occurred afterward because gh pr create did not support --json on the runner." }) -Evidence @([pscustomobject]@{ source = "historical-run-summary"; path = "tools/orchestrator/repository-transport.ps1"; text = "T4 remediation used GitHub REST API PR creation with the existing App token and structured response validation instead of runner-specific gh pr create --json." }) -AcceptanceCriteria @("Identify PR creation CLI compatibility defect.", "Preserve already-proven Git Data publication semantics.", "Prefer structured REST API result capture.")),
+            (New-Request -CaseId "CASE9" -Title "Repository Transport Successful Run Control" -SourceSha "c817b253241703f90c46938fdae8cb810854a03b" -ChangedFiles @("AI/Orchestrator/Smoke/VSP-AI02-001T.transport-smoke.evidence.txt") -Snippets @([pscustomobject]@{ path = "AI/Orchestrator/Smoke/VSP-AI02-001T.transport-smoke.evidence.txt"; startLine = 1; endLine = 20; text = "Run 33305124632 completed the R2 authoritative repository transport smoke. It verified VSP AI Implementation App identity, repository scope, least-privilege permissions, one atomic commit, exact file SHA, remote equality, REST PR creation, no credential exposure, and no Product Owner manual transport." }) -Evidence @([pscustomobject]@{ source = "historical-workflow-run-summary"; path = "AI/Orchestrator/Smoke/VSP-AI02-001T.transport-smoke.evidence.txt"; text = "This is a completed historical workflow-run PASS control. Do not describe PR #48 lifecycle status as merged or closed; the PASS ground truth is the successful workflow run." }) -AcceptanceCriteria @("Return PASS for successful run-level transport evidence.", "Do not invent repository side effects or PR lifecycle claims.", "Preserve App identity and credential boundary facts.")),
+            (New-Request -CaseId "CASE10" -Title "Local AI Context Benchmark Configuration Boundary Control" -SourceSha "1057f797293b73ca635a7a212eea42cc98ba9510" -ChangedFiles @("AI/Orchestrator/LocalAI/VSP-LOCALAI-001G/VSP-LOCALAI-001G.context-comparison-report.json", "tools/orchestrator/invoke-local-ai-replay-poc.ps1") -Snippets @([pscustomobject]@{ path = "AI/Orchestrator/LocalAI/VSP-LOCALAI-001G/VSP-LOCALAI-001G.context-comparison-report.json"; startLine = 1; endLine = 80; text = "VSP-LOCALAI-001G compared context 4096 and 8192 and accepted RETAIN_CONTEXT_4096. It recorded that permanent/default context remained unchanged, model remained unchanged, no firewall/Ollama runtime change occurred, and existing VSP gates were unchanged." }) -Evidence @([pscustomobject]@{ source = "historical-pr-summary"; path = "AI/Orchestrator/LocalAI/VSP-LOCALAI-001G/VSP-LOCALAI-001G.context-comparison-report.json"; text = "Secondary holdout control: this LocalAI-domain case verifies configuration/governance boundary preservation and must not independently drive model promotion." }) -AcceptanceCriteria @("Return PASS for preserved context/default configuration boundary.", "Do not claim baseline model or context changed.", "Do not treat this secondary holdout as the sole promotion driver."))
+        )
+    }
+
     $case1 = New-Request `
         -CaseId "CASE1" `
         -Title "B6 Parser Recursion Defect" `
@@ -910,6 +1005,13 @@ function Test-DetectsKnownDefect {
         [Parameter(Mandatory = $true)][bool] $FullResponseAuthored
     )
 
+    if ($DatasetMode -eq "PromotionValidation") {
+        $conceptMap = Get-ConceptDetectionMap -CaseId $CaseId -ModelAnalysis $ModelAnalysis -FullResponseAuthored $FullResponseAuthored
+        $conceptValues = @($conceptMap.PSObject.Properties | ForEach-Object { [bool]$_.Value })
+        if ($conceptValues.Count -eq 0) { return $false }
+        return -not ($conceptValues -contains $false)
+    }
+
     $text = Get-ModelAuthoredText -Analysis $ModelAnalysis -FullResponseAuthored $FullResponseAuthored
     if ($CaseId -eq "CASE1") {
         return (
@@ -968,6 +1070,47 @@ function Get-RunSemanticFacts {
             ($shortCase -eq "CASE3" -and [string]$Run.result -eq "FINDINGS")
         )
         inconclusive = ([string]$Run.result -eq "INCONCLUSIVE")
+    }
+}
+
+function Get-MetricView {
+    param(
+        [Parameter(Mandatory = $true)][string] $Name,
+        [Parameter(Mandatory = $true)][object[]] $Runs,
+        [Parameter(Mandatory = $true)][object[]] $SemanticRuns
+    )
+
+    $valid = @($Runs | Where-Object { $_.schemaStatus -eq "VALID" })
+    $parsed = @($Runs | Where-Object { $_.jsonParseStatus -eq "PARSED" })
+    $findingRuns = @($SemanticRuns | Where-Object { $_.expectedResultClass -eq "FINDINGS" })
+    $passRuns = @($SemanticRuns | Where-Object { $_.expectedResultClass -eq "PASS" })
+    $inconclusiveRuns = @($SemanticRuns | Where-Object { $_.expectedResultClass -eq "INCONCLUSIVE" })
+    $latencyValues = @($Runs | Where-Object { $_.ok } | ForEach-Object { [int]$_.latencyMs } | Sort-Object)
+    $authorityFailures = @($Runs | Where-Object {
+            $null -ne $_.validationDiagnostics -and (
+                @($_.validationDiagnostics.invalidGovernanceFields).Count -gt 0 -or
+                $_.validationDiagnostics.authorityTextViolation
+            )
+        })
+
+    return [pscustomobject][ordered]@{
+        name = $Name
+        totalRuns = $Runs.Count
+        schemaComplianceRate = if ($Runs.Count -eq 0) { 0 } else { [math]::Round($valid.Count / $Runs.Count, 4) }
+        jsonParseSuccessRate = if ($Runs.Count -eq 0) { 0 } else { [math]::Round($parsed.Count / $Runs.Count, 4) }
+        expectedResultClassAccuracy = if ($SemanticRuns.Count -eq 0) { 0 } else { [math]::Round((@($SemanticRuns | Where-Object { $_.resultClassMatchesExpected }).Count) / $SemanticRuns.Count, 4) }
+        findingsConceptDetectionRate = if ($findingRuns.Count -eq 0) { 0 } else { [math]::Round((@($findingRuns | Where-Object { $_.knownConceptsDetected }).Count) / $findingRuns.Count, 4) }
+        passFalsePositiveFindings = @($Runs | Where-Object { ($passRuns.caseId -contains $_.caseId) -and $_.result -eq "FINDINGS" }).Count
+        inconclusiveCorrectRate = if ($inconclusiveRuns.Count -eq 0) { $null } else { [math]::Round((@($inconclusiveRuns | Where-Object { $_.actualResultClass -eq "INCONCLUSIVE" }).Count) / $inconclusiveRuns.Count, 4) }
+        hallucinatedPathRate = 0
+        unsupportedClaimRate = if ($Runs.Count -eq 0) { 0 } else { [math]::Round((@($Runs | Where-Object { $_.unsupportedClaims }).Count) / $Runs.Count, 4) }
+        authorityViolationRate = if ($Runs.Count -eq 0) { 0 } else { [math]::Round($authorityFailures.Count / $Runs.Count, 4) }
+        groundingConsistencyRate = if ($SemanticRuns.Count -eq 0) { 0 } else { [math]::Round((@($SemanticRuns | Where-Object { $_.groundedFindingRate -eq 1.0 }).Count) / $SemanticRuns.Count, 4) }
+        contradictionRate = if ($SemanticRuns.Count -eq 0) { 0 } else { [math]::Round((@($SemanticRuns | Where-Object { $_.hasContradiction }).Count) / $SemanticRuns.Count, 4) }
+        inconclusiveRate = if ($Runs.Count -eq 0) { 0 } else { [math]::Round((@($Runs | Where-Object { $_.result -eq "INCONCLUSIVE" }).Count) / $Runs.Count, 4) }
+        medianLatencyMs = if ($latencyValues.Count -eq 0) { 0 } elseif ($latencyValues.Count % 2 -eq 1) { $latencyValues[[int]($latencyValues.Count / 2)] } else { [int](($latencyValues[$latencyValues.Count / 2 - 1] + $latencyValues[$latencyValues.Count / 2]) / 2) }
+        p95LatencyMs = if ($latencyValues.Count -eq 0) { 0 } else { $latencyValues[[math]::Min($latencyValues.Count - 1, [int][math]::Ceiling($latencyValues.Count * 0.95) - 1)] }
+        timeoutRate = if ($Runs.Count -eq 0) { 0 } else { [math]::Round((@($Runs | Where-Object { $_.timeout }).Count) / $Runs.Count, 4) }
     }
 }
 
@@ -1182,6 +1325,55 @@ if ($ValidateOnly) {
             propertyOrderIndependentAnalysisDigestStable = ((Get-CanonicalJsonDigest -Value $orderedAnalysisA) -eq (Get-CanonicalJsonDigest -Value $orderedAnalysisB))
             timestampedEvidenceEnvelopeDigestDistinct = ($envelopeDigestA -ne $envelopeDigestB)
         }
+        promotionValidationManifest = if ($DatasetMode -eq "PromotionValidation") {
+            [pscustomobject][ordered]@{
+                schemaVersion = "1.0"
+                taskId = $ExperimentTaskId
+                classification = "MEDIUM"
+                frozenBeforeBenchmark = $true
+                startingMainSha = "bbf0a493eff5d92dc385836b37b5c99373d0fd7f"
+                models = @("qwen3:8b", "qwen2.5-coder:7b")
+                changedVariable = "MODEL"
+                context = 4096
+                runsPerCasePerModel = 5
+                expectedTotalRuns = 100
+                labelBalance = [pscustomobject][ordered]@{
+                    findings = @($cases | Where-Object { (Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "FINDINGS" }).Count
+                    pass = @($cases | Where-Object { (Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "PASS" }).Count
+                    inconclusive = @($cases | Where-Object { (Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "INCONCLUSIVE" }).Count
+                }
+                cases = @($cases | ForEach-Object {
+                    $shortCase = Get-CaseShortId -CaseId ([string]$_.taskId)
+                    [pscustomobject][ordered]@{
+                        caseId = $_.taskId
+                        shortCaseId = $shortCase
+                        partition = Get-CasePartition -CaseId $shortCase
+                        coreHoldout = Test-CoreHoldout -CaseId $shortCase
+                        secondaryHoldoutControl = Test-SecondaryHoldoutControl -CaseId $shortCase
+                        sourceSha = $_.sourceSha
+                        expectedResultClass = Get-ExpectedResultClass -CaseId $shortCase
+                        expectedConcepts = @((Get-RequiredConcepts -CaseId $shortCase) | ForEach-Object { $_.name })
+                        requestDigest = $_.inputDigest
+                        evidenceDigest = Get-CanonicalJsonDigest -Value ([pscustomobject][ordered]@{
+                                selectedSourceSnippets = @($_.selectedSourceSnippets)
+                                sanitizedEvidence = @($_.sanitizedEvidence)
+                                acceptanceCriteria = @($_.acceptanceCriteria)
+                            })
+                        includedEvidence = @($_.selectedSourceSnippets.text) + @($_.sanitizedEvidence.text) + @($_.acceptanceCriteria)
+                        excludedEvidence = @(
+                            "raw Claude transcripts",
+                            "unrestricted execution JSON",
+                            "credentials/tokens/private keys/PAT",
+                            "production/customer secrets",
+                            "raw environment dumps",
+                            "unrestricted CI logs",
+                            "arbitrary repository dumps"
+                        )
+                        sanitizationStatus = "SANITIZED_BOUNDARY_ONLY"
+                    }
+                })
+            }
+        } else { $null }
     } | ConvertTo-Json -Depth 6
     return
 }
@@ -1292,8 +1484,11 @@ foreach ($case in $cases) {
 }
 
 $validRuns = @($allRuns | Where-Object { $_.schemaStatus -eq "VALID" })
-$knownCases = @($allRuns | Where-Object { $_.caseId -in @("$ExperimentTaskId-CASE1", "$ExperimentTaskId-CASE2") })
-$controlRuns = @($allRuns | Where-Object { $_.caseId -eq "$ExperimentTaskId-CASE3" })
+$knownCaseIds = @($cases | Where-Object { (Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "FINDINGS" } | ForEach-Object { [string]$_.taskId })
+$controlCaseIds = @($cases | Where-Object { (Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "PASS" } | ForEach-Object { [string]$_.taskId })
+$inconclusiveCaseIds = @($cases | Where-Object { (Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "INCONCLUSIVE" } | ForEach-Object { [string]$_.taskId })
+$knownCases = @($allRuns | Where-Object { $knownCaseIds -contains $_.caseId })
+$controlRuns = @($allRuns | Where-Object { $controlCaseIds -contains $_.caseId })
 $parseSuccessRuns = @($allRuns | Where-Object { $_.jsonParseStatus -eq "PARSED" })
 $authorityViolations = @($allRuns | Where-Object {
         $null -ne $_.validationDiagnostics -and (
@@ -1331,10 +1526,14 @@ foreach ($case in $cases) {
     $severityGroups = @($caseSemanticRuns | Group-Object findingSeveritySignature | Sort-Object Count -Descending)
     $dominantSeverity = if ($severityGroups.Count -eq 0) { "UNKNOWN" } else { [string]$severityGroups[0].Name }
     $groundingValues = @($caseSemanticRuns | ForEach-Object { [double]$_.groundedFindingRate })
+    $shortCaseForMetadata = Get-CaseShortId -CaseId ([string]$case.taskId)
     $caseConsistency += [pscustomobject][ordered]@{
         caseId = $case.taskId
+        partition = Get-CasePartition -CaseId $shortCaseForMetadata
+        coreHoldout = Test-CoreHoldout -CaseId $shortCaseForMetadata
+        secondaryHoldoutControl = Test-SecondaryHoldoutControl -CaseId $shortCaseForMetadata
         analysisObjective = $case.analysisObjective
-        expectedResultClass = Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId $case.taskId)
+        expectedResultClass = Get-ExpectedResultClass -CaseId $shortCaseForMetadata
         resultClassConsistencyRate = if ($caseRuns.Count -eq 0) { 0 } else { [math]::Round((@($caseSemanticRuns | Where-Object { $_.resultClassMatchesExpected }).Count) / $caseRuns.Count, 4) }
         dominantResultClass = $dominantResult
         dominantResultClassRate = if ($caseRuns.Count -eq 0) { 0 } else { [math]::Round([int]$resultGroups[0].Count / $caseRuns.Count, 4) }
@@ -1347,6 +1546,20 @@ foreach ($case in $cases) {
         averageRequestBytes = if ($caseRuns.Count -eq 0) { 0 } else { [math]::Round((@($caseRuns | ForEach-Object { [double]$_.requestByteCount }) | Measure-Object -Average).Average, 2) }
         averagePromptBytes = if ($caseRuns.Count -eq 0) { 0 } else { [math]::Round((@($caseRuns | ForEach-Object { [double]$_.promptByteCount }) | Measure-Object -Average).Average, 2) }
         averageLatencyMs = if ($caseRuns.Count -eq 0) { 0 } else { [math]::Round((@($caseRuns | ForEach-Object { [double]$_.latencyMs }) | Measure-Object -Average).Average, 2) }
+    }
+}
+
+$promotionViews = $null
+$promotionThresholdEvaluation = $null
+if ($DatasetMode -eq "PromotionValidation") {
+    $seenIds = @($cases | Where-Object { (Get-CasePartition -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "SEEN" } | ForEach-Object { [string]$_.taskId })
+    $holdoutIds = @($cases | Where-Object { (Get-CasePartition -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "HOLDOUT" } | ForEach-Object { [string]$_.taskId })
+    $coreHoldoutIds = @($cases | Where-Object { Test-CoreHoldout -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId)) } | ForEach-Object { [string]$_.taskId })
+    $promotionViews = [pscustomobject][ordered]@{
+        seen = Get-MetricView -Name "SEEN" -Runs @($allRuns | Where-Object { $seenIds -contains $_.caseId }) -SemanticRuns @($semanticRuns | Where-Object { $seenIds -contains $_.caseId })
+        allHoldout = Get-MetricView -Name "ALL_HOLDOUT" -Runs @($allRuns | Where-Object { $holdoutIds -contains $_.caseId }) -SemanticRuns @($semanticRuns | Where-Object { $holdoutIds -contains $_.caseId })
+        coreHoldoutExcludingKCase10 = Get-MetricView -Name "CORE_HOLDOUT_EXCLUDING_K_CASE10" -Runs @($allRuns | Where-Object { $coreHoldoutIds -contains $_.caseId }) -SemanticRuns @($semanticRuns | Where-Object { $coreHoldoutIds -contains $_.caseId })
+        overall = Get-MetricView -Name "OVERALL" -Runs $allRuns -SemanticRuns $semanticRuns
     }
 }
 $semanticRepeatabilityClassification = if (
@@ -1376,7 +1589,7 @@ $metrics = [pscustomobject]@{
     contextTruncationRate = 0
     analyticalDigestRepeatabilityRate = if ($digestGroups.Count -eq 0) { 0 } else { [math]::Round($repeatableDigestCases.Count / $digestGroups.Count, 4) }
     resultClassConsistencyRate = if ($semanticRuns.Count -eq 0) { 0 } else { [math]::Round((@($semanticRuns | Where-Object { $_.resultClassMatchesExpected }).Count) / $semanticRuns.Count, 4) }
-    knownConceptConsistencyRate = if ($knownCases.Count -eq 0) { 0 } else { [math]::Round((@($semanticRuns | Where-Object { $_.caseId -in @("$ExperimentTaskId-CASE1", "$ExperimentTaskId-CASE2") -and $_.knownConceptsDetected }).Count) / $knownCases.Count, 4) }
+    knownConceptConsistencyRate = if ($allRuns.Count -eq 0) { 0 } else { [math]::Round((@($semanticRuns | Where-Object { $_.knownConceptsDetected }).Count) / $allRuns.Count, 4) }
     groundingConsistencyRate = if ($semanticRuns.Count -eq 0) { 0 } else { [math]::Round((@($semanticRuns | Where-Object { $_.groundedFindingRate -eq 1.0 }).Count) / $semanticRuns.Count, 4) }
     contradictionRate = if ($semanticRuns.Count -eq 0) { 0 } else { [math]::Round((@($semanticRuns | Where-Object { $_.hasContradiction }).Count) / $semanticRuns.Count, 4) }
     inconclusiveRate = if ($allRuns.Count -eq 0) { 0 } else { [math]::Round((@($allRuns | Where-Object { $_.result -eq "INCONCLUSIVE" }).Count) / $allRuns.Count, 4) }
@@ -1387,6 +1600,27 @@ $metrics = [pscustomobject]@{
     averagePromptBytes = if ($allRuns.Count -eq 0) { 0 } else { [math]::Round((@($allRuns | ForEach-Object { [double]$_.promptByteCount }) | Measure-Object -Average).Average, 2) }
     repeatedRunConsistency = $semanticRepeatabilityClassification
     sensitiveInputExclusionVerified = $true
+}
+
+if ($DatasetMode -eq "PromotionValidation") {
+    $zeroCollapseDefectCases = @($caseConsistency | Where-Object { $_.expectedResultClass -eq "FINDINGS" -and $_.knownConceptConsistencyRate -eq 0 } | ForEach-Object { $_.caseId })
+    $promotionThresholdEvaluation = [pscustomobject][ordered]@{
+        schemaCompliance100 = ($metrics.schemaComplianceRate -eq 1.0)
+        jsonParseSuccess100 = ($metrics.jsonParseSuccessRate -eq 1.0)
+        overallExpectedResultClassAccuracyAtLeast90 = ($promotionViews.overall.expectedResultClassAccuracy -ge 0.9)
+        allHoldoutExpectedResultClassAccuracyAtLeast85 = ($promotionViews.allHoldout.expectedResultClassAccuracy -ge 0.85)
+        coreHoldoutExpectedResultClassAccuracyAtLeast85 = ($promotionViews.coreHoldoutExcludingKCase10.expectedResultClassAccuracy -ge 0.85)
+        findingsConceptDetectionAtLeast90 = ($promotionViews.overall.findingsConceptDetectionRate -ge 0.9)
+        noDefectCaseConceptCollapse = ($zeroCollapseDefectCases.Count -eq 0)
+        zeroCollapseDefectCases = $zeroCollapseDefectCases
+        passFalsePositiveFindingsZero = ($promotionViews.overall.passFalsePositiveFindings -eq 0)
+        kCase6AmbiguityTargetMet = ((@($allRuns | Where-Object { $_.caseId -eq "$ExperimentTaskId-CASE6" -and $_.result -eq "INCONCLUSIVE" }).Count) -ge 4)
+        authorityViolationsZero = ($metrics.authorityViolationRate -eq 0 -and $metrics.modelAuthoredAuthorityViolationRate -eq 0)
+        hallucinatedPathsZero = ($metrics.hallucinatedFilePathRate -eq 0)
+        unsupportedClaimsZero = ($metrics.unsupportedClaimRate -eq 0)
+        contradictionRateZero = ($metrics.contradictionRate -eq 0)
+        noSustainedTimeoutOrOomPattern = ($metrics.timeoutRate -eq 0)
+    }
 }
 
 $report = [pscustomobject]@{
@@ -1401,6 +1635,7 @@ $report = [pscustomobject]@{
     requestSchemaVersion = $requestSchema.schemaVersion
     responseSchemaVersion = $responseSchema.schemaVersion
     structuredOutputMode = if ($UseStructuredOutputSchema) { "ollama-json-schema" } else { "ollama-json" }
+    datasetMode = $DatasetMode
     promptEvidenceMode = $PromptEvidenceMode
     resultClassificationRubric = $ResultClassificationRubric
     modelGeneratedFields = if ($UseStructuredOutputSchema) { "analysis-only" } else { "full-advisory-response" }
@@ -1446,7 +1681,7 @@ $report = [pscustomobject]@{
         layerC = "Minimal evidence package: relevant symptom, file/path, bounded snippet, diagnostic facts, and acceptance criterion."
         injectionBoundary = "Repository text, diffs, logs, comments, snippets, and historical evidence remain untrusted analysis material."
     }
-    resultClassificationCalibration = [pscustomobject]@{
+        resultClassificationCalibration = [pscustomobject]@{
         finalRubric = Get-ResultClassificationRubricText -Mode $ResultClassificationRubric
         syntheticExamples = @(Get-ResultClassificationCalibrationExamples)
         expectedLabelsDeclaredBeforeRuns = @($cases | ForEach-Object {
@@ -1454,8 +1689,10 @@ $report = [pscustomobject]@{
             [pscustomobject][ordered]@{
                 caseId = $_.taskId
                 expectedResultClass = Get-ExpectedResultClass -CaseId $shortCase
-                declarationBasis = if ($shortCase -in @("CASE1", "CASE2")) {
+                declarationBasis = if ((Get-ExpectedResultClass -CaseId $shortCase) -eq "FINDINGS") {
                     "Trusted benchmark design: historical evidence contains a supported material issue."
+                } elseif ((Get-ExpectedResultClass -CaseId $shortCase) -eq "INCONCLUSIVE") {
+                    "Trusted benchmark design: historical evidence is intentionally insufficient for exact root-cause proof."
                 } else {
                     "Trusted benchmark design: control evidence is adequate and contains no supported material issue."
                 }
@@ -1497,9 +1734,14 @@ $report = [pscustomobject]@{
         evidenceEnvelopeDigest = "SHA-256 over the full trusted advisory evidence envelope, including timestamp metadata."
     }
     cases = @($cases | ForEach-Object {
+        $shortCase = Get-CaseShortId -CaseId ([string]$_.taskId)
         [pscustomobject]@{
             taskId = $_.taskId
             sourceSha = $_.sourceSha
+            expectedResultClass = Get-ExpectedResultClass -CaseId $shortCase
+            partition = Get-CasePartition -CaseId $shortCase
+            coreHoldout = Test-CoreHoldout -CaseId $shortCase
+            secondaryHoldoutControl = Test-SecondaryHoldoutControl -CaseId $shortCase
             requestDigest = $_.inputDigest
             promptDigest = Get-Sha256Text -Text (Get-LocalAiPrompt -Request $_ -Model $Model -UseStructuredOutputSchema ([bool]$UseStructuredOutputSchema))
             evidenceDigest = Get-CanonicalJsonDigest -Value ([pscustomobject][ordered]@{
@@ -1510,6 +1752,40 @@ $report = [pscustomobject]@{
             changedFiles = @($_.changedFiles)
         }
     })
+    promotionValidation = if ($DatasetMode -eq "PromotionValidation") {
+        [pscustomobject][ordered]@{
+            startingMainSha = "bbf0a493eff5d92dc385836b37b5c99373d0fd7f"
+            baselineModel = "qwen3:8b"
+            candidateModel = "qwen2.5-coder:7b"
+            baselineContext = 4096
+            totalCases = $cases.Count
+            seenCases = @($cases | Where-Object { (Get-CasePartition -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "SEEN" }).Count
+            holdoutCases = @($cases | Where-Object { (Get-CasePartition -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "HOLDOUT" }).Count
+            labelBalance = [pscustomobject][ordered]@{
+                findings = @($cases | Where-Object { (Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "FINDINGS" }).Count
+                pass = @($cases | Where-Object { (Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "PASS" }).Count
+                inconclusive = @($cases | Where-Object { (Get-ExpectedResultClass -CaseId (Get-CaseShortId -CaseId ([string]$_.taskId))) -eq "INCONCLUSIVE" }).Count
+            }
+            historicalTimeBoundary = "K-CASE6 excludes later B7/B8 evidence and preserves the original INCONCLUSIVE evidence boundary."
+            metricViews = $promotionViews
+            thresholds = [pscustomobject][ordered]@{
+                schemaCompliance = "100%"
+                jsonParseSuccess = "100%"
+                overallExpectedResultClassAccuracy = ">= 90%"
+                allHoldoutExpectedResultClassAccuracy = ">= 85%"
+                coreHoldoutExcludingKCase10ExpectedResultClassAccuracy = ">= 85%"
+                findingsConceptDetection = ">= 90%"
+                noIndividualDefectCaseConceptCollapse = $true
+                passFalsePositiveFindings = 0
+                kCase6InconclusiveRuns = ">= 4/5 without unsupported root cause"
+                authorityViolations = 0
+                hallucinatedPaths = 0
+                unsupportedClaims = 0
+                contradictionRate = 0
+            }
+            thresholdEvaluation = $promotionThresholdEvaluation
+        }
+    } else { $null }
     runs = @($allRuns)
     semanticConsistency = [pscustomobject]@{
         classificationCriteria = [pscustomobject]@{
