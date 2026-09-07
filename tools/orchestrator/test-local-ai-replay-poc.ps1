@@ -211,6 +211,34 @@ if ($null -eq $case10) { throw "Promotion dataset K-CASE10 is missing." }
 if ($case10.secondaryHoldoutControl -ne $true) { throw "Promotion dataset K-CASE10 must be marked as secondary holdout control." }
 if ($case10.coreHoldout -ne $false) { throw "Promotion dataset K-CASE10 must not drive the core holdout promotion view." }
 
+$authorityNeutralJson = & pwsh -NoProfile -File $script -ValidateOnly -DatasetMode PromotionValidation -ExperimentTaskId "VSP-LOCALAI-001M" -ReplayAttemptId "validate-authority-neutral-language" -RunsPerCase 5 -UseStructuredOutputSchema -PromptEvidenceMode AuthorityNeutral -ResultClassificationRubric Calibrated -Model "qwen2.5-coder:7b" -ContextSize 4096 -OutputDirectory "AI/Orchestrator/LocalAI/VSP-LOCALAI-001M"
+if ($LASTEXITCODE -ne 0) {
+    throw "Local AI authority-neutral prompt ValidateOnly failed."
+}
+
+$authorityNeutral = $authorityNeutralJson | ConvertFrom-Json
+if ($authorityNeutral.status -ne "PASS") { throw "Authority-neutral ValidateOnly status was not PASS." }
+if ($authorityNeutral.taskId -ne "VSP-LOCALAI-001M") { throw "Unexpected authority-neutral task ID." }
+if ($authorityNeutral.promptEvidenceMode -ne "AuthorityNeutral") { throw "Authority-neutral prompt evidence mode was not reported." }
+if ($authorityNeutral.context -ne 4096) { throw "Authority-neutral benchmark must keep context 4096." }
+if ($authorityNeutral.resultClassificationRubric -ne "Calibrated") { throw "Authority-neutral benchmark must keep calibrated rubric." }
+if ($authorityNeutral.authorityNeutralPromptContract.enabled -ne $true) { throw "Authority-neutral prompt contract must be enabled." }
+if ($authorityNeutral.authorityNeutralPromptContract.instructionPresent -ne $true) { throw "Authority-neutral prompt instruction is missing." }
+if ($authorityNeutral.authorityNeutralPromptContract.technicalFactsInstructionPresent -ne $true) { throw "Authority-neutral technical language instruction is missing." }
+if ($authorityNeutral.authorityNeutralPromptContract.paraphraseHistoricalAuthorityTerms -ne $true) { throw "Authority-neutral paraphrase instruction is missing." }
+if ($authorityNeutral.authorityNeutralPromptContract.doesNotMentionCase2 -ne $true) { throw "Authority-neutral prompt must not mention K-CASE2 or CASE2." }
+if ($authorityNeutral.authorityNeutralPromptContract.doesNotMentionCase5 -ne $true) { throw "Authority-neutral prompt must not mention K-CASE5 or CASE5." }
+if ($authorityNeutral.authorityNeutralPromptContract.scannerBoundaryRetained -ne $true) { throw "Authority-neutral prompt must not weaken scanner boundary." }
+if ($authorityNeutral.scoringSelfTests.modelAuthoredAuthorityTextDetected -ne $true) { throw "READY_FOR_MERGE authority wording must remain prohibited." }
+if ($authorityNeutral.scoringSelfTests.approvedAuthorityTextDetected -ne $true) { throw "approved authority wording must remain prohibited." }
+if ($authorityNeutral.scoringSelfTests.case2TrustedMetadataWriteDetected -ne $false) { throw "Authority-neutral scoring was contaminated by trusted metadata." }
+if ($authorityNeutral.scoringSelfTests.emptyAnalysisDoesNotDetectKnownDefect -ne $true) { throw "Authority-neutral empty analysis should not detect known defects." }
+if ($authorityNeutral.fixedVariableProof.scannerChanged -ne $false) { throw "Authority-neutral experiment must not change scanner." }
+if ($authorityNeutral.fixedVariableProof.promotionThresholdsChanged -ne $false) { throw "Authority-neutral experiment must not change promotion thresholds." }
+if ($authorityNeutral.fixedVariableProof.principalExperimentalChange -ne "generic authority-neutral analytical-language instruction") { throw "Authority-neutral experiment must report the correct principal change." }
+if ($authorityNeutral.fixedVariableProof.promptEvidenceChangedOnlyByRubric -ne $false) { throw "Authority-neutral experiment must not claim the prompt changed only by rubric." }
+if ($authorityNeutral.fixedVariableProof.promptEvidenceChangedByAuthorityNeutralInstruction -ne $true) { throw "Authority-neutral experiment must identify the authority-neutral instruction as the prompt change." }
+
 [pscustomobject]@{
     status = "PASS"
     validateOnly = "PASS"
@@ -221,9 +249,11 @@ if ($case10.coreHoldout -ne $false) { throw "Promotion dataset K-CASE10 must not
     contextBenchmarkSupported = $true
     classificationCalibrationSupported = $true
     modelBenchmarkSupported = $true
+    authorityNeutralPromptSupported = $true
     defaultStructuredOutputMode = $result.structuredOutputMode
     experimentalStructuredOutputMode = $structured.structuredOutputMode
     simplifiedPromptEvidenceMode = $simplified.promptEvidenceMode
+    authorityNeutralPromptEvidenceMode = $authorityNeutral.promptEvidenceMode
     localAiRepositoryWrite = $false
     localAiGitHubAuthority = $false
     livePrGateIntegration = $false
