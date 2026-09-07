@@ -159,6 +159,58 @@ if ($modelComparison.boundaries.permanentDefaultModelChanged -ne $false) { throw
 if ($modelComparison.boundaries.contextChanged -ne $false) { throw "Model comparison must not claim context change." }
 if ((@($modelComparison.downloadsPerformed) -join "|") -ne "qwen2.5-coder:7b|llama3.1:8b") { throw "Model comparison downloads did not match the approved candidate set." }
 
+$promotionDatasetJson = & pwsh -NoProfile -File $script -ValidateOnly -DatasetMode PromotionValidation -ExperimentTaskId "VSP-LOCALAI-001K1" -ReplayAttemptId "validate-promotion-dataset" -RunsPerCase 5 -UseStructuredOutputSchema -PromptEvidenceMode Simplified -ResultClassificationRubric Calibrated -Model "qwen3:8b" -ContextSize 4096 -OutputDirectory "AI/Orchestrator/LocalAI/VSP-LOCALAI-001K1"
+if ($LASTEXITCODE -ne 0) {
+    throw "Local AI promotion validation dataset ValidateOnly failed."
+}
+
+$promotionDataset = $promotionDatasetJson | ConvertFrom-Json
+if ($promotionDataset.status -ne "PASS") { throw "Promotion dataset ValidateOnly status was not PASS." }
+if ($promotionDataset.taskId -ne "VSP-LOCALAI-001K1") { throw "Unexpected promotion dataset task ID." }
+if ($promotionDataset.cases -ne 10) { throw "Promotion dataset must contain exactly 10 cases." }
+if ($promotionDataset.runsPerCase -ne 5) { throw "Promotion dataset must use five runs per case." }
+if ($promotionDataset.context -ne 4096) { throw "Promotion dataset must keep context 4096." }
+if ($promotionDataset.structuredOutputMode -ne "ollama-json-schema") { throw "Promotion dataset must use Ollama JSON Schema structured output." }
+if ($promotionDataset.promptEvidenceMode -ne "Simplified") { throw "Promotion dataset must use simplified evidence mode." }
+if ($promotionDataset.resultClassificationRubric -ne "Calibrated") { throw "Promotion dataset must use the calibrated rubric." }
+if ($promotionDataset.localAiRepositoryWrite -ne $false) { throw "Promotion dataset Local AI repository write boundary changed." }
+if ($promotionDataset.localAiGitHubAuthority -ne $false) { throw "Promotion dataset Local AI GitHub authority boundary changed." }
+if ($promotionDataset.livePrGateIntegration -ne $false) { throw "Promotion dataset must not integrate Local AI into live PR gates." }
+if ($promotionDataset.firewallChanged -ne $false) { throw "Promotion dataset must not change firewall." }
+if ($promotionDataset.ollamaModelContextChanged -ne $false) { throw "Promotion dataset must not change Ollama model/context." }
+if ($promotionDataset.scoringSelfTests.case2TrustedMetadataWriteDetected -ne $false) { throw "Promotion dataset scoring was contaminated by trusted metadata." }
+if ($promotionDataset.scoringSelfTests.emptyAnalysisDoesNotDetectKnownDefect -ne $true) { throw "Promotion dataset empty analysis should not detect known defects." }
+$promotionManifest = $promotionDataset.promotionValidationManifest
+if ($null -eq $promotionManifest) { throw "Promotion dataset manifest is missing." }
+if (@($promotionManifest.cases).Count -ne 10) { throw "Promotion dataset manifest must freeze exactly 10 cases." }
+if ((@($promotionManifest.models) -join "|") -ne "qwen3:8b|qwen2.5-coder:7b") { throw "Promotion dataset models must be exactly qwen3:8b and qwen2.5-coder:7b." }
+if ($promotionManifest.labelBalance.findings -ne 6 -or $promotionManifest.labelBalance.pass -ne 3 -or $promotionManifest.labelBalance.inconclusive -ne 1) {
+    throw "Promotion dataset label balance must be FINDINGS 6 / PASS 3 / INCONCLUSIVE 1."
+}
+$seenCases = @($promotionManifest.cases | Where-Object { $_.partition -eq "SEEN" })
+$holdoutCases = @($promotionManifest.cases | Where-Object { $_.partition -eq "HOLDOUT" })
+$coreHoldoutCases = @($promotionManifest.cases | Where-Object { $_.coreHoldout -eq $true })
+if ($seenCases.Count -ne 3) { throw "Promotion dataset must contain exactly 3 seen cases." }
+if ($holdoutCases.Count -ne 7) { throw "Promotion dataset must contain exactly 7 holdout cases." }
+if ($coreHoldoutCases.Count -ne 6) { throw "Promotion dataset must contain exactly 6 core holdout cases excluding K-CASE10." }
+$case6 = @($promotionManifest.cases | Where-Object { $_.shortCaseId -eq "CASE6" })[0]
+if ($null -eq $case6) { throw "Promotion dataset K-CASE6 is missing." }
+if ($case6.expectedResultClass -ne "INCONCLUSIVE") { throw "Promotion dataset K-CASE6 must remain INCONCLUSIVE." }
+$case6EvidenceText = (@($case6.includedEvidence) -join "`n")
+if ($case6EvidenceText -notmatch "do not use later B7/B8 evidence") { throw "Promotion dataset K-CASE6 must explicitly preserve the no-hindsight boundary." }
+if ($case6EvidenceText -match "33653335050|allowedTools|Read,Write,Edit") { throw "Promotion dataset K-CASE6 must exclude later hindsight evidence details." }
+$case9 = @($promotionManifest.cases | Where-Object { $_.shortCaseId -eq "CASE9" })[0]
+if ($null -eq $case9) { throw "Promotion dataset K-CASE9 is missing." }
+if ($case9.expectedResultClass -ne "PASS") { throw "Promotion dataset K-CASE9 must be a PASS control." }
+$case9EvidenceText = (@($case9.includedEvidence) -join "`n")
+if ($case9EvidenceText -notmatch "workflow-run") { throw "Promotion dataset K-CASE9 must be grounded in workflow-run success evidence." }
+if ($case9EvidenceText -notmatch "Do not describe PR #48 lifecycle status as merged or closed") { throw "Promotion dataset K-CASE9 must explicitly reject PR #48 lifecycle claims." }
+if ($case9EvidenceText -match "PR #48 (is|was|=) (merged|closed)") { throw "Promotion dataset K-CASE9 must not claim PR #48 merged or closed." }
+$case10 = @($promotionManifest.cases | Where-Object { $_.shortCaseId -eq "CASE10" })[0]
+if ($null -eq $case10) { throw "Promotion dataset K-CASE10 is missing." }
+if ($case10.secondaryHoldoutControl -ne $true) { throw "Promotion dataset K-CASE10 must be marked as secondary holdout control." }
+if ($case10.coreHoldout -ne $false) { throw "Promotion dataset K-CASE10 must not drive the core holdout promotion view." }
+
 [pscustomobject]@{
     status = "PASS"
     validateOnly = "PASS"
