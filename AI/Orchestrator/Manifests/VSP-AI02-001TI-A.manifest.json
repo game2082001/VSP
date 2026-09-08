@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A",
+  "title": "Trusted Artifact Intake Contracts and Policy Foundation",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "260a6a7df58433f90f26740bc693a0aed61d2225",
+  "executionPlane": "AI02 Claude Artifact Developer",
+  "approvedScope": [
+    "Define the AI02 Trusted Artifact Intake request and sanitized decision/evidence contracts.",
+    "Define schema and policy versioning, field authority, immutable identity bindings, approved limits, stable failure categories, and credential invariants.",
+    "Define the ASCII-only repository path policy, EXACT_BASE_ONLY stale-base policy, replay rejection contract, and deterministic validated-inline-bytes handoff contract.",
+    "Create inert deterministic semantic/static contract validation and focused tests where JSON Schema cannot express the required invariant.",
+    "Document the approved P0 threat model and the minimal future AI02 Repository Transport interface extension without modifying Transport in this task."
+  ],
+  "outOfScope": [
+    "GitHub artifact download or GitHub API acquisition.",
+    "ZIP extraction, archive staging, working-tree application, or other Trusted Intake runtime behavior.",
+    "Creation or modification of any file under .github/workflows.",
+    "Modification of AI02 Repository Transport, Claude Artifact Developer, B1, B7, or B8 files.",
+    "Repository Transport invocation, GitHub App token minting, repository write, branch creation, pull request creation, merge, tag, release, or end-to-end smoke behavior by the implementation artifact.",
+    "VSP-AI02-001TI-B, VSP-AI02-001TI-C, VSP-AI02-001TI-D, VSP-AI02-001TI-E, VSP-AI02-001TI-F, or VSP-AI02-001TI-G work.",
+    "C1, C2, VSP product code or tests, Local AI integration, or VSP-LOCALAI-001C."
+  ],
+  "primaryDeveloper": {
+    "role": "Claude Code Primary Developer",
+    "adapter": "claude",
+    "assignedBy": "Product Owner",
+    "contextId": "",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "VSP-AI02-001TI-A is CRITICAL and requires mandatory Claude Cross Review after Separate Codex Independent Review."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before Claude developer dispatch.",
+    "The AI02 Claude Artifact Developer cannot validate this manifest and its state before invoking Claude.",
+    "Any changed file falls outside repositoryTransport.approvedFiles or any approved file is missing from the final changed-file set.",
+    "Implementation requires a workflow, Repository Transport, Claude Artifact Developer, B1, B7, B8, product, product-test, or Local AI change.",
+    "Implementation requires artifact acquisition, archive extraction or staging, repository publication, a GitHub write credential, or a one-time publication bootstrap mechanism.",
+    "Claude or Trusted Intake would receive repository-write, branch-write, pull-request-write, or merge authority.",
+    "The implementation widens an approved v1 ceiling or changes an approved P0 decision.",
+    "Developer and Independent Reviewer separation cannot be proven.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-08T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/issues/0",
+    "approvalSummary": "Product Owner approved VSP-AI02-001TI-A as a CRITICAL contract/policy-only task implemented by Claude Code through the AI02 Claude Artifact Developer, with exact scope, limits, path policy, trust boundaries, separate Codex review, mandatory Claude Cross Review, and no autonomous merge."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": false,
+    "openOrUpdatePr": false,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "repositoryTransport": {
+    "required": true,
+    "requestPath": "",
+    "baseBinding": "EXACT",
+    "infrastructureSmoke": false,
+    "allowWorkflowChanges": false,
+    "openPullRequest": true,
+    "postMergeOperationalSmokeRequired": false,
+    "targetBranch": "ai02/vsp-ai02-001ti-a/trusted-artifact-intake-contracts",
+    "approvedFiles": [
+      "AI/Orchestrator/ARTIFACT_INTAKE_SCHEMA.md",
+      "AI/Orchestrator/Templates/artifact-intake-decision.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-decision.template.json",
+      "AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-request.template.json",
+      "tools/orchestrator/artifact-intake-contract.ps1",
+      "tools/orchestrator/test-artifact-intake-contract.ps1"
+    ]
+  },
+  "intakePolicy": {
+    "schemaIdentifier": "vsp.ai02.artifact-intake-request/1.0",
+    "decisionSchemaIdentifier": "vsp.ai02.artifact-intake-decision/1.0",
+    "policyVersion": "vsp-ai02-intake-v1",
+    "asciiOnlyRepositoryPaths": true,
+    "artifactDigestAuthority": "GITHUB_ARTIFACT_DIGEST_PRIMARY_ACQUISITION_ANCHOR",
+    "externalInnerHashPins": "OPTIONAL_SEPARATELY_TRUSTED_SOURCE_ONLY",
+    "staleBasePolicy": "EXACT_BASE_ONLY",
+    "stalePackageDisposition": "REJECT_STALE_BASE_AND_REGENERATE",
+    "replayPolicy": "SUCCESSFULLY_CONSUMED_REQUEST_MUST_NOT_BE_SILENTLY_REPLAYED",
+    "transportHandoff": "VALIDATED_INLINE_BYTES",
+    "transportInterface": "001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED",
+    "limits": {
+      "maxOuterArtifactCompressedBytes": 26214400,
+      "maxInnerPublicationZipCompressedBytes": 20971520,
+      "maxTotalInnerUncompressedBytes": 52428800,
+      "maxChangedFiles": 200,
+      "maxPerFileUncompressedBytes": 10485760,
+      "maxManifestJsonBytes": 262144,
+      "maxResultJsonBytes": 262144,
+      "maxRepositoryRelativePathCharacters": 240,
+      "maxPathSegmentCharacters": 100,
+      "maxJsonNestingDepth": 16,
+      "maxSanitizedEvidenceArtifactBytes": 1048576,
+      "maxCompressionRatio": 100,
+      "requiredOuterPublicationFileCount": 3
+    },
+    "credentialInvariants": {
+      "claudeGitHubWriteAuthority": false,
+      "trustedIntakeRepositoryWriteAuthority": false,
+      "trustedIntakeBranchOrPullRequestWriteAuthority": false,
+      "repositoryTransportSoleAutomatedWriteBoundary": true,
+      "automatedMergeAuthority": false,
+      "productOwnerMergeAuthority": true
+    }
+  }
+}
