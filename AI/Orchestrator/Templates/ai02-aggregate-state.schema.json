@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/game2082001/VSP/AI/Orchestrator/Templates/ai02-aggregate-state.schema.json",
+  "title": "AI02 deterministic aggregate lineage state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recoveryRepositorySha",
+    "predecessors",
+    "fileOwnership",
+    "aggregateStateDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "recoveryRepositorySha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "predecessors": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "items": { "$ref": "ai02-predecessor-descriptor.schema.json" }
+    },
+    "fileOwnership": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "ownerTaskId", "phase", "mode", "size", "sha256"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^[\\x20-\\x7E]+$" },
+          "ownerTaskId": { "type": "string", "pattern": "^VSP-AI02-[A-Za-z0-9-]+$", "maxLength": 100 },
+          "phase": { "enum": ["A1", "A2", "A3"] },
+          "mode": { "const": "100644" },
+          "size": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "aggregateStateDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

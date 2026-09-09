@@ -19,6 +19,31 @@ on:
         description: Expected base SHA for the developer working tree
         required: true
         type: string
+      phased_child:
+        description: Enable credentialless predecessor materialization for an approved A1/A2/A3 child
+        required: false
+        default: false
+        type: boolean
+      child_phase:
+        description: Approved child phase (A1, A2, or A3)
+        required: false
+        default: ""
+        type: string
+      child_sequence:
+        description: Approved child sequence (1, 2, or 3)
+        required: false
+        default: "0"
+        type: string
+      child_workflow_id:
+        description: Numeric immutable workflow identity recorded in the predecessor descriptor
+        required: false
+        default: ""
+        type: string
+      predecessor_bindings_json:
+        description: Immutable predecessor artifact bindings; use [] for A1
+        required: false
+        default: "[]"
+        type: string
 
 permissions:
   contents: read
@@ -28,6 +53,7 @@ jobs:
     name: Claude Primary Developer Artifact Package
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       id-token: write
     steps:
@@ -62,6 +88,62 @@ jobs:
             throw "Developer credential boundary validation failed."
           }
           "task_id=$($validation.taskId)" >> $env:GITHUB_OUTPUT
+
+      - name: Materialize validated predecessor artifacts
+        if: inputs.phased_child
+        shell: pwsh
+        env:
+          AI02_ARTIFACT_READ_TOKEN: ${{ github.token }}
+          AI02_PREDECESSOR_BINDINGS: ${{ inputs.predecessor_bindings_json }}
+          AI02_CHILD_PHASE: ${{ inputs.child_phase }}
+          AI02_CHILD_SEQUENCE: ${{ inputs.child_sequence }}
+          AI02_CHILD_WORKFLOW_ID: ${{ inputs.child_workflow_id }}
+          AI02_CHILD_TASK_ID: ${{ inputs.task_id }}
+          AI02_EXPECTED_BASE_SHA: ${{ inputs.expected_base_sha }}
+          AI02_MANIFEST_PATH: ${{ inputs.manifest_path }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          if ($env:AI02_CHILD_PHASE -notmatch '^A[1-3]$' -or $env:AI02_CHILD_SEQUENCE -notmatch '^[1-3]$' -or $env:AI02_CHILD_WORKFLOW_ID -notmatch '^[1-9][0-9]{0,19}$') {
+            throw "Invalid phased-child identity input."
+          }
+          if ($env:AI02_CHILD_PHASE -eq "A1") {
+            if ($env:AI02_PREDECESSOR_BINDINGS -ne "[]") { throw "A1 must bind no predecessors." }
+            ./tools/orchestrator/ai02-artifact-chain.ps1 `
+              -Mode InitializeWorkspace `
+              -RecoveryRepositorySha $env:AI02_EXPECTED_BASE_SHA `
+              -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
+              -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json"
+          }
+          else {
+            ./tools/orchestrator/ai02-artifact-chain.ps1 `
+              -Mode AcquireAndMaterialize `
+              -Repository "${{ github.repository }}" `
+              -RecoveryRepositorySha $env:AI02_EXPECTED_BASE_SHA `
+              -WorkspacePath "${{ github.workspace }}" `
+              -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
+              -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json" `
+              -BindingsJson $env:AI02_PREDECESSOR_BINDINGS
+          }
+          ./tools/orchestrator/ai02-artifact-chain.ps1 `
+            -Mode ValidateChildAuthorization `
+            -ChildTaskId $env:AI02_CHILD_TASK_ID `
+            -ChildPhase $env:AI02_CHILD_PHASE `
+            -Sequence ([int]$env:AI02_CHILD_SEQUENCE) `
+            -RecoveryRepositorySha $env:AI02_EXPECTED_BASE_SHA `
+            -ManifestPath $env:AI02_MANIFEST_PATH `
+            -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json"
+          Remove-Item Env:AI02_ARTIFACT_READ_TOKEN -ErrorAction SilentlyContinue
+
+      - name: Verify Claude receives no artifact or repository credential
+        if: inputs.phased_child
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not [string]::IsNullOrEmpty($env:AI02_ARTIFACT_READ_TOKEN) -or
+              -not [string]::IsNullOrEmpty($env:GH_TOKEN) -or
+              -not [string]::IsNullOrEmpty($env:GITHUB_TOKEN)) {
+            throw "A repository or artifact credential reached the Claude execution environment."
+          }
 
       - name: Prepare Claude prompt from validated task state
         id: prompt
@@ -117,7 +199,7 @@ jobs:
             -DiagnosePostClaude
 
       - name: Package runner working-tree changes
-        if: always() && steps.validate.outcome == 'success'
+        if: always() && steps.validate.outcome == 'success' && !inputs.phased_child
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -129,7 +211,26 @@ jobs:
             -OutputDirectory "${{ runner.temp }}/ai02-publication-package" `
             -Package
 
+      - name: Validate predecessor immutability and package phased child
+        if: always() && steps.validate.outcome == 'success' && inputs.phased_child
+        shell: pwsh
+        env:
+          AI02_MANIFEST_PATH: ${{ inputs.manifest_path }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          ./tools/orchestrator/ai02-artifact-chain.ps1 `
+            -Mode ValidatePostClaude `
+            -WorkspacePath "${{ github.workspace }}" `
+            -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json"
+          ./tools/orchestrator/ai02-artifact-chain.ps1 `
+            -Mode PackageChild `
+            -WorkspacePath "${{ github.workspace }}" `
+            -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json" `
+            -ManifestPath $env:AI02_MANIFEST_PATH `
+            -OutputDirectory "${{ runner.temp }}/ai02-publication-package"
+
       - name: Upload AI02 publication package artifact
+        id: publication_package
         if: always() && steps.validate.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
@@ -138,6 +239,53 @@ jobs:
             ${{ runner.temp }}/ai02-publication-package/publication-package.zip
             ${{ runner.temp }}/ai02-publication-package/publication-package.manifest.json
             ${{ runner.temp }}/ai02-publication-package/publication-package.result.json
+          if-no-files-found: error
+          overwrite: false
+
+      - name: Create and validate phased-child predecessor descriptor
+        if: always() && steps.publication_package.outcome == 'success' && inputs.phased_child
+        shell: pwsh
+        env:
+          AI02_CHILD_PHASE: ${{ inputs.child_phase }}
+          AI02_CHILD_SEQUENCE: ${{ inputs.child_sequence }}
+          AI02_CHILD_WORKFLOW_ID: ${{ inputs.child_workflow_id }}
+          AI02_CHILD_TASK_ID: ${{ inputs.task_id }}
+          AI02_EXPECTED_BASE_SHA: ${{ inputs.expected_base_sha }}
+          AI02_PACKAGE_ARTIFACT_ID: ${{ steps.publication_package.outputs.artifact-id }}
+          AI02_PACKAGE_ARTIFACT_DIGEST: ${{ steps.publication_package.outputs.artifact-digest }}
+          AI02_PACKAGE_ARTIFACT_NAME: ai02-claude-publication-package-${{ inputs.task_id }}-${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          ./tools/orchestrator/ai02-artifact-chain.ps1 `
+            -Mode NewDescriptor `
+            -OutputDirectory "${{ runner.temp }}/ai02-publication-package" `
+            -ChildTaskId $env:AI02_CHILD_TASK_ID `
+            -ChildPhase $env:AI02_CHILD_PHASE `
+            -Sequence ([int]$env:AI02_CHILD_SEQUENCE) `
+            -RecoveryRepositorySha $env:AI02_EXPECTED_BASE_SHA `
+            -WorkflowId $env:AI02_CHILD_WORKFLOW_ID `
+            -RunId "${{ github.run_id }}" `
+            -RunAttempt ${{ github.run_attempt }} `
+            -ArtifactId $env:AI02_PACKAGE_ARTIFACT_ID `
+            -ArtifactName $env:AI02_PACKAGE_ARTIFACT_NAME `
+            -GitHubArtifactDigest $env:AI02_PACKAGE_ARTIFACT_DIGEST
+          ./tools/orchestrator/ai02-artifact-chain.ps1 `
+            -Mode AppendDescriptor `
+            -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
+            -DescriptorPath "${{ runner.temp }}/ai02-publication-package/predecessor-descriptor.json"
+          if ($env:AI02_CHILD_PHASE -eq "A3") {
+            ./tools/orchestrator/ai02-artifact-chain.ps1 `
+              -Mode ValidateFinalAggregate `
+              -WorkspacePath "${{ github.workspace }}" `
+              -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json"
+          }
+
+      - name: Upload phased-child predecessor descriptor
+        if: always() && steps.publication_package.outcome == 'success' && inputs.phased_child
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai02-predecessor-descriptor-${{ inputs.task_id }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/ai02-publication-package/predecessor-descriptor.json
           if-no-files-found: error
           overwrite: false
 
