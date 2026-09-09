@@ -602,6 +602,20 @@ function Add-ClaudeDenialObservation {
     }
 }
 
+function Enter-ClaudeExecutionInspection {
+    param(
+        [Parameter(Mandatory = $true)] $Accumulator,
+        [int] $MaxNodes = 2000
+    )
+
+    if ($Accumulator.inspectedNodeCount -ge $MaxNodes) {
+        $Accumulator.maxNodesReached = $true
+        return $false
+    }
+    $Accumulator.inspectedNodeCount++
+    return $true
+}
+
 function Visit-ClaudeExecutionKnownFields {
     param(
         [AllowNull()][object] $Node,
@@ -650,20 +664,30 @@ function Visit-ClaudeExecutionFastPath {
     param(
         [AllowNull()][object] $Node,
         [Parameter(Mandatory = $true)] $Accumulator,
-        [int] $MaxArrayItems = 200
+        [int] $MaxArrayItems = 200,
+        [int] $MaxNodes = 2000
     )
 
     if ($null -eq $Node -or $Node -is [string] -or $Node.GetType().IsPrimitive) {
         return
     }
+    if (-not (Enter-ClaudeExecutionInspection -Accumulator $Accumulator -MaxNodes $MaxNodes)) {
+        return
+    }
 
     $message = Get-PropertyValue -Object $Node -Names @("message")
+    if ($null -ne $message -and -not (Enter-ClaudeExecutionInspection -Accumulator $Accumulator -MaxNodes $MaxNodes)) {
+        return
+    }
     $content = if ($null -ne $message) { Get-PropertyValue -Object $message -Names @("content") } else { Get-PropertyValue -Object $Node -Names @("content") }
     if ($null -ne $content -and $content -is [System.Collections.IEnumerable] -and -not ($content -is [string])) {
         $visited = 0
         foreach ($block in $content) {
             if ($visited -ge $MaxArrayItems) {
                 $Accumulator.fastPathArrayBoundReached = $true
+                break
+            }
+            if (-not (Enter-ClaudeExecutionInspection -Accumulator $Accumulator -MaxNodes $MaxNodes)) {
                 break
             }
             Visit-ClaudeExecutionKnownFields -Node $block -Accumulator $Accumulator
@@ -677,6 +701,9 @@ function Visit-ClaudeExecutionFastPath {
         foreach ($denial in $denials) {
             if ($visited -ge $MaxArrayItems) {
                 $Accumulator.fastPathArrayBoundReached = $true
+                break
+            }
+            if (-not (Enter-ClaudeExecutionInspection -Accumulator $Accumulator -MaxNodes $MaxNodes)) {
                 break
             }
             $name = Get-PropertyValue -Object $denial -Names @("name", "tool_name", "toolName", "tool")
@@ -702,11 +729,9 @@ function Visit-ClaudeExecutionNode {
         return
     }
 
-    if ($Accumulator.inspectedNodeCount -ge $MaxNodes) {
-        $Accumulator.maxNodesReached = $true
+    if (-not (Enter-ClaudeExecutionInspection -Accumulator $Accumulator -MaxNodes $MaxNodes)) {
         return
     }
-    $Accumulator.inspectedNodeCount++
 
     if ($Depth -gt $MaxDepth) {
         $Accumulator.maxDepthReached = $true
@@ -730,6 +755,11 @@ function Visit-ClaudeExecutionNode {
         return
     }
 
+    $nodeType = Get-PropertyValue -Object $Node -Names @("type", "event", "kind")
+    if ([string]::IsNullOrWhiteSpace([string]$nodeType)) {
+        $Accumulator.unknownSchemaObserved = $true
+    }
+
     Visit-ClaudeExecutionKnownFields -Node $Node -Accumulator $Accumulator
 
     foreach ($property in @($Node.PSObject.Properties)) {
@@ -738,7 +768,7 @@ function Visit-ClaudeExecutionNode {
             break
         }
         $propertyName = [string]$property.Name
-        if ($propertyName -match '(?i)prompt|content|text|input|output|stdout|stderr|transcript|environment|env|permission_denials|permissionDenials|denied_tools|deniedTools') {
+        if ($propertyName -match '(?i)prompt|content|message|text|input|output|stdout|stderr|transcript|environment|env|permission_denials|permissionDenials|denied_tools|deniedTools') {
             continue
         }
         Visit-ClaudeExecutionNode -Node $property.Value -Accumulator $Accumulator -Depth ($Depth + 1) -MaxDepth $MaxDepth -MaxNodes $MaxNodes -MaxArrayItems $MaxArrayItems

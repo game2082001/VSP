@@ -428,6 +428,39 @@ try {
     }
     Remove-Item -LiteralPath $futureSchemaExecutionFile -Force
 
+    $mixedSchemaExecutionFile = Join-Path $tempRoot "claude-execution-mixed-schema.json"
+    '{"type":"result","subtype":"success","future_payload":{"operation":{"toolName":"Write","input":"must-not-leak-mixed-input"}}}' | Set-Content -LiteralPath $mixedSchemaExecutionFile -Encoding utf8
+    $mixedSchemaDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $mixedSchemaExecutionFile | ConvertFrom-Json
+    $mixedSchemaJson = $mixedSchemaDiagnostics | ConvertTo-Json -Depth 20
+    if ($mixedSchemaDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "UNKNOWN_SCHEMA" -or
+        $mixedSchemaDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "UNKNOWN" -or
+        $mixedSchemaJson.Contains("must-not-leak")) {
+        throw "Mixed known/future Claude schema produced an unsafe authoritative negative attribution."
+    }
+    Remove-Item -LiteralPath $mixedSchemaExecutionFile -Force
+
+    $fastPathNodeLimitExecutionFile = Join-Path $tempRoot "claude-execution-fast-path-node-limit.json"
+    $fastPathLines = @()
+    for ($outer = 0; $outer -lt 20; $outer++) {
+        $blocks = @()
+        for ($inner = 0; $inner -lt 200; $inner++) {
+            $blocks += [ordered]@{ type = "tool_use"; name = "Read"; input = "must-not-leak-fast-path" }
+        }
+        $fastPathLines += ([ordered]@{ type = "assistant"; message = [ordered]@{ content = $blocks } } | ConvertTo-Json -Compress -Depth 8)
+    }
+    $fastPathLines | Set-Content -LiteralPath $fastPathNodeLimitExecutionFile -Encoding utf8
+    $fastPathNodeLimitDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $fastPathNodeLimitExecutionFile | ConvertFrom-Json
+    if ($fastPathNodeLimitDiagnostics.sanitizedClaudeExecution.maxNodesReached -ne $true -or
+        $fastPathNodeLimitDiagnostics.sanitizedClaudeExecution.inspectedNodeCount -gt 2000 -or
+        $fastPathNodeLimitDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "PARTIAL_BOUNDS_REACHED" -or
+        $fastPathNodeLimitDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "UNKNOWN") {
+        throw "Schema-aware fast path did not enforce the shared MaxNodes=2000 ceiling."
+    }
+    if (($fastPathNodeLimitDiagnostics | ConvertTo-Json -Depth 20).Contains("must-not-leak")) {
+        throw "Schema-aware fast path leaked bounded tool input."
+    }
+    Remove-Item -LiteralPath $fastPathNodeLimitExecutionFile -Force
+
     # Synthetic representative of Run 34238805895: denials are attributable, while
     # bounded unknown metadata prevents authoritative negative tool attribution.
     $noOutputDenialExecutionFile = Join-Path $tempRoot "claude-execution-no-output-denial.json"
