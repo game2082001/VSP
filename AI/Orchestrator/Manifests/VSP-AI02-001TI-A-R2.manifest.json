@@ -1,0 +1,182 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A-R2",
+  "title": "Trusted Artifact Intake Contracts - Final Empty Replay Set Remediation",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "05275f4b3ffc123408ed358765c4d9549c5c5e72",
+  "executionPlane": "AI02 Claude Artifact Developer",
+  "approvedScope": [
+    "Regenerate the complete seven-file VSP-AI02-001TI-A contract and policy package from the separately reconciled immutable execution base; analysis-only output is not implementation.",
+    "Implement the minimum correct Test-ArtifactIntakeReplay parameter contract so ConsumedIdentities = @() is accepted as FIRST_USE / NOT_YET_CONSUMED.",
+    "Preserve fail-closed replay security: a matching identity in a non-empty consumed collection must still be deterministically rejected as replay.",
+    "Prove the empty collection positive case, matching-identity replay rejection, and the complete focused 001TI-A contract suite all pass.",
+    "Keep merged O1 sanitized observability active as evidence support only if output is zero or incomplete; do not modify diagnostic code.",
+    "Preserve every approved P0 contract, security invariant, schema identity, policy version, and numeric ceiling."
+  ],
+  "outOfScope": [
+    "Any third remediation attempt, automatic rerun, or dispatch not separately authorized by the Product Owner.",
+    "Disabling, bypassing, removing, ignoring, or otherwise weakening consumed-identity validation or replay rejection.",
+    "Modification of O1 diagnostics, Claude prompt generation, allowed tools, permission mode, workflows, or Repository Transport.",
+    "Publication or manual patching of failed A or R1 packages, publication bootstrap, artifact acquisition, extraction, or staging.",
+    "Repository-write credentials or direct branch, push, pull-request, merge, release, tag, or deployment authority for Claude or Trusted Intake.",
+    "VSP-AI02-001TI-B through G, C1, C2, product code or tests, Local AI, or VSP-LOCALAI-001C."
+  ],
+  "primaryDeveloper": {
+    "role": "Claude Code Primary Developer",
+    "adapter": "claude",
+    "assignedBy": "Product Owner",
+    "contextId": "",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "VSP-AI02-001TI-A-R2 is CRITICAL and requires mandatory Claude Cross Review after Separate Codex Independent Review."
+  },
+  "stopConditions": [
+    "GitHub main differs from the separately Product Owner-reconciled immutable execution base before R2 dispatch.",
+    "The AI02 Claude Artifact Developer cannot validate this manifest and state before invoking Claude.",
+    "Any changed file falls outside repositoryTransport.approvedFiles or any approved file is missing from the final exact changed-file set.",
+    "ConsumedIdentities = @() is rejected, or a matching consumed identity is not deterministically rejected as replay.",
+    "Complete focused 001TI-A contract validation does not pass.",
+    "Implementation modifies O1 diagnostics, workflows, Repository Transport, prompt/tool/permission configuration, or any P0 security contract or ceiling.",
+    "Claude or Trusted Intake receives repository, branch, pull-request, or merge write authority.",
+    "R2 produces a package that fails validation, zero working-tree changes, or an execution failure; stop without R3 or automatic rerun.",
+    "Developer/reviewer separation or mandatory review gates cannot be proven, or unresolved findings remain."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-09T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/05275f4b3ffc123408ed358765c4d9549c5c5e72",
+    "approvalSummary": "Product Owner authorized the CRITICAL R2 final-remediation governance fixture only. R2 is attempt 2 of 2, remains not dispatched, and requires later immutable source reconciliation."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": false,
+    "pushFeatureBranch": false,
+    "openOrUpdatePr": false,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": false
+  },
+  "repositoryTransport": {
+    "required": true,
+    "requestPath": "",
+    "baseBinding": "EXACT",
+    "infrastructureSmoke": false,
+    "allowWorkflowChanges": false,
+    "openPullRequest": true,
+    "postMergeOperationalSmokeRequired": false,
+    "targetBranch": "ai02/vsp-ai02-001ti-a-r2/trusted-artifact-intake-contracts",
+    "approvedFiles": [
+      "AI/Orchestrator/ARTIFACT_INTAKE_SCHEMA.md",
+      "AI/Orchestrator/Templates/artifact-intake-decision.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-decision.template.json",
+      "AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-request.template.json",
+      "tools/orchestrator/artifact-intake-contract.ps1",
+      "tools/orchestrator/test-artifact-intake-contract.ps1"
+    ]
+  },
+  "failureEvidence": {
+    "workflowRunId": "34231974742",
+    "workflowRunAttempt": "1",
+    "sourceSha": "0187d0db36b10755ffd5ff7ebf79fb37d8390d50",
+    "claudeConclusion": "success",
+    "packageCreation": "success",
+    "packageValidation": "FAIL",
+    "permanentDisposition": "CLAUDE_EXECUTION_SUCCESS / PACKAGE_VALIDATION_FAIL / DETERMINISTIC_POWERSHELL_PARAMETER_CONTRACT_DEFECT",
+    "firstIncorrectComponent": "tools/orchestrator/artifact-intake-contract.ps1 Test-ArtifactIntakeReplay parameter contract",
+    "failureMessage": "Cannot bind argument to parameter 'ConsumedIdentities' because it is an empty array.",
+    "failedPackageMustNotBePublished": true
+  },
+  "priorRemediationFailure": {
+    "workflowRunId": "34238805895",
+    "workflowRunAttempt": "1",
+    "sourceSha": "c2741cdccc04356401c16c05f50821583be7542f",
+    "claudeConclusion": "success",
+    "workingTreeChanges": "ZERO",
+    "requiredOutputCreated": false,
+    "rootCause": "UNRESOLVED",
+    "permanentDisposition": "CLAUDE_ACTION_SUCCESS / ZERO_WORKING_TREE_CHANGES / REQUIRED_OUTPUT_NOT_CREATED / ROOT_CAUSE_UNRESOLVED",
+    "failedPackageMustNotBePublished": true
+  },
+  "remediation": {
+    "attempt": 2,
+    "limit": 2,
+    "finalAttempt": true,
+    "dispatched": false,
+    "automaticRerun": false,
+    "automaticThirdAttempt": false
+  },
+  "observability": {
+    "contract": "VSP-AI02-001TI-A-O1",
+    "role": "SANITIZED_EVIDENCE_SUPPORT_ONLY",
+    "modifyDiagnosticCode": false,
+    "rawExecutionRetentionOrUpload": false,
+    "requiredIfOutputZeroOrIncomplete": true,
+    "approvedAttribution": [
+      "evidenceCompleteness",
+      "readAttempted",
+      "writeAttempted",
+      "editAttempted",
+      "bashAttempted",
+      "permissionDenialCount",
+      "deniedApprovedTool",
+      "denialCategory",
+      "completionCategory"
+    ]
+  },
+  "intakePolicy": {
+    "schemaIdentifier": "vsp.ai02.artifact-intake-request/1.0",
+    "decisionSchemaIdentifier": "vsp.ai02.artifact-intake-decision/1.0",
+    "policyVersion": "vsp-ai02-intake-v1",
+    "asciiOnlyRepositoryPaths": true,
+    "artifactDigestAuthority": "GITHUB_ARTIFACT_DIGEST_PRIMARY_ACQUISITION_ANCHOR",
+    "externalInnerHashPins": "OPTIONAL_SEPARATELY_TRUSTED_SOURCE_ONLY",
+    "staleBasePolicy": "EXACT_BASE_ONLY",
+    "stalePackageDisposition": "REJECT_STALE_BASE_AND_REGENERATE",
+    "replayPolicy": "SUCCESSFULLY_CONSUMED_REQUEST_MUST_NOT_BE_SILENTLY_REPLAYED",
+    "emptyConsumedIdentitiesMeaning": "FIRST_USE_NOT_YET_CONSUMED",
+    "matchingConsumedIdentityDisposition": "REJECT_REPLAY",
+    "transportHandoff": "VALIDATED_INLINE_BYTES",
+    "transportInterface": "001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED",
+    "limits": {
+      "maxOuterArtifactCompressedBytes": 26214400,
+      "maxInnerPublicationZipCompressedBytes": 20971520,
+      "maxTotalInnerUncompressedBytes": 52428800,
+      "maxChangedFiles": 200,
+      "maxPerFileUncompressedBytes": 10485760,
+      "maxManifestJsonBytes": 262144,
+      "maxResultJsonBytes": 262144,
+      "maxRepositoryRelativePathCharacters": 240,
+      "maxPathSegmentCharacters": 100,
+      "maxJsonNestingDepth": 16,
+      "maxSanitizedEvidenceArtifactBytes": 1048576,
+      "maxCompressionRatio": 100,
+      "requiredOuterPublicationFileCount": 3
+    },
+    "credentialInvariants": {
+      "claudeGitHubWriteAuthority": false,
+      "trustedIntakeRepositoryWriteAuthority": false,
+      "trustedIntakeBranchOrPullRequestWriteAuthority": false,
+      "repositoryTransportSoleAutomatedWriteBoundary": true,
+      "automatedMergeAuthority": false,
+      "productOwnerMergeAuthority": true
+    }
+  }
+}
