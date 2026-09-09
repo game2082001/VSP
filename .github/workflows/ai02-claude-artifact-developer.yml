@@ -90,6 +90,7 @@ jobs:
           "task_id=$($validation.taskId)" >> $env:GITHUB_OUTPUT
 
       - name: Materialize validated predecessor artifacts
+        id: materialize
         if: inputs.phased_child
         shell: pwsh
         env:
@@ -132,6 +133,8 @@ jobs:
             -RecoveryRepositorySha $env:AI02_EXPECTED_BASE_SHA `
             -ManifestPath $env:AI02_MANIFEST_PATH `
             -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json"
+          "baseline_sha256=$((Get-FileHash -LiteralPath '${{ runner.temp }}/ai02-predecessor-baseline.json' -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "aggregate_state_sha256=$((Get-FileHash -LiteralPath '${{ runner.temp }}/ai02-aggregate-state.json' -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
           Remove-Item Env:AI02_ARTIFACT_READ_TOKEN -ErrorAction SilentlyContinue
 
       - name: Verify Claude receives no artifact or repository credential
@@ -216,16 +219,24 @@ jobs:
         shell: pwsh
         env:
           AI02_MANIFEST_PATH: ${{ inputs.manifest_path }}
+          AI02_BASELINE_SHA256: ${{ steps.materialize.outputs.baseline_sha256 }}
+          AI02_AGGREGATE_STATE_SHA256: ${{ steps.materialize.outputs.aggregate_state_sha256 }}
         run: |
           $ErrorActionPreference = "Stop"
           ./tools/orchestrator/ai02-artifact-chain.ps1 `
             -Mode ValidatePostClaude `
             -WorkspacePath "${{ github.workspace }}" `
-            -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json"
+            -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json" `
+            -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
+            -ExpectedBaselineSha256 $env:AI02_BASELINE_SHA256 `
+            -ExpectedAggregateStateSha256 $env:AI02_AGGREGATE_STATE_SHA256
           ./tools/orchestrator/ai02-artifact-chain.ps1 `
             -Mode PackageChild `
             -WorkspacePath "${{ github.workspace }}" `
             -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json" `
+            -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
+            -ExpectedBaselineSha256 $env:AI02_BASELINE_SHA256 `
+            -ExpectedAggregateStateSha256 $env:AI02_AGGREGATE_STATE_SHA256 `
             -ManifestPath $env:AI02_MANIFEST_PATH `
             -OutputDirectory "${{ runner.temp }}/ai02-publication-package"
 

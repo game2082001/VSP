@@ -45,16 +45,20 @@ The trusted phase runner performs these steps:
 4. Reject unsafe, duplicate, colliding, missing, extra, oversized, or invalid-mode archive entries.
 5. Materialize only validated predecessor files in the isolated aggregate workspace.
 6. Write a baseline containing predecessor hashes and the aggregate-state digest.
-7. Remove artifact-read credentials before Claude starts.
-8. Allow Claude to change only the current child ownership set.
-9. Verify predecessor hashes are unchanged after Claude.
-10. Determine child changes from Git status after subtracting only verified immutable predecessor paths.
-11. Require exact equality with the child allowlist and package only those child files.
+7. Export SHA-256 bindings for the baseline and aggregate-state bytes through immutable pre-Claude step outputs.
+8. Remove artifact-read credentials before Claude starts.
+9. Allow Claude to change only the current child ownership set.
+10. Verify the baseline/state byte bindings and predecessor hashes are unchanged after Claude.
+11. Reject links, reparse points, non-regular files, and any actual filesystem or Git mode other than `100644`.
+12. Determine child changes from Git status after subtracting only verified immutable predecessor paths.
+13. Require exact equality with the child allowlist and package only those child files.
 
 Predecessor materialization is not publication and is never represented as a child change.
 
 ## Final aggregate gate
 
-The final gate accepts only the exact seven-file union. It verifies lineage, ownership, hashes, sizes, modes, predecessor immutability, P0 constants, and the deterministic focused validation command `pwsh -NoProfile -File tools/orchestrator/test-artifact-intake-contract.ps1`. A nonzero focused-validation exit code rejects the aggregate.
+The final gate accepts only the exact seven-file union. It verifies lineage, ownership, hashes, sizes, actual regular-file modes, predecessor immutability, and the P0 identities, policies, and numeric ceilings. It then invokes the deterministic focused command `pwsh -NoProfile -File tools/orchestrator/test-artifact-intake-contract.ps1`.
+
+The focused suite must exit zero and emit a final one-line JSON evidence record with schema `vsp.ai02.artifact-intake-focused-suite/1.0`. The record binds the suite identity, test/failed counts, the exact required security-check set, and the complete P0 policy/ceiling values. A no-op script, missing check, altered policy value, malformed evidence, or nonzero exit rejects completion.
 
 Only a `FULLY_VALIDATED_FINAL_AGGREGATE` may later be submitted to a separately authorized one-time bootstrap publication. Child artifacts and failed aggregates are never publication inputs.

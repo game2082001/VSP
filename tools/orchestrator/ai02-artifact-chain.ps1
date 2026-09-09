@@ -26,6 +26,8 @@ param(
     [string] $GitHubArtifactDigest = ""
     ,[string[]] $DescriptorPaths = @()
     ,[string[]] $ArtifactDirectories = @()
+    ,[string] $ExpectedBaselineSha256 = ""
+    ,[string] $ExpectedAggregateStateSha256 = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -405,14 +407,45 @@ function Materialize-ValidatedPackage {
 }
 
 function Assert-BaselineUnchanged {
-    param([Parameter(Mandatory = $true)][string] $Path, [Parameter(Mandatory = $true)][string] $Workspace)
+    param([Parameter(Mandatory = $true)][string] $Path, [Parameter(Mandatory = $true)][string] $Workspace, [string] $ExpectedBaselineHash = "", [string] $StatePath = "", [string] $ExpectedStateHash = "")
+    if ($ExpectedBaselineHash) {
+        Assert-Matches $ExpectedBaselineHash '^[0-9a-f]{64}$' "ExpectedBaselineSha256"
+        if ((Get-Sha256 $Path) -ne $ExpectedBaselineHash) { Stop-Chain "Pre-Claude baseline metadata was modified." }
+    }
     $baseline = Read-JsonBounded $Path
+    if ($ExpectedStateHash) {
+        Assert-Matches $ExpectedStateHash '^[0-9a-f]{64}$' "ExpectedAggregateStateSha256"
+        if ([string]::IsNullOrWhiteSpace($StatePath) -or (Get-Sha256 $StatePath) -ne $ExpectedStateHash) { Stop-Chain "Pre-Claude aggregate state was modified." }
+        $state = Read-JsonBounded $StatePath
+        $recomputed = New-AggregateState ([string]$state.recoveryRepositorySha) @($state.predecessors)
+        if ($recomputed.aggregateStateDigest -ne $state.aggregateStateDigest) { Stop-Chain "Pre-Claude aggregate state digest is invalid." }
+        if (@($state.predecessors).Count -eq 0) {
+            if ($baseline.aggregateStateDigest -ne "GENESIS") { Stop-Chain "Genesis baseline lineage is invalid." }
+        } elseif ($baseline.aggregateStateDigest -ne $state.aggregateStateDigest) { Stop-Chain "Baseline and aggregate lineage disagree." }
+    }
     foreach ($file in @($baseline.predecessorFiles)) {
         $fullPath = Join-Path $Workspace ([string]$file.path).Replace('/', [IO.Path]::DirectorySeparatorChar)
         if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { Stop-Chain "Predecessor file is missing after Claude: $($file.path)" }
         if ((Get-Item $fullPath).Length -ne [int64]$file.size -or (Get-Sha256 $fullPath) -ne $file.sha256) { Stop-Chain "Predecessor mutation detected after Claude: $($file.path)" }
     }
     return $baseline
+}
+
+function Assert-RegularMode100644 {
+    param([Parameter(Mandatory = $true)][string] $Path, [Parameter(Mandatory = $true)][string] $Name, [string] $GitWorkspace = "", [string] $RepositoryPath = "")
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Stop-Chain "$Name is missing or is not a file." }
+    $item = Get-Item -LiteralPath $Path -Force
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.LinkType) { Stop-Chain "$Name is a link or reparse point." }
+    if ($GitWorkspace -and $RepositoryPath) {
+        $stage = @(& git -C $GitWorkspace ls-files --stage -- $RepositoryPath)
+        if ($LASTEXITCODE -ne 0) { Stop-Chain "Unable to determine Git mode for $Name." }
+        if ($stage.Count -gt 1) { Stop-Chain "$Name has ambiguous Git index entries." }
+        if ($stage.Count -eq 1 -and [string]$stage[0] -cnotmatch '^100644 ') { Stop-Chain "$Name must have Git mode 100644." }
+    }
+    if (-not $IsWindows) {
+        $mode = [int][IO.File]::GetUnixFileMode($Path)
+        if (($mode -band 0x1FF) -ne 0x1A4) { Stop-Chain "$Name must have actual filesystem mode 100644." }
+    }
 }
 
 function Get-GitChangesExcludingBaseline {
@@ -450,7 +483,7 @@ function Test-ChildAuthorization {
 
 function New-ChildPackage {
     param([Parameter(Mandatory = $true)][string] $Workspace, [Parameter(Mandatory = $true)][string] $Baseline, [Parameter(Mandatory = $true)][string] $Manifest, [Parameter(Mandatory = $true)][string] $Destination)
-    $baselineObject = Assert-BaselineUnchanged $Baseline $Workspace
+    $baselineObject = Assert-BaselineUnchanged $Baseline $Workspace $ExpectedBaselineSha256 $AggregateStatePath $ExpectedAggregateStateSha256
     $manifestInfo = Get-ManifestApprovedFiles $Manifest
     $expected = @($manifestInfo.files)
     $phase = if ($expected.Count -eq 4) { "A1" } elseif ($expected.Count -eq 1) { "A2" } elseif ($expected.Count -eq 2) { "A3" } else { Stop-Chain "Child manifest allowlist does not match a phase." }
@@ -460,7 +493,7 @@ function New-ChildPackage {
     $metadata = @()
     foreach ($path in $expected) {
         $fullPath = Join-Path $Workspace $path.Replace('/', [IO.Path]::DirectorySeparatorChar)
-        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { Stop-Chain "Child output is missing: $path" }
+        Assert-RegularMode100644 $fullPath "Child output $path" $Workspace $path
         $size = (Get-Item $fullPath).Length
         if ($size -le 0 -or $size -gt $Script:MaxPerFileUncompressedBytes) { Stop-Chain "Child output size is invalid: $path" }
         $metadata += [ordered]@{ path = $path; mode = "100644"; size = [int64]$size; sha256 = Get-Sha256 $fullPath }
@@ -608,6 +641,37 @@ function New-PredecessorDescriptor {
     return $descriptor
 }
 
+function Assert-FinalP0Contract {
+    param([Parameter(Mandatory = $true)][string] $Workspace)
+    $a1Text = (($Script:PhaseFiles.A1 | ForEach-Object { Get-Content -LiteralPath (Join-Path $Workspace $_) -Raw }) -join "`n")
+    foreach ($marker in @("vsp.ai02.artifact-intake-request/1.0", "vsp.ai02.artifact-intake-decision/1.0")) {
+        if (-not $a1Text.Contains($marker, [StringComparison]::Ordinal)) { Stop-Chain "Final A1 schemas/templates omit required P0 identity: $marker" }
+    }
+    $contractText = Get-Content -LiteralPath (Join-Path $Workspace "tools/orchestrator/artifact-intake-contract.ps1") -Raw
+    foreach ($limit in @(26214400,20971520,52428800,200,10485760,262144,240,100,16,1048576,3)) {
+        if ($contractText -cnotmatch "(?<![0-9])$limit(?![0-9])") { Stop-Chain "Final A2 contract omits required P0 numeric ceiling: $limit" }
+    }
+    $allText = (($Script:FinalFiles | ForEach-Object { Get-Content -LiteralPath (Join-Path $Workspace $_) -Raw }) -join "`n")
+    foreach ($marker in @("vsp-ai02-intake-v1", "EXACT_BASE_ONLY", "FIRST_USE", "NOT_YET_CONSUMED", "REJECT_REPLAY")) {
+        if (-not $allText.Contains($marker, [StringComparison]::Ordinal)) { Stop-Chain "Final aggregate omits required P0 policy marker: $marker" }
+    }
+}
+
+function Assert-FocusedSuiteEvidence {
+    param([object[]] $OutputLines)
+    $line = @($OutputLines | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })[-1]
+    try { $evidence = $line | ConvertFrom-Json -Depth 10 } catch { Stop-Chain "Focused suite did not emit valid final JSON evidence." }
+    Assert-ExactProperties $evidence @("schemaVersion","suite","status","testCount","failedCount","requiredChecks","policy") "focused suite evidence"
+    if ($evidence.schemaVersion -ne "vsp.ai02.artifact-intake-focused-suite/1.0" -or $evidence.suite -ne "VSP-AI02-001TI-A" -or $evidence.status -ne "PASS" -or [int]$evidence.failedCount -ne 0 -or [int]$evidence.testCount -lt 17) { Stop-Chain "Focused suite completion evidence is incomplete or failed." }
+    $requiredChecks = @("schema-validation","template-schema-conformance","ascii-path-rejection","traversal-rejection","absolute-path-rejection","backslash-rejection","drive-unc-colon-rejection","duplicate-case-collision-rejection","mode-restriction","size-count-ceilings","hash-verification","malformed-unknown-rejection","exact-base-rejection","replay-first-use","replay-rejection","credential-invariants","deterministic-output")
+    Assert-ExactSet @($evidence.requiredChecks) $requiredChecks "focused suite required checks"
+    $policyNames = @("schemaVersion","policyVersion","requestSchemaIdentifier","decisionSchemaIdentifier","maxOuterArtifactCompressedBytes","maxInnerPublicationZipCompressedBytes","maxTotalInnerUncompressedBytes","maxChangedFiles","maxPerFileUncompressedBytes","maxManifestJsonBytes","maxResultJsonBytes","maxRepositoryRelativePathCharacters","maxPathSegmentCharacters","maxJsonNestingDepth","maxSanitizedEvidenceArtifactBytes","maxCompressionRatio","requiredOuterPublicationFileCount","staleBasePolicy","emptyConsumedIdentitiesMeaning","matchingConsumedIdentityDisposition","repositoryWriteCredentialAvailableToDeveloper")
+    Assert-ExactProperties $evidence.policy $policyNames "focused suite P0 policy evidence"
+    $expected = [ordered]@{ schemaVersion="1.0";policyVersion="vsp-ai02-intake-v1";requestSchemaIdentifier="vsp.ai02.artifact-intake-request/1.0";decisionSchemaIdentifier="vsp.ai02.artifact-intake-decision/1.0";maxOuterArtifactCompressedBytes=26214400;maxInnerPublicationZipCompressedBytes=20971520;maxTotalInnerUncompressedBytes=52428800;maxChangedFiles=200;maxPerFileUncompressedBytes=10485760;maxManifestJsonBytes=262144;maxResultJsonBytes=262144;maxRepositoryRelativePathCharacters=240;maxPathSegmentCharacters=100;maxJsonNestingDepth=16;maxSanitizedEvidenceArtifactBytes=1048576;maxCompressionRatio=100;requiredOuterPublicationFileCount=3;staleBasePolicy="EXACT_BASE_ONLY";emptyConsumedIdentitiesMeaning="FIRST_USE_NOT_YET_CONSUMED";matchingConsumedIdentityDisposition="REJECT_REPLAY";repositoryWriteCredentialAvailableToDeveloper=$false }
+    foreach ($name in $policyNames) { if ([string]$evidence.policy.$name -cne [string]$expected.$name) { Stop-Chain "Focused suite P0 policy evidence mismatch: $name" } }
+    return $evidence
+}
+
 function Test-FinalAggregate {
     $state = Read-JsonBounded $AggregateStatePath
     $expectedProperties = @("schemaVersion", "recoveryRepositorySha", "predecessors", "fileOwnership", "aggregateStateDigest")
@@ -617,13 +681,15 @@ function Test-FinalAggregate {
     Assert-ExactSet @($state.fileOwnership.path) $Script:FinalFiles "final aggregate files"
     foreach ($file in @($state.fileOwnership)) {
         $path = Join-Path $WorkspacePath ([string]$file.path).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Stop-Chain "Final aggregate file is missing: $($file.path)" }
+        Assert-RegularMode100644 $path "Final aggregate file $($file.path)"
         if ($file.mode -ne "100644" -or (Get-Item $path).Length -ne [int64]$file.size -or (Get-Sha256 $path) -ne $file.sha256) { Stop-Chain "Final aggregate file metadata mismatch: $($file.path)" }
     }
+    Assert-FinalP0Contract $WorkspacePath
     $testPath = Join-Path $WorkspacePath "tools/orchestrator/test-artifact-intake-contract.ps1"
-    & pwsh -NoProfile -File $testPath
+    $focusedOutput = @(& pwsh -NoProfile -File $testPath)
     if ($LASTEXITCODE -ne 0) { Stop-Chain "Focused aggregate validation failed." }
-    return [pscustomobject]@{ status = "FULLY_VALIDATED_FINAL_AGGREGATE"; aggregateStateDigest = $state.aggregateStateDigest; fileCount = 7; focusedValidation = "PASS"; repositoryWriteAuthority = $false; publicationPerformed = $false }
+    $evidence = Assert-FocusedSuiteEvidence $focusedOutput
+    return [pscustomobject]@{ status = "FULLY_VALIDATED_FINAL_AGGREGATE"; aggregateStateDigest = $state.aggregateStateDigest; fileCount = 7; focusedValidation = "PASS"; focusedTestCount = [int]$evidence.testCount; p0PolicyValidation = "PASS"; repositoryWriteAuthority = $false; publicationPerformed = $false }
 }
 
 function Add-DescriptorToAggregate {
@@ -655,7 +721,7 @@ switch ($Mode) {
     "AppendDescriptor" { Add-DescriptorToAggregate | ConvertTo-Json -Depth 20 }
     "AcquireAndMaterialize" { Invoke-AcquireAndMaterialize | ConvertTo-Json -Depth 20 }
     "ValidatePostClaude" {
-        $baseline = Assert-BaselineUnchanged $BaselinePath $WorkspacePath
+        $baseline = Assert-BaselineUnchanged $BaselinePath $WorkspacePath $ExpectedBaselineSha256 $AggregateStatePath $ExpectedAggregateStateSha256
         [pscustomobject]@{ status = "PASS"; aggregateStateDigest = $baseline.aggregateStateDigest; predecessorFilesUnchanged = $true } | ConvertTo-Json
     }
     "PackageChild" { New-ChildPackage $WorkspacePath $BaselinePath $ManifestPath $OutputDirectory | ConvertTo-Json -Depth 10 }

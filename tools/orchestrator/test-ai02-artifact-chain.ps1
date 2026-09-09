@@ -43,7 +43,8 @@ function New-Package {
     New-Item -ItemType Directory -Force -Path $Root | Out-Null
     $files = @()
     foreach ($path in $phaseFiles[$Phase]) {
-        $content = if ($Contents.ContainsKey($path)) { [string]$Contents[$path] } else { "synthetic-$Phase-$path" }
+        $defaultContent = if ($Phase -eq "A1") { 'vsp.ai02.artifact-intake-request/1.0 vsp.ai02.artifact-intake-decision/1.0 vsp-ai02-intake-v1 EXACT_BASE_ONLY FIRST_USE NOT_YET_CONSUMED REJECT_REPLAY' } elseif ($Phase -eq "A2") { '26214400 20971520 52428800 200 10485760 262144 240 100 16 1048576 3 vsp-ai02-intake-v1 EXACT_BASE_ONLY FIRST_USE NOT_YET_CONSUMED REJECT_REPLAY' } else { "synthetic-$Phase-$path" }
+        $content = if ($Contents.ContainsKey($path)) { [string]$Contents[$path] } else { $defaultContent }
         $bytes = [Text.UTF8Encoding]::new($false).GetBytes($content)
         $hash = [Security.Cryptography.SHA256]::HashData($bytes)
         $files += [ordered]@{ path=$path; mode="100644"; size=[int64]$bytes.Length; sha256=(($hash | ForEach-Object { $_.ToString("x2") }) -join "") }
@@ -56,7 +57,12 @@ function New-Package {
             $entry = $archive.CreateEntry($file.path)
             $entry.ExternalAttributes = (0x81A4 -shl 16)
             $writer = [IO.StreamWriter]::new($entry.Open(), [Text.UTF8Encoding]::new($false))
-            try { $writer.Write([string]$Contents[$file.path]); if (-not $Contents.ContainsKey($file.path)) { $writer.Write("synthetic-$Phase-$($file.path)") } } finally { $writer.Dispose() }
+            try {
+                if ($Contents.ContainsKey($file.path)) { $writer.Write([string]$Contents[$file.path]) }
+                elseif ($Phase -eq "A1") { $writer.Write('vsp.ai02.artifact-intake-request/1.0 vsp.ai02.artifact-intake-decision/1.0 vsp-ai02-intake-v1 EXACT_BASE_ONLY FIRST_USE NOT_YET_CONSUMED REJECT_REPLAY') }
+                elseif ($Phase -eq "A2") { $writer.Write('26214400 20971520 52428800 200 10485760 262144 240 100 16 1048576 3 vsp-ai02-intake-v1 EXACT_BASE_ONLY FIRST_USE NOT_YET_CONSUMED REJECT_REPLAY') }
+                else { $writer.Write("synthetic-$Phase-$($file.path)") }
+            } finally { $writer.Dispose() }
         }
         foreach ($path in $ExtraZipPaths) {
             $entry = $archive.CreateEntry($path)
@@ -132,6 +138,10 @@ try {
     Expect-Pass "materialization is deterministic" { foreach($file in @($phaseFiles.A1+$phaseFiles.A2)){ if((Get-Hash (Join-Path $workspace1 $file)) -ne (Get-Hash (Join-Path $workspace2 $file))){throw "materialized hash differs"} } }
     Add-Content -LiteralPath (Join-Path $workspace1 $phaseFiles.A1[0]) -Value "mutation"
     Expect-Fail "predecessor mutation rejected" { Invoke-Chain @{ Mode="ValidatePostClaude"; WorkspacePath=$workspace1; BaselinePath=(Join-Path $root "m1base.json") } }
+    $m2BaselinePath=Join-Path $root "m2base.json"; $m2StatePath=Join-Path $root "m2state.json"; $boundBaselineHash=Get-Hash $m2BaselinePath; $boundStateHash=Get-Hash $m2StatePath
+    $m2ChangedPath=Join-Path $workspace2 $phaseFiles.A1[0]; Add-Content -LiteralPath $m2ChangedPath -Value "coordinated mutation"
+    $forgedBaseline=Get-Content $m2BaselinePath -Raw|ConvertFrom-Json; $forgedFile=$forgedBaseline.predecessorFiles|Where-Object path -eq $phaseFiles.A1[0]; $forgedFile.size=(Get-Item $m2ChangedPath).Length; $forgedFile.sha256=Get-Hash $m2ChangedPath; Write-Json $forgedBaseline $m2BaselinePath
+    Expect-Fail "coordinated predecessor and baseline tampering rejected by immutable binding" { Invoke-Chain @{Mode="ValidatePostClaude";WorkspacePath=$workspace2;BaselinePath=$m2BaselinePath;AggregateStatePath=$m2StatePath;ExpectedBaselineSha256=$boundBaselineHash;ExpectedAggregateStateSha256=$boundStateHash} }
 
     $childWorkspace=Join-Path $root "child-workspace"; New-Item -ItemType Directory $childWorkspace | Out-Null
     & git -C $childWorkspace init --quiet; & git -C $childWorkspace config user.name "Synthetic Test"; & git -C $childWorkspace config user.email "synthetic@example.invalid"; & git -C $childWorkspace commit --allow-empty -m base --quiet
@@ -140,11 +150,18 @@ try {
     $childOutput=Join-Path $childWorkspace $phaseFiles.A2[0]; New-Item -ItemType Directory -Force (Split-Path -Parent $childOutput)|Out-Null; [IO.File]::WriteAllText($childOutput,"child-owned",[Text.UTF8Encoding]::new($false))
     $childManifestPath=Join-Path $root "child-manifest.json"; Write-Json ([ordered]@{taskId="VSP-AI02-001TI-A2";classification="CRITICAL";repository="game2082001/VSP";repositoryTransport=[ordered]@{approvedFiles=$phaseFiles.A2}}) $childManifestPath
     Expect-Pass "child changes exclude materialized predecessor files" { Invoke-Chain @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=(Join-Path $root "child-output") } }
+    & git -C $childWorkspace add -- $phaseFiles.A2[0]; & git -C $childWorkspace update-index --chmod=+x -- $phaseFiles.A2[0]
+    Expect-Fail "executable Git mode child output rejected" { Invoke-Chain @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=(Join-Path $root "executable-output") } }
     Expect-Pass "A1 lineage authorizes A2 child before Claude" { Invoke-Chain @{Mode="ValidateChildAuthorization";ChildTaskId="VSP-AI02-001TI-A2";ChildPhase="A2";Sequence=2;RecoveryRepositorySha=$recoverySha;ManifestPath=$childManifestPath;BaselinePath=$childBaseline} }
     Expect-Fail "missing A2 lineage cannot authorize A3 child" { Invoke-Chain @{Mode="ValidateChildAuthorization";ChildTaskId="VSP-AI02-001TI-A2";ChildPhase="A3";Sequence=3;RecoveryRepositorySha=$recoverySha;ManifestPath=$childManifestPath;BaselinePath=$childBaseline} }
 
     $digest2 = (Get-Content $state2a -Raw | ConvertFrom-Json).aggregateStateDigest
-    $a3Contents = @{ "tools/orchestrator/test-artifact-intake-contract.ps1" = 'Write-Output "focused validation passed"; exit 0'; "AI/Orchestrator/ARTIFACT_INTAKE_SCHEMA.md" = "# Synthetic contract" }
+    $focusedEvidence = [ordered]@{
+        schemaVersion="vsp.ai02.artifact-intake-focused-suite/1.0";suite="VSP-AI02-001TI-A";status="PASS";testCount=17;failedCount=0
+        requiredChecks=@("schema-validation","template-schema-conformance","ascii-path-rejection","traversal-rejection","absolute-path-rejection","backslash-rejection","drive-unc-colon-rejection","duplicate-case-collision-rejection","mode-restriction","size-count-ceilings","hash-verification","malformed-unknown-rejection","exact-base-rejection","replay-first-use","replay-rejection","credential-invariants","deterministic-output")
+        policy=[ordered]@{schemaVersion="1.0";policyVersion="vsp-ai02-intake-v1";requestSchemaIdentifier="vsp.ai02.artifact-intake-request/1.0";decisionSchemaIdentifier="vsp.ai02.artifact-intake-decision/1.0";maxOuterArtifactCompressedBytes=26214400;maxInnerPublicationZipCompressedBytes=20971520;maxTotalInnerUncompressedBytes=52428800;maxChangedFiles=200;maxPerFileUncompressedBytes=10485760;maxManifestJsonBytes=262144;maxResultJsonBytes=262144;maxRepositoryRelativePathCharacters=240;maxPathSegmentCharacters=100;maxJsonNestingDepth=16;maxSanitizedEvidenceArtifactBytes=1048576;maxCompressionRatio=100;requiredOuterPublicationFileCount=3;staleBasePolicy="EXACT_BASE_ONLY";emptyConsumedIdentitiesMeaning="FIRST_USE_NOT_YET_CONSUMED";matchingConsumedIdentityDisposition="REJECT_REPLAY";repositoryWriteCredentialAvailableToDeveloper=$false}
+    } | ConvertTo-Json -Compress -Depth 10
+    $a3Contents = @{ "tools/orchestrator/test-artifact-intake-contract.ps1" = "Write-Output '$focusedEvidence'; exit 0"; "AI/Orchestrator/ARTIFACT_INTAKE_SCHEMA.md" = "# Synthetic contract`nvsp-ai02-intake-v1 EXACT_BASE_ONLY FIRST_USE NOT_YET_CONSUMED REJECT_REPLAY" }
     $a3 = New-Package (Join-Path $root "a3") A3 $digest2 "VSP-AI02-001TI-A3" $a3Contents
     $changedA2=Get-Content $a2.DescriptorPath -Raw|ConvertFrom-Json; $changedA2.ownedFiles[0].sha256=("d"*64); $changedA2Path=Join-Path $root "changed-a2.json"; Write-Json $changedA2 $changedA2Path
     Expect-Fail "changed A2 invalidates prior A3 lineage" { Invoke-Chain @{ Mode="BuildAggregateState"; RecoveryRepositorySha=$recoverySha; DescriptorPaths=@($a1.DescriptorPath,$changedA2Path,$a3.DescriptorPath); AggregateStatePath=(Join-Path $root "invalid-a3-state.json") } }
@@ -154,6 +171,7 @@ try {
     Expect-Pass "exact seven-file final aggregate passes focused validation" { Invoke-Chain @{ Mode="ValidateFinalAggregate"; WorkspacePath=$finalWorkspace; AggregateStatePath=$finalState } }
     Remove-Item -LiteralPath (Join-Path $finalWorkspace $phaseFiles.A3[0])
     Expect-Fail "missing final aggregate file rejected" { Invoke-Chain @{ Mode="ValidateFinalAggregate"; WorkspacePath=$finalWorkspace; AggregateStatePath=$finalState } }
+    [IO.File]::WriteAllText((Join-Path $finalWorkspace $phaseFiles.A3[0]),$a3Contents[$phaseFiles.A3[0]],[Text.UTF8Encoding]::new($false))
     $extraState=Get-Content $finalState -Raw|ConvertFrom-Json; $extraState.fileOwnership += [pscustomobject]@{path="unauthorized.txt";ownerTaskId="VSP-AI02-001TI-A3";phase="A3";mode="100644";size=1;sha256=("e"*64)}; $extraStatePath=Join-Path $root "extra-state.json"; Write-Json $extraState $extraStatePath
     Expect-Fail "extra final aggregate file rejected" { Invoke-Chain @{ Mode="ValidateFinalAggregate"; WorkspacePath=$finalWorkspace; AggregateStatePath=$extraStatePath } }
 
@@ -163,6 +181,17 @@ try {
     $badState=Join-Path $root "bad-state.json"
     Invoke-Chain @{ Mode="MaterializeLocal"; RecoveryRepositorySha=$recoverySha; DescriptorPaths=@($a1.DescriptorPath,$a2.DescriptorPath,$badA3.DescriptorPath); ArtifactDirectories=@($a1.Root,$a2.Root,$badA3.Root); WorkspacePath=$badWorkspace; AggregateStatePath=$badState; BaselinePath=(Join-Path $root "bad-base.json") } | Out-Null
     Expect-Fail "focused aggregate validation failure is fail-closed" { Invoke-Chain @{ Mode="ValidateFinalAggregate"; WorkspacePath=$badWorkspace; AggregateStatePath=$badState } }
+    $noopContents = @{ "tools/orchestrator/test-artifact-intake-contract.ps1" = 'exit 0'; "AI/Orchestrator/ARTIFACT_INTAKE_SCHEMA.md" = "vsp-ai02-intake-v1 EXACT_BASE_ONLY FIRST_USE NOT_YET_CONSUMED REJECT_REPLAY" }
+    $noopA3 = New-Package (Join-Path $root "noop-a3") A3 $digest2 "VSP-AI02-001TI-A3" $noopContents
+    $noopWorkspace=Join-Path $root "noop-final"; New-Item -ItemType Directory $noopWorkspace | Out-Null; $noopState=Join-Path $root "noop-state.json"
+    Invoke-Chain @{ Mode="MaterializeLocal"; RecoveryRepositorySha=$recoverySha; DescriptorPaths=@($a1.DescriptorPath,$a2.DescriptorPath,$noopA3.DescriptorPath); ArtifactDirectories=@($a1.Root,$a2.Root,$noopA3.Root); WorkspacePath=$noopWorkspace; AggregateStatePath=$noopState; BaselinePath=(Join-Path $root "noop-base.json") } | Out-Null
+    Expect-Fail "no-op focused script cannot certify final aggregate" { Invoke-Chain @{ Mode="ValidateFinalAggregate"; WorkspacePath=$noopWorkspace; AggregateStatePath=$noopState } }
+    $alteredA2 = New-Package (Join-Path $root "altered-a2") A2 $digest1 "VSP-AI02-001TI-A2" @{"tools/orchestrator/artifact-intake-contract.ps1"='26214400 20971520 52428800 200 10485760 262144 240 100 16 3 vsp-ai02-intake-v1 EXACT_BASE_ONLY FIRST_USE NOT_YET_CONSUMED REJECT_REPLAY'}
+    $alteredState2=Join-Path $root "altered-state2.json"; Invoke-Chain @{Mode="BuildAggregateState";RecoveryRepositorySha=$recoverySha;DescriptorPaths=@($a1.DescriptorPath,$alteredA2.DescriptorPath);AggregateStatePath=$alteredState2}|Out-Null; $alteredDigest2=(Get-Content $alteredState2 -Raw|ConvertFrom-Json).aggregateStateDigest
+    $alteredA3=New-Package (Join-Path $root "altered-a3") A3 $alteredDigest2 "VSP-AI02-001TI-A3" $a3Contents
+    $alteredWorkspace=Join-Path $root "altered-final";New-Item -ItemType Directory $alteredWorkspace|Out-Null;$alteredFinalState=Join-Path $root "altered-final-state.json"
+    Invoke-Chain @{Mode="MaterializeLocal";RecoveryRepositorySha=$recoverySha;DescriptorPaths=@($a1.DescriptorPath,$alteredA2.DescriptorPath,$alteredA3.DescriptorPath);ArtifactDirectories=@($a1.Root,$alteredA2.Root,$alteredA3.Root);WorkspacePath=$alteredWorkspace;AggregateStatePath=$alteredFinalState;BaselinePath=(Join-Path $root "altered-base.json")}|Out-Null
+    Expect-Fail "altered P0 numeric ceiling rejects final aggregate" { Invoke-Chain @{Mode="ValidateFinalAggregate";WorkspacePath=$alteredWorkspace;AggregateStatePath=$alteredFinalState} }
 
     foreach ($schemaPath in @("AI/Orchestrator/Templates/ai02-predecessor-descriptor.schema.json", "AI/Orchestrator/Templates/ai02-aggregate-state.schema.json")) {
         Expect-Pass "schema parses and is strict: $schemaPath" { $schema=Get-Content $schemaPath -Raw | ConvertFrom-Json; if($schema.additionalProperties -ne $false){throw "schema is not strict"} }
