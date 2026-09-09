@@ -82,6 +82,17 @@ function New-Package {
 
 $root = Join-Path ([IO.Path]::GetTempPath()) ("ai02-chain-tests-" + [Guid]::NewGuid().ToString("N"))
 try {
+    $genesisOneState=Join-Path $root "genesis-one-state.json"; $genesisOneBaseline=Join-Path $root "genesis-one-baseline.json"
+    Expect-Pass "New-AggregateState accepts the legitimate empty GENESIS descriptor collection" { Invoke-Chain @{Mode="InitializeWorkspace";RecoveryRepositorySha=$recoverySha;AggregateStatePath=$genesisOneState;BaselinePath=$genesisOneBaseline} }
+    $genesisTwoState=Join-Path $root "genesis-two-state.json"; $genesisTwoBaseline=Join-Path $root "genesis-two-baseline.json"
+    Expect-Pass "New-GenesisWorkspace completes with zero predecessors" { Invoke-Chain @{Mode="InitializeWorkspace";RecoveryRepositorySha=$recoverySha;AggregateStatePath=$genesisTwoState;BaselinePath=$genesisTwoBaseline} }
+    Expect-Pass "GENESIS aggregate and baseline output is deterministic" { if((Get-Hash $genesisOneState)-ne(Get-Hash $genesisTwoState)-or(Get-Hash $genesisOneBaseline)-ne(Get-Hash $genesisTwoBaseline)){throw "GENESIS bytes differ"} }
+    Expect-Pass "GENESIS state and baseline dual representation is internally consistent" { $state=Get-Content $genesisOneState -Raw|ConvertFrom-Json; $baseline=Get-Content $genesisOneBaseline -Raw|ConvertFrom-Json; if($state.recoveryRepositorySha-ne$recoverySha-or@($state.predecessors).Count-ne 0-or@($state.fileOwnership).Count-ne 0-or$state.aggregateStateDigest-notmatch'^sha256:[0-9a-f]{64}$'-or$baseline.recoveryRepositorySha-ne$recoverySha-or@($baseline.predecessorFiles).Count-ne 0-or$baseline.aggregateStateDigest-ne'GENESIS'){throw "GENESIS representation mismatch"} }
+    $a1ManifestPath=Join-Path $root "a1-manifest.json"; Write-Json ([ordered]@{taskId="VSP-AI02-001TI-A1";repositoryTransport=[ordered]@{approvedFiles=$phaseFiles.A1}}) $a1ManifestPath
+    Expect-Pass "A1 child authorization accepts zero predecessors" { Invoke-Chain @{Mode="ValidateChildAuthorization";ChildTaskId="VSP-AI02-001TI-A1";ChildPhase="A1";Sequence=1;RecoveryRepositorySha=$recoverySha;ManifestPath=$a1ManifestPath;BaselinePath=$genesisOneBaseline} }
+    $a2GenesisManifestPath=Join-Path $root "a2-genesis-manifest.json"; Write-Json ([ordered]@{taskId="VSP-AI02-001TI-A2";repositoryTransport=[ordered]@{approvedFiles=$phaseFiles.A2}}) $a2GenesisManifestPath
+    Expect-Fail "A2 child authorization still rejects zero predecessors" { Invoke-Chain @{Mode="ValidateChildAuthorization";ChildTaskId="VSP-AI02-001TI-A2";ChildPhase="A2";Sequence=2;RecoveryRepositorySha=$recoverySha;ManifestPath=$a2GenesisManifestPath;BaselinePath=$genesisOneBaseline} }
+
     $a1 = New-Package (Join-Path $root "a1") A1 GENESIS "VSP-AI02-001TI-A1"
     Expect-Pass "valid predecessor descriptor and package" { Invoke-Chain @{ Mode="ValidateDescriptor"; DescriptorPath=$a1.DescriptorPath; ArtifactDirectory=$a1.Root; RecoveryRepositorySha=$recoverySha; RunId="9001"; ArtifactId="8001"; GitHubArtifactDigest=("sha256:"+("a"*64)) } }
     Expect-Fail "wrong run identity rejected" { Invoke-Chain @{ Mode="ValidateDescriptor"; DescriptorPath=$a1.DescriptorPath; ArtifactDirectory=$a1.Root; RunId="9999" } }
@@ -129,6 +140,10 @@ try {
     Expect-Pass "aggregate lineage is deterministic" { if ((Get-Hash $state2a) -ne (Get-Hash $state2b)) { throw "aggregate bytes differ" } }
     $stale = Get-Content $a2.DescriptorPath -Raw | ConvertFrom-Json; $stale.parentAggregateStateDigest = "GENESIS"; $stalePath=Join-Path $root "stale.json"; Write-Json $stale $stalePath
     Expect-Fail "stale lineage rejected" { Invoke-Chain @{ Mode="BuildAggregateState"; RecoveryRepositorySha=$recoverySha; DescriptorPaths=@($a1.DescriptorPath,$stalePath); AggregateStatePath=(Join-Path $root "stale-state.json") } }
+    $gapA3=Get-Content $a2.DescriptorPath -Raw|ConvertFrom-Json; $gapA3.phase="A3"; $gapA3.sequence=3; $gapA3.ownedFiles=@((New-Package (Join-Path $root "gap-a3-package") A3 $digest1 "VSP-AI02-001TI-A3").Descriptor.ownedFiles); $gapA3Path=Join-Path $root "gap-a3.json"; Write-Json $gapA3 $gapA3Path
+    Expect-Fail "descriptor sequence gap still rejected" { Invoke-Chain @{Mode="BuildAggregateState";RecoveryRepositorySha=$recoverySha;DescriptorPaths=@($a1.DescriptorPath,$gapA3Path);AggregateStatePath=(Join-Path $root "gap-state.json")} }
+    $duplicateA1=Get-Content $a1.DescriptorPath -Raw|ConvertFrom-Json; $duplicateA1.childTaskId="VSP-AI02-001TI-A1-DUPLICATE"; $duplicateA1Path=Join-Path $root "duplicate-a1.json"; Write-Json $duplicateA1 $duplicateA1Path
+    Expect-Fail "duplicate descriptor sequence still rejected" { Invoke-Chain @{Mode="BuildAggregateState";RecoveryRepositorySha=$recoverySha;DescriptorPaths=@($a1.DescriptorPath,$duplicateA1Path);AggregateStatePath=(Join-Path $root "duplicate-state.json")} }
     $changedA1=Get-Content $a1.DescriptorPath -Raw|ConvertFrom-Json; $changedA1.ownedFiles[0].sha256=("c"*64); $changedA1Path=Join-Path $root "changed-a1.json"; Write-Json $changedA1 $changedA1Path
     Expect-Fail "changed A1 digest invalidates prior A2 lineage" { Invoke-Chain @{ Mode="BuildAggregateState"; RecoveryRepositorySha=$recoverySha; DescriptorPaths=@($changedA1Path,$a2.DescriptorPath); AggregateStatePath=(Join-Path $root "invalid-a2-state.json") } }
 

@@ -335,7 +335,7 @@ function Test-DescriptorPackage {
 }
 
 function New-AggregateState {
-    param([Parameter(Mandatory = $true)][string] $RecoverySha, [Parameter(Mandatory = $true)][object[]] $Descriptors)
+    param([Parameter(Mandatory = $true)][string] $RecoverySha, [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]] $Descriptors)
     Assert-Matches $RecoverySha '^[0-9a-f]{40}$' "recoveryRepositorySha"
     $orderedDescriptors = @(Sort-DescriptorsCanonical $Descriptors)
     $accepted = @()
