@@ -482,22 +482,123 @@ function Get-PropertyValue {
     return $null
 }
 
+function ConvertTo-ApprovedToolName {
+    param([AllowNull()][object] $Value)
+
+    $name = ([string]$Value).Trim()
+    switch -Regex ($name) {
+        '(?i)^Read$' { return "Read" }
+        '(?i)^Write$' { return "Write" }
+        '(?i)^(Edit|MultiEdit|Multi_Edit|StrReplaceEditor)$' { return "Edit" }
+        '(?i)^Bash$' { return "Bash" }
+        default { return "UNKNOWN" }
+    }
+}
+
+function ConvertTo-SafeDenialCategory {
+    param(
+        [AllowNull()][object] $Status,
+        [AllowNull()][object] $Reason
+    )
+
+    $classificationText = "$([string]$Status) $([string]$Reason)"
+    if ($classificationText -match '(?i)approval.*required|requires.*approval') {
+        return "APPROVAL_REQUIRED"
+    }
+    if ($classificationText -match '(?i)not.allowed|not permitted|disallowed|tool.*denied') {
+        return "TOOL_NOT_ALLOWED"
+    }
+    if ($classificationText -match '(?i)permission.*denied|denied.*permission|permission_denied|rejected') {
+        return "PERMISSION_DENIED"
+    }
+    return "UNKNOWN"
+}
+
+function ConvertTo-SafeCompletionCategory {
+    param([AllowNull()][object] $Value)
+
+    $status = ([string]$Value).Trim()
+    if ($status -match '^(?i)(success|completed|complete)$') { return "COMPLETED" }
+    if ($status -match '^(?i)(permission_blocked|permission_denied|denied)$') { return "PERMISSION_BLOCKED" }
+    if ($status -match '^(?i)(tool_error|error|failed|failure)$') { return "TOOL_ERROR" }
+    if ($status -match '^(?i)(stopped|cancelled|canceled|interrupted)$') { return "STOPPED" }
+    return "UNKNOWN"
+}
+
+function ConvertTo-SafeResultSubtype {
+    param([AllowNull()][object] $Value)
+
+    $status = ([string]$Value).Trim()
+    switch -Regex ($status) {
+        '(?i)^success$' { return "success" }
+        '(?i)^(error|failed|failure)$' { return "error" }
+        '(?i)^(permission_blocked|permission_denied|denied)$' { return "permission_denied" }
+        '(?i)^(stopped|cancelled|canceled|interrupted)$' { return "stopped" }
+        default { return "UNKNOWN" }
+    }
+}
+
 function New-ClaudeExecutionAccumulator {
     [pscustomobject]@{
         toolNames = New-Object System.Collections.ArrayList
         toolStatuses = New-Object System.Collections.ArrayList
         deniedTools = New-Object System.Collections.ArrayList
         denialCategories = New-Object System.Collections.ArrayList
-        sanitizedDenialReasons = New-Object System.Collections.ArrayList
-        writeAttempted = $false
-        editAttempted = $false
-        bashAttempted = $false
+        readObserved = $false
+        writeObserved = $false
+        editObserved = $false
+        bashObserved = $false
+        knownSchemaObserved = $false
+        unknownSchemaObserved = $false
+        fastPathArrayBoundReached = $false
+        permissionDenialEventCount = 0
         claudeTurnCount = "UNKNOWN"
         finalResultSubtype = "UNKNOWN"
+        completionCategory = "UNKNOWN"
         parseStatus = "PARSED"
         maxDepthReached = $false
         maxNodesReached = $false
         inspectedNodeCount = 0
+    }
+}
+
+function Add-ClaudeToolObservation {
+    param(
+        [Parameter(Mandatory = $true)] $Accumulator,
+        [AllowNull()][object] $Name
+    )
+
+    $approvedName = ConvertTo-ApprovedToolName -Value $Name
+    if ($approvedName -eq "UNKNOWN") {
+        return "UNKNOWN"
+    }
+
+    Add-SafeUniqueValue -Values $Accumulator.toolNames -Value $approvedName
+    switch ($approvedName) {
+        "Read" { $Accumulator.readObserved = $true }
+        "Write" { $Accumulator.writeObserved = $true }
+        "Edit" { $Accumulator.editObserved = $true }
+        "Bash" { $Accumulator.bashObserved = $true }
+    }
+    return $approvedName
+}
+
+function Add-ClaudeDenialObservation {
+    param(
+        [Parameter(Mandatory = $true)] $Accumulator,
+        [AllowNull()][object] $Name,
+        [AllowNull()][object] $Status,
+        [AllowNull()][object] $Reason
+    )
+
+    $Accumulator.permissionDenialEventCount++
+    $approvedName = ConvertTo-ApprovedToolName -Value $Name
+    if (-not $Accumulator.deniedTools.Contains($approvedName)) {
+        $Accumulator.deniedTools.Add($approvedName) | Out-Null
+    }
+    $denialCategory = ConvertTo-SafeDenialCategory -Status $Status -Reason $Reason
+    if (-not $Accumulator.denialCategories.Contains($denialCategory)) {
+        $Accumulator.denialCategories.Add($denialCategory) | Out-Null
     }
 }
 
@@ -509,34 +610,28 @@ function Visit-ClaudeExecutionKnownFields {
 
     $type = Get-PropertyValue -Object $Node -Names @("type", "event", "kind")
     $name = Get-PropertyValue -Object $Node -Names @("name", "tool_name", "toolName", "tool")
-    $status = Get-PropertyValue -Object $Node -Names @("status", "result", "outcome", "subtype")
+    $status = Get-PropertyValue -Object $Node -Names @("status", "outcome", "subtype")
     $error = Get-PropertyValue -Object $Node -Names @("error", "reason", "message", "category")
     $turnCount = Get-PropertyValue -Object $Node -Names @("num_turns", "numTurns", "turn_count", "turnCount")
 
     $safeType = ConvertTo-SafeDiagnosticString -Value $type
-    $safeName = ConvertTo-SafeDiagnosticString -Value $name
     $safeStatus = ConvertTo-SafeDiagnosticString -Value $status
-    $safeError = ConvertTo-SafeDiagnosticString -Value $error
 
-    if ($safeName -ne "UNKNOWN") {
-        Add-SafeUniqueValue -Values $Accumulator.toolNames -Value $safeName
-        if ($safeName -match '(?i)^write$|^strreplaceeditor$|^multi_edit$|^edit$') {
-            $Accumulator.writeAttempted = $true
-        }
-        if ($safeName -match '(?i)^edit$|^multi_edit$|^strreplaceeditor$') {
-            $Accumulator.editAttempted = $true
-        }
-        if ($safeName -match '(?i)^bash$') {
-            $Accumulator.bashAttempted = $true
-        }
+    if ($safeType -match '^(?i)(system|assistant|user|tool_use|tool_result|result)$') {
+        $Accumulator.knownSchemaObserved = $true
+    } elseif ($safeType -ne "UNKNOWN") {
+        $Accumulator.unknownSchemaObserved = $true
     }
 
-    if ($safeStatus -ne "UNKNOWN") {
-        Add-SafeUniqueValue -Values $Accumulator.toolStatuses -Value $safeStatus
+    if ($safeType -match '^(?i)(tool_use|tool_result)$') {
+        Add-ClaudeToolObservation -Accumulator $Accumulator -Name $name | Out-Null
+        $safeToolStatus = if ($safeStatus -match '^(?i)(success|completed)$') { "SUCCESS" } elseif ($safeStatus -match '(?i)denied|permission|rejected') { "DENIED" } elseif ($safeStatus -match '(?i)error|fail') { "ERROR" } else { "UNKNOWN" }
+        Add-SafeUniqueValue -Values $Accumulator.toolStatuses -Value $safeToolStatus
     }
 
     if ($safeType -eq "result" -and $safeStatus -ne "UNKNOWN") {
-        $Accumulator.finalResultSubtype = $safeStatus
+        $Accumulator.finalResultSubtype = ConvertTo-SafeResultSubtype -Value $safeStatus
+        $Accumulator.completionCategory = ConvertTo-SafeCompletionCategory -Value $safeStatus
     }
 
     if ($null -ne $turnCount -and ([string]$turnCount) -match '^\d+$') {
@@ -544,17 +639,52 @@ function Visit-ClaudeExecutionKnownFields {
     }
 
     if (($safeType -match '(?i)denied|permission') -or
-        ($safeStatus -match '(?i)denied|permission|rejected') -or
-        ($safeError -match '(?i)denied|permission|rejected')) {
-        if ($safeName -ne "UNKNOWN") {
-            Add-SafeUniqueValue -Values $Accumulator.deniedTools -Value $safeName
+        (($safeType -match '^(?i)(tool_use|tool_result)$') -and
+            (($safeStatus -match '(?i)denied|permission|rejected') -or
+             (([string]$error) -match '(?i)denied|permission|rejected|approval.*required|not.allowed')))) {
+        Add-ClaudeDenialObservation -Accumulator $Accumulator -Name $name -Status $status -Reason $error
+    }
+}
+
+function Visit-ClaudeExecutionFastPath {
+    param(
+        [AllowNull()][object] $Node,
+        [Parameter(Mandatory = $true)] $Accumulator,
+        [int] $MaxArrayItems = 200
+    )
+
+    if ($null -eq $Node -or $Node -is [string] -or $Node.GetType().IsPrimitive) {
+        return
+    }
+
+    $message = Get-PropertyValue -Object $Node -Names @("message")
+    $content = if ($null -ne $message) { Get-PropertyValue -Object $message -Names @("content") } else { Get-PropertyValue -Object $Node -Names @("content") }
+    if ($null -ne $content -and $content -is [System.Collections.IEnumerable] -and -not ($content -is [string])) {
+        $visited = 0
+        foreach ($block in $content) {
+            if ($visited -ge $MaxArrayItems) {
+                $Accumulator.fastPathArrayBoundReached = $true
+                break
+            }
+            Visit-ClaudeExecutionKnownFields -Node $block -Accumulator $Accumulator
+            $visited++
         }
-        if ($safeStatus -ne "UNKNOWN") {
-            Add-SafeUniqueValue -Values $Accumulator.denialCategories -Value $safeStatus
-        } elseif ($safeType -ne "UNKNOWN") {
-            Add-SafeUniqueValue -Values $Accumulator.denialCategories -Value $safeType
+    }
+
+    $denials = Get-PropertyValue -Object $Node -Names @("permission_denials", "permissionDenials", "denied_tools", "deniedTools")
+    if ($null -ne $denials -and $denials -is [System.Collections.IEnumerable] -and -not ($denials -is [string])) {
+        $visited = 0
+        foreach ($denial in $denials) {
+            if ($visited -ge $MaxArrayItems) {
+                $Accumulator.fastPathArrayBoundReached = $true
+                break
+            }
+            $name = Get-PropertyValue -Object $denial -Names @("name", "tool_name", "toolName", "tool")
+            $status = Get-PropertyValue -Object $denial -Names @("status", "outcome", "category")
+            $reason = Get-PropertyValue -Object $denial -Names @("reason", "message")
+            Add-ClaudeDenialObservation -Accumulator $Accumulator -Name $name -Status $status -Reason $reason
+            $visited++
         }
-        Add-SafeUniqueValue -Values $Accumulator.sanitizedDenialReasons -Value $safeError
     }
 }
 
@@ -608,7 +738,7 @@ function Visit-ClaudeExecutionNode {
             break
         }
         $propertyName = [string]$property.Name
-        if ($propertyName -match '(?i)prompt|content|text|input|output|stdout|stderr|transcript|environment|env') {
+        if ($propertyName -match '(?i)prompt|content|text|input|output|stdout|stderr|transcript|environment|env|permission_denials|permissionDenials|denied_tools|deniedTools') {
             continue
         }
         Visit-ClaudeExecutionNode -Node $property.Value -Accumulator $Accumulator -Depth ($Depth + 1) -MaxDepth $MaxDepth -MaxNodes $MaxNodes -MaxArrayItems $MaxArrayItems
@@ -624,13 +754,40 @@ function Get-SanitizedClaudeExecutionDiagnostics {
     $objects = @(Get-JsonObjectsFromExecutionFile -Path $ExecutionFile)
     $accumulator = New-ClaudeExecutionAccumulator
 
-    foreach ($object in $objects) {
+    $selectedObjects = @($objects)
+    if ($selectedObjects.Count -gt 200) {
+        $selectedObjects = @($selectedObjects[0..99]) + @($selectedObjects[($selectedObjects.Count - 100)..($selectedObjects.Count - 1)])
+        $accumulator.fastPathArrayBoundReached = $true
+    }
+
+    foreach ($object in $selectedObjects) {
         try {
+            Visit-ClaudeExecutionFastPath -Node $object -Accumulator $accumulator
             Visit-ClaudeExecutionNode -Node $object -Accumulator $accumulator
         } catch {
-            $accumulator.parseStatus = "UNKNOWN"
+            $accumulator.parseStatus = "UNKNOWN_SCHEMA"
             break
         }
+    }
+
+    if ($objects.Count -eq 0) {
+        $accumulator.parseStatus = "UNKNOWN_SCHEMA"
+        $accumulator.unknownSchemaObserved = $true
+    }
+
+    $boundsReached = $accumulator.maxDepthReached -or $accumulator.maxNodesReached -or $accumulator.fastPathArrayBoundReached
+    $evidenceCompleteness = if ($boundsReached) {
+        "PARTIAL_BOUNDS_REACHED"
+    } elseif ($accumulator.unknownSchemaObserved -or -not $accumulator.knownSchemaObserved) {
+        "UNKNOWN_SCHEMA"
+    } else {
+        "COMPLETE"
+    }
+    $toolAttribution = {
+        param([bool] $Observed)
+        if ($Observed) { return "TRUE" }
+        if ($evidenceCompleteness -eq "COMPLETE") { return "FALSE" }
+        return "UNKNOWN"
     }
 
     [pscustomobject]@{
@@ -643,18 +800,27 @@ function Get-SanitizedClaudeExecutionDiagnostics {
         claudeTurnCount = $accumulator.claudeTurnCount
         toolNames = @($accumulator.toolNames)
         toolStatuses = @($accumulator.toolStatuses)
-        writeAttempted = $accumulator.writeAttempted
-        editAttempted = $accumulator.editAttempted
-        bashAttempted = $accumulator.bashAttempted
+        readAttempted = & $toolAttribution $accumulator.readObserved
+        writeAttempted = & $toolAttribution $accumulator.writeObserved
+        editAttempted = & $toolAttribution $accumulator.editObserved
+        bashAttempted = & $toolAttribution $accumulator.bashObserved
         permissionDenialCount = ConvertTo-SafeDiagnosticString -Value $ClaudePermissionDenialCount
+        permissionDenialEventsObserved = $accumulator.permissionDenialEventCount
         deniedTools = @($accumulator.deniedTools)
         denialCategories = @($accumulator.denialCategories)
-        sanitizedDenialReasons = @($accumulator.sanitizedDenialReasons)
         finalResultSubtype = $accumulator.finalResultSubtype
+        completionCategory = $accumulator.completionCategory
         parseStatus = $accumulator.parseStatus
+        evidenceCompleteness = $evidenceCompleteness
         maxDepthReached = $accumulator.maxDepthReached
         maxNodesReached = $accumulator.maxNodesReached
+        maxArrayItemsReached = $accumulator.fastPathArrayBoundReached
         inspectedNodeCount = $accumulator.inspectedNodeCount
+        inspectionLimits = [pscustomobject]@{
+            maxDepth = 8
+            maxNodes = 2000
+            maxArrayItems = 200
+        }
         rawExecutionOutputUploaded = $false
     }
 }
