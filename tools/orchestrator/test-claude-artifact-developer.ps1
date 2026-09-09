@@ -318,42 +318,77 @@ try {
         throw "Sanitized Claude execution diagnostics unexpectedly marked raw output as uploaded."
     }
 
+    # Synthetic representatives of Run 34150617322 successful Write metadata and
+    # Run 33653335050 permission-style metadata, without production transcript data.
     $safeExecutionFile = Join-Path $tempRoot "claude-execution-safe.json"
     @(
-        '{"type":"tool_use","name":"Write","status":"success"}',
-        '{"type":"tool_result","tool_name":"Bash","status":"permission_denied","reason":"Permission denied by policy"}',
-        '{"type":"result","subtype":"success","num_turns":3}'
+        '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"must-not-leak.txt"}},{"type":"tool_use","name":"Write","input":{"content":"must-not-leak"}},{"type":"tool_use","name":"Edit","input":{"old_string":"must-not-leak"}},{"type":"tool_use","name":"Bash","input":{"command":"must-not-leak"}}]}}',
+        '{"type":"result","subtype":"success","num_turns":3,"permission_denials":[{"tool_name":"Bash","status":"permission_denied","reason":"Approval required by policy"},{"tool_name":"FutureTool","status":"permission_denied","reason":"Tool not allowed"}]}'
     ) | Set-Content -LiteralPath $safeExecutionFile -Encoding utf8
     $safeExecutionDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $safeExecutionFile | ConvertFrom-Json
-    if (($safeExecutionDiagnostics.sanitizedClaudeExecution.toolNames | Where-Object { $_ -eq "Write" }).Count -ne 1) {
-        throw "Sanitized diagnostics did not capture safe Write tool name."
+    foreach ($toolName in @("Read", "Write", "Edit", "Bash")) {
+        if (($safeExecutionDiagnostics.sanitizedClaudeExecution.toolNames | Where-Object { $_ -eq $toolName }).Count -ne 1) {
+            throw "Sanitized diagnostics did not capture approved tool name: $toolName"
+        }
     }
     if (($safeExecutionDiagnostics.sanitizedClaudeExecution.deniedTools | Where-Object { $_ -eq "Bash" }).Count -ne 1) {
         throw "Sanitized diagnostics did not capture denied Bash tool."
     }
-    if ($safeExecutionDiagnostics.sanitizedClaudeExecution.writeAttempted -ne $true -or
-        $safeExecutionDiagnostics.sanitizedClaudeExecution.bashAttempted -ne $true -or
+    if (($safeExecutionDiagnostics.sanitizedClaudeExecution.deniedTools | Where-Object { $_ -eq "UNKNOWN" }).Count -ne 1) {
+        throw "Sanitized diagnostics did not map an unapproved denied tool to UNKNOWN."
+    }
+    if (($safeExecutionDiagnostics.sanitizedClaudeExecution.denialCategories | Where-Object { $_ -eq "APPROVAL_REQUIRED" }).Count -ne 1 -or
+        ($safeExecutionDiagnostics.sanitizedClaudeExecution.denialCategories | Where-Object { $_ -eq "TOOL_NOT_ALLOWED" }).Count -ne 1) {
+        throw "Sanitized diagnostics did not map denial reasons to fixed categories."
+    }
+    if ($safeExecutionDiagnostics.sanitizedClaudeExecution.readAttempted -ne "TRUE" -or
+        $safeExecutionDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "TRUE" -or
+        $safeExecutionDiagnostics.sanitizedClaudeExecution.editAttempted -ne "TRUE" -or
+        $safeExecutionDiagnostics.sanitizedClaudeExecution.bashAttempted -ne "TRUE" -or
         $safeExecutionDiagnostics.sanitizedClaudeExecution.finalResultSubtype -ne "success" -or
+        $safeExecutionDiagnostics.sanitizedClaudeExecution.completionCategory -ne "COMPLETED" -or
+        $safeExecutionDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "COMPLETE" -or
+        $safeExecutionDiagnostics.sanitizedClaudeExecution.permissionDenialEventsObserved -ne 2 -or
         $safeExecutionDiagnostics.sanitizedClaudeExecution.claudeTurnCount -ne "3") {
         throw "Sanitized diagnostics did not capture expected execution summary fields."
     }
-    if (($safeExecutionDiagnostics | ConvertTo-Json -Depth 20).Contains("Permission denied by policy") -ne $true) {
-        throw "Sanitized diagnostics did not preserve safe denial reason."
+    $safeJson = $safeExecutionDiagnostics | ConvertTo-Json -Depth 20
+    foreach ($forbiddenText in @("must-not-leak", "Approval required by policy", "Tool not allowed")) {
+        if ($safeJson.Contains($forbiddenText)) {
+            throw "Sanitized diagnostics leaked tool payload or raw denial text."
+        }
     }
     Remove-Item -LiteralPath $safeExecutionFile -Force
 
+    $noToolExecutionFile = Join-Path $tempRoot "claude-execution-no-tool.json"
+    @(
+        '{"type":"system","subtype":"init"}',
+        '{"type":"result","subtype":"success","num_turns":1}'
+    ) | Set-Content -LiteralPath $noToolExecutionFile -Encoding utf8
+    $noToolDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $noToolExecutionFile | ConvertFrom-Json
+    if ($noToolDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "COMPLETE" -or
+        $noToolDiagnostics.sanitizedClaudeExecution.readAttempted -ne "FALSE" -or
+        $noToolDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "FALSE" -or
+        $noToolDiagnostics.sanitizedClaudeExecution.editAttempted -ne "FALSE" -or
+        $noToolDiagnostics.sanitizedClaudeExecution.bashAttempted -ne "FALSE") {
+        throw "Complete no-tool evidence did not produce authoritative FALSE attribution."
+    }
+    Remove-Item -LiteralPath $noToolExecutionFile -Force
+
     $sensitiveExecutionFile = Join-Path $tempRoot "claude-execution-sensitive.json"
     @(
-        '{"type":"tool_use","name":"Edit","status":"success","input":"secret repository file contents"}',
-        '{"type":"tool_result","tool_name":"Write","status":"permission_denied","reason":"token ghp_abcdefghijklmnopqrstuvwxyz1234567890 leaked"}'
+        '{"type":"tool_use","name":"Edit","status":"success","input":"secret repository file contents","prompt":"must-not-leak-prompt","content":"must-not-leak-content","text":"must-not-leak-text","transcript":"must-not-leak-transcript","stdout":"must-not-leak-stdout","stderr":"must-not-leak-stderr","environment":{"TOKEN":"must-not-leak-token"}}',
+        '{"type":"tool_result","tool_name":"Write","status":"permission_denied","reason":"token ghp_abcdefghijklmnopqrstuvwxyz1234567890 leaked","output":{"command":"must-not-leak-command","contents":"must-not-leak-output"}}'
     ) | Set-Content -LiteralPath $sensitiveExecutionFile -Encoding utf8
     $sensitiveExecutionDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $sensitiveExecutionFile | ConvertFrom-Json
     $sensitiveJson = $sensitiveExecutionDiagnostics | ConvertTo-Json -Depth 20
-    if ($sensitiveJson.Contains("secret repository file contents") -or $sensitiveJson.Contains("ghp_abcdefghijklmnopqrstuvwxyz1234567890")) {
-        throw "Sanitized diagnostics leaked sensitive tool input or denial reason."
+    foreach ($forbiddenText in @("secret repository file contents", "ghp_abcdefghijklmnopqrstuvwxyz1234567890", "must-not-leak")) {
+        if ($sensitiveJson.Contains($forbiddenText)) {
+            throw "Sanitized diagnostics leaked a prohibited execution field or denial reason."
+        }
     }
-    if (($sensitiveExecutionDiagnostics.sanitizedClaudeExecution.sanitizedDenialReasons | Where-Object { $_ -eq "REDACTED" }).Count -lt 1) {
-        throw "Sanitized diagnostics did not redact sensitive denial reason."
+    if (($sensitiveExecutionDiagnostics.sanitizedClaudeExecution.denialCategories | Where-Object { $_ -eq "PERMISSION_DENIED" }).Count -ne 1) {
+        throw "Sanitized diagnostics did not classify a sensitive permission denial safely."
     }
     Remove-Item -LiteralPath $sensitiveExecutionFile -Force
 
@@ -361,11 +396,13 @@ try {
     Set-Content -LiteralPath $unknownExecutionFile -Value "{not-json" -Encoding utf8
     $unknownExecutionDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $unknownExecutionFile | ConvertFrom-Json
     if ($unknownExecutionDiagnostics.sanitizedClaudeExecution.finalResultSubtype -ne "UNKNOWN" -or
-        $unknownExecutionDiagnostics.sanitizedClaudeExecution.toolNames.Count -ne 0) {
+        $unknownExecutionDiagnostics.sanitizedClaudeExecution.toolNames.Count -ne 0 -or
+        $unknownExecutionDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "UNKNOWN" -or
+        $unknownExecutionDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "UNKNOWN_SCHEMA") {
         throw "Unknown Claude execution schema did not fail safely."
     }
-    if ($unknownExecutionDiagnostics.sanitizedClaudeExecution.parseStatus -ne "PARSED") {
-        throw "Unknown Claude execution schema should produce safe empty parsed diagnostics."
+    if ($unknownExecutionDiagnostics.sanitizedClaudeExecution.parseStatus -ne "UNKNOWN_SCHEMA") {
+        throw "Unknown Claude execution schema should report UNKNOWN_SCHEMA."
     }
 
     $diagnosticOutputDirectory = Split-Path -Parent ([string]$unknownExecutionDiagnostics.claude.executionFile)
@@ -380,6 +417,84 @@ try {
     }
     Remove-Item -LiteralPath $unknownExecutionFile -Force
 
+    $futureSchemaExecutionFile = Join-Path $tempRoot "claude-execution-future-schema.json"
+    '{"type":"future_event_v9","payload":{"tool":{"name":"Write","input":"must-not-leak-future-input"},"free_form_result":"must-not-leak-future-result"}}' | Set-Content -LiteralPath $futureSchemaExecutionFile -Encoding utf8
+    $futureSchemaDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $futureSchemaExecutionFile | ConvertFrom-Json
+    $futureSchemaJson = $futureSchemaDiagnostics | ConvertTo-Json -Depth 20
+    if ($futureSchemaDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "UNKNOWN_SCHEMA" -or
+        $futureSchemaDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "UNKNOWN" -or
+        $futureSchemaJson.Contains("must-not-leak")) {
+        throw "Arbitrary future Claude execution schema did not return UNKNOWN safely."
+    }
+    Remove-Item -LiteralPath $futureSchemaExecutionFile -Force
+
+    $mixedSchemaExecutionFile = Join-Path $tempRoot "claude-execution-mixed-schema.json"
+    '{"type":"result","subtype":"success","future_payload":{"operation":{"toolName":"Write","input":"must-not-leak-mixed-input"}}}' | Set-Content -LiteralPath $mixedSchemaExecutionFile -Encoding utf8
+    $mixedSchemaDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $mixedSchemaExecutionFile | ConvertFrom-Json
+    $mixedSchemaJson = $mixedSchemaDiagnostics | ConvertTo-Json -Depth 20
+    if ($mixedSchemaDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "UNKNOWN_SCHEMA" -or
+        $mixedSchemaDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "UNKNOWN" -or
+        $mixedSchemaJson.Contains("must-not-leak")) {
+        throw "Mixed known/future Claude schema produced an unsafe authoritative negative attribution."
+    }
+    Remove-Item -LiteralPath $mixedSchemaExecutionFile -Force
+
+    $fastPathNodeLimitExecutionFile = Join-Path $tempRoot "claude-execution-fast-path-node-limit.json"
+    $fastPathLines = @()
+    for ($outer = 0; $outer -lt 20; $outer++) {
+        $blocks = @()
+        for ($inner = 0; $inner -lt 200; $inner++) {
+            $blocks += [ordered]@{ type = "tool_use"; name = "Read"; input = "must-not-leak-fast-path" }
+        }
+        $fastPathLines += ([ordered]@{ type = "assistant"; message = [ordered]@{ content = $blocks } } | ConvertTo-Json -Compress -Depth 8)
+    }
+    $fastPathLines | Set-Content -LiteralPath $fastPathNodeLimitExecutionFile -Encoding utf8
+    $fastPathNodeLimitDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $fastPathNodeLimitExecutionFile | ConvertFrom-Json
+    if ($fastPathNodeLimitDiagnostics.sanitizedClaudeExecution.maxNodesReached -ne $true -or
+        $fastPathNodeLimitDiagnostics.sanitizedClaudeExecution.inspectedNodeCount -gt 2000 -or
+        $fastPathNodeLimitDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "PARTIAL_BOUNDS_REACHED" -or
+        $fastPathNodeLimitDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "UNKNOWN") {
+        throw "Schema-aware fast path did not enforce the shared MaxNodes=2000 ceiling."
+    }
+    if (($fastPathNodeLimitDiagnostics | ConvertTo-Json -Depth 20).Contains("must-not-leak")) {
+        throw "Schema-aware fast path leaked bounded tool input."
+    }
+    Remove-Item -LiteralPath $fastPathNodeLimitExecutionFile -Force
+
+    # Synthetic representative of Run 34238805895: denials are attributable, while
+    # bounded unknown metadata prevents authoritative negative tool attribution.
+    $noOutputDenialExecutionFile = Join-Path $tempRoot "claude-execution-no-output-denial.json"
+    $noOutputDenialNode = [ordered]@{
+        type = "result"
+        subtype = "permission_denied"
+        permission_denials = @(
+            [ordered]@{ tool_name = "Write"; status = "permission_denied"; reason = "Approval required" },
+            [ordered]@{ tool_name = "FutureTool"; status = "permission_denied"; reason = "Denied" }
+        )
+        metadata = $null
+    }
+    $cursor = $null
+    for ($i = 0; $i -lt 20; $i++) {
+        $next = [ordered]@{ child = $null }
+        if ($null -eq $cursor) {
+            $noOutputDenialNode.metadata = $next
+        } else {
+            $cursor.child = $next
+        }
+        $cursor = $next
+    }
+    $noOutputDenialNode | ConvertTo-Json -Depth 50 | Set-Content -LiteralPath $noOutputDenialExecutionFile -Encoding utf8
+    $noOutputDenialDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $noOutputDenialExecutionFile | ConvertFrom-Json
+    if ($noOutputDenialDiagnostics.sanitizedClaudeExecution.permissionDenialEventsObserved -ne 2 -or
+        ($noOutputDenialDiagnostics.sanitizedClaudeExecution.deniedTools | Where-Object { $_ -eq "Write" }).Count -ne 1 -or
+        $noOutputDenialDiagnostics.sanitizedClaudeExecution.completionCategory -ne "PERMISSION_BLOCKED" -or
+        $noOutputDenialDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "PARTIAL_BOUNDS_REACHED" -or
+        $noOutputDenialDiagnostics.sanitizedClaudeExecution.editAttempted -ne "UNKNOWN") {
+        throw "No-output/denial-style evidence was not safely attributable under incomplete bounds: $($noOutputDenialDiagnostics.sanitizedClaudeExecution | ConvertTo-Json -Compress -Depth 10)"
+    }
+    Remove-Item -LiteralPath $noOutputDenialExecutionFile -Force
+
+    # Synthetic representative of the Run 33416979294 recursion-style shape.
     $deepExecutionFile = Join-Path $tempRoot "claude-execution-deep.json"
     $deepNode = [ordered]@{
         type = "tool_use"
@@ -404,6 +519,11 @@ try {
     if (($deepDiagnostics.sanitizedClaudeExecution.toolNames | Where-Object { $_ -eq "Write" }).Count -ne 1) {
         throw "Deep Claude execution diagnostics failed to extract known root tool metadata."
     }
+    if ($deepDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "TRUE" -or
+        $deepDiagnostics.sanitizedClaudeExecution.editAttempted -ne "UNKNOWN" -or
+        $deepDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "PARTIAL_BOUNDS_REACHED") {
+        throw "Depth-bounded evidence did not preserve observed TRUE and unavailable UNKNOWN attribution."
+    }
     Remove-Item -LiteralPath $deepExecutionFile -Force
 
     $largeArrayExecutionFile = Join-Path $tempRoot "claude-execution-large-array.json"
@@ -418,12 +538,21 @@ try {
     }
     $largeItems | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $largeArrayExecutionFile -Encoding utf8
     $largeArrayDiagnostics = Invoke-Developer -Root $tempRoot -ExpectedBaseSha $base -Mode DiagnosePostClaude -ClaudeExecutionFile $largeArrayExecutionFile | ConvertFrom-Json
-    if ($largeArrayDiagnostics.sanitizedClaudeExecution.maxNodesReached -ne $true -or
+    if ($largeArrayDiagnostics.sanitizedClaudeExecution.maxArrayItemsReached -ne $true -or
         $largeArrayDiagnostics.sanitizedClaudeExecution.inspectedNodeCount -gt 2000) {
         throw "Large Claude execution diagnostics did not enforce bounded inspection."
     }
     if (($largeArrayDiagnostics.sanitizedClaudeExecution.deniedTools | Where-Object { $_ -eq "Bash" }).Count -ne 1) {
         throw "Large Claude execution diagnostics failed to extract denied tool metadata before bounding."
+    }
+    if ($largeArrayDiagnostics.sanitizedClaudeExecution.evidenceCompleteness -ne "PARTIAL_BOUNDS_REACHED" -or
+        $largeArrayDiagnostics.sanitizedClaudeExecution.writeAttempted -ne "UNKNOWN") {
+        throw "Array-bounded evidence did not return partial completeness and UNKNOWN absent-tool attribution."
+    }
+    if ($largeArrayDiagnostics.sanitizedClaudeExecution.inspectionLimits.maxDepth -ne 8 -or
+        $largeArrayDiagnostics.sanitizedClaudeExecution.inspectionLimits.maxNodes -ne 2000 -or
+        $largeArrayDiagnostics.sanitizedClaudeExecution.inspectionLimits.maxArrayItems -ne 200) {
+        throw "Sanitized diagnostic safety ceilings changed unexpectedly."
     }
     Remove-Item -LiteralPath $largeArrayExecutionFile -Force
 
