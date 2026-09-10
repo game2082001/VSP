@@ -1,0 +1,180 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A1-R1",
+  "title": "A1 Intake Schema Path Policy Cause-Specific Remediation",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "88edec25e0be28e6cb3e0491f80aabe956bc9481",
+  "executionPlane": "AI02 Claude Artifact Developer",
+  "approvedScope": [
+    "Regenerate exactly the four A1-owned JSON schema/template files while preserving every approved P0/P1 contract except for the authorized cause-specific repository-path correction.",
+    "Correct A1_REQUEST_SCHEMA_PATH_POLICY_DEFECT from failed Run 34480651384 so every request-schema repository-relative path rejects traversal, dot segments, empty segments, absolute forms, backslashes, colons, control/non-ASCII characters, overlong paths, overlong segments, and trailing slash file paths.",
+    "Apply the same strict path contract to authorization manifest/state paths, approvedFiles items, optional inner-hash-pin paths, and every other request field governed by the repository-relative path policy.",
+    "Preserve valid paths including AI/Orchestrator/file.json, tools/orchestrator/script.ps1, and a/b/c.txt.",
+    "Use the remediated P2 descriptor path to produce an exact four-file child package, valid predecessor descriptor, GENESIS aggregate append, and child aggregate-state digest."
+  ],
+  "outOfScope": [
+    "Any policy redesign, schema identifier change, ceiling change, authority expansion, replay weakening, digest-model change, or unrelated decision-schema change.",
+    "Modification of P2 tooling, the Artifact Developer workflow, Repository Transport, original A1 manifest/state, A2/A3 records, product code/tests, later AI02 phases, C1/C2, or Local AI.",
+    "Publication, repository/branch/pull-request/merge authority, repair or admission of the failed Run 34480651384 package, predecessor acquisition, or any automatic retry."
+  ],
+  "primaryDeveloper": {
+    "role": "Claude Code Primary Developer",
+    "adapter": "claude",
+    "assignedBy": "Product Owner",
+    "contextId": "",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "The CRITICAL A1-R1 authorization fixture requires Claude Cross Review before merge; the later unpublished child artifact follows the approved separate Codex artifact-review model."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before fixture validation or from a later exact Product Owner-reconciled immutable execution base before dispatch.",
+    "Manifest/state or AI02 Claude Artifact Developer ValidateOnly validation fails.",
+    "Any future changed file is missing from or outside the exact four-file repositoryTransport.approvedFiles set.",
+    "Any prohibited path case remains schema-valid, any valid repository-relative path is over-rejected, or not every path-bearing request field uses the corrected contract.",
+    "Any non-path P0/P1 contract, identifier, numeric ceiling, decision vocabulary, replay rule, digest authority, transport handoff, or credential boundary changes.",
+    "P2-R2 descriptor construction, validation, serialization, GENESIS append, or aggregate-state generation fails.",
+    "Claude receives artifact-read or repository-write credentials, direct branch/PR/merge authority, or persisted checkout credentials.",
+    "A1-R1 produces zero/incomplete/extra output or fails validation or packaging; stop without retry for Product Owner architectural review."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-10T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/actions/runs/34480651384",
+    "approvalSummary": "Product Owner authorized only the A1-R1 governance fixture for one final cause-specific path-policy remediation attempt; dispatch remains separately gated."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": false,
+    "pushFeatureBranch": false,
+    "openOrUpdatePr": false,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": false
+  },
+  "phasedChild": {
+    "enabled": true,
+    "phase": "A1",
+    "sequence": 1,
+    "predecessorBindings": [],
+    "parentAggregateStateDigest": "GENESIS",
+    "workflowId": "345910582",
+    "workflowPath": ".github/workflows/ai02-claude-artifact-developer.yml"
+  },
+  "attemptBudget": {
+    "initialAttempts": 1,
+    "initialAttemptStatus": "CONSUMED",
+    "maximumCauseSpecificRemediations": 1,
+    "remainingCauseSpecificRemediations": 1,
+    "maximumTotalAttempts": 2,
+    "nextAttempt": 2,
+    "finalAttempt": true,
+    "automaticRetry": false,
+    "furtherAttemptAuthorized": false
+  },
+  "repositoryTransport": {
+    "required": true,
+    "requestPath": "",
+    "baseBinding": "EXACT",
+    "infrastructureSmoke": false,
+    "allowWorkflowChanges": false,
+    "openPullRequest": false,
+    "postMergeOperationalSmokeRequired": false,
+    "targetBranch": "",
+    "approvedFiles": [
+      "AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-request.template.json",
+      "AI/Orchestrator/Templates/artifact-intake-decision.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-decision.template.json"
+    ]
+  },
+  "failureEvidence": {
+    "workflowRunId": "34480651384",
+    "workflowRunAttempt": "1",
+    "sourceSha": "e595a3c7beed6d58723d4ef1cfc2ad4b1f606b56",
+    "claudeConclusion": "success",
+    "packageCreation": "PASS",
+    "exactFourFilePackage": true,
+    "predecessorDescriptorCreation": "FAIL",
+    "permanentDisposition": "CLAUDE_CHILD_OUTPUT_CREATED / EXACT_4_FILE_PACKAGE_PASS / PREDECESSOR_DESCRIPTOR_CREATION_FAIL / A1_REQUEST_SCHEMA_PATH_POLICY_DEFECT",
+    "contentDefect": "A1_REQUEST_SCHEMA_PATH_POLICY_DEFECT",
+    "prohibitedAcceptedExamples": ["../escape", "folder/../escape", "folder\\escape", "C:escape"],
+    "failedPackageEligibleForAggregateAdmission": false
+  },
+  "infrastructureDependency": {
+    "taskId": "VSP-AI02-001TI-A-P2-R2",
+    "status": "COMPLETE",
+    "mainSha": "88edec25e0be28e6cb3e0491f80aabe956bc9481",
+    "descriptorConstructionOperational": true,
+    "targetOfThisRemediation": false
+  },
+  "pathPolicy": {
+    "defect": "A1_REQUEST_SCHEMA_PATH_POLICY_DEFECT",
+    "printableAsciiOnly": true,
+    "rejectEmpty": true,
+    "rejectLeadingSlash": true,
+    "rejectBackslash": true,
+    "rejectColon": true,
+    "rejectEmptySegments": true,
+    "rejectDotSegments": true,
+    "rejectDotDotSegments": true,
+    "rejectTrailingSlash": true,
+    "maximumPathCharacters": 240,
+    "maximumSegmentCharacters": 100,
+    "requiredNegativeCases": ["../escape", "folder/../escape", "./file", "folder/./file", "/absolute", "//server/path", "folder\\file", "C:escape", "C:/escape", "folder//file", "", "folder/", "control-or-non-ascii", "overlong-path", "overlong-segment"],
+    "requiredPositiveCases": ["AI/Orchestrator/file.json", "tools/orchestrator/script.ps1", "a/b/c.txt"]
+  },
+  "intakePolicy": {
+    "schemaIdentifier": "vsp.ai02.artifact-intake-request/1.0",
+    "decisionSchemaIdentifier": "vsp.ai02.artifact-intake-decision/1.0",
+    "policyVersion": "vsp-ai02-intake-v1",
+    "asciiOnlyRepositoryPaths": true,
+    "artifactDigestAuthority": "GITHUB_ARTIFACT_DIGEST_PRIMARY_ACQUISITION_ANCHOR",
+    "externalInnerHashPins": "OPTIONAL_SEPARATELY_TRUSTED_SOURCE_ONLY",
+    "staleBasePolicy": "EXACT_BASE_ONLY",
+    "replayPolicy": "SUCCESSFULLY_CONSUMED_REQUEST_MUST_NOT_BE_SILENTLY_REPLAYED",
+    "transportHandoff": "VALIDATED_INLINE_BYTES",
+    "transportInterface": "001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED",
+    "limits": {
+      "maxOuterArtifactCompressedBytes": 26214400,
+      "maxInnerPublicationZipCompressedBytes": 20971520,
+      "maxTotalInnerUncompressedBytes": 52428800,
+      "maxChangedFiles": 200,
+      "maxPerFileUncompressedBytes": 10485760,
+      "maxManifestJsonBytes": 262144,
+      "maxResultJsonBytes": 262144,
+      "maxRepositoryRelativePathCharacters": 240,
+      "maxPathSegmentCharacters": 100,
+      "maxJsonNestingDepth": 16,
+      "maxSanitizedEvidenceArtifactBytes": 1048576,
+      "maxCompressionRatio": 100,
+      "requiredOuterPublicationFileCount": 3
+    },
+    "credentialInvariants": {
+      "claudeGitHubWriteAuthority": false,
+      "claudeArtifactReadCredential": false,
+      "trustedIntakeRepositoryWriteAuthority": false,
+      "trustedIntakeBranchOrPullRequestWriteAuthority": false,
+      "checkoutPersistCredentials": false,
+      "repositoryTransportSoleAutomatedWriteBoundary": true,
+      "automatedMergeAuthority": false,
+      "productOwnerMergeAuthority": true
+    }
+  }
+}
