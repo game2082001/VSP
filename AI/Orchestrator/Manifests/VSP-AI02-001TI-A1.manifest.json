@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A1",
+  "title": "Intake Schemas and Templates",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "f05d89bed18de871ad41774bb46b3a6f55189075",
+  "executionPlane": "AI02 Claude Artifact Developer",
+  "approvedScope": [
+    "Create exactly the four A1-owned JSON files in repositoryTransport.approvedFiles: strict request and sanitized decision/evidence schemas plus one safe template for each schema.",
+    "Use JSON Schema draft 2020-12 and exact identifiers vsp.ai02.artifact-intake-request/1.0, vsp.ai02.artifact-intake-decision/1.0, and policy version vsp-ai02-intake-v1.",
+    "The request contract must bind schemaVersion, policyVersion, taskId, repository, expectedSourceSha, developer workflow/run/attempt identity, artifact identity and GitHub artifact digest, optional separately trusted inner hash pins, authorization manifest/state references, exact approvedFiles, transport intent, and the approved limits.",
+    "The decision contract must allow only ACCEPTED_FOR_TRANSPORT or REJECTED and must semantically bind every REJECTED decision to transportAuthorized=false and transportInvoked=false.",
+    "Sanitized decision evidence may contain only approved metadata, hashes, and stable status/failure categories; it must contain no raw artifact contents, credentials, tokens, cookies, private keys, or producer-controlled publication authority.",
+    "Represent ASCII-only repository paths, EXACT_BASE_ONLY, fail-closed unsupported input, replay rejection, GITHUB_ARTIFACT_DIGEST_PRIMARY_ACQUISITION_ANCHOR, OPTIONAL_SEPARATELY_TRUSTED_SOURCE_ONLY, VALIDATED_INLINE_BYTES, and 001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED without redesigning the approved P0/P1 policy.",
+    "Preserve exact v1 limits: outer artifact 26214400 bytes, inner publication ZIP 20971520 bytes, total inner uncompressed 52428800 bytes, 200 changed files, 10485760 bytes per file, manifest/result JSON 262144 bytes each, repository path 240 characters, segment 100 characters, JSON depth 16, sanitized evidence 1048576 bytes, compression ratio 100, and exact three-file outer publication structure.",
+    "Each example template must validate against its corresponding schema and contain only inert non-secret example values. Producer-controlled fields must not grant repository, branch, pull-request, publication, or merge authority.",
+    "Leave all four files ready for deterministic A1 validation and child-only packaging under the P2 GENESIS lineage contract."
+  ],
+  "outOfScope": [
+    "Any A2 validator, A3 tests or documentation, or any other file outside the exact four-file allowlist.",
+    "Workflow, Repository Transport, P2 chaining infrastructure, B1/B7/B8, product code, product tests, C1/C2, Local AI, or later AI02 phase changes.",
+    "Artifact acquisition, predecessor materialization, predecessor bindings, branch or pull-request publication, repository writes, merge, tag, release, deployment, or bootstrap publication.",
+    "Real secrets, credentials, tokens, cookies, private keys, production/customer data, or historical raw Claude execution content.",
+    "Any policy redesign, authority expansion, mutable branch binding, widened ceiling, automatic retry, or third attempt."
+  ],
+  "primaryDeveloper": {
+    "role": "Claude Code Primary Developer",
+    "adapter": "claude",
+    "assignedBy": "Product Owner",
+    "contextId": "",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "The CRITICAL A1 authorization fixture requires Claude Cross Review before merge; the later unpublished A1 child artifact follows the separately approved child-review model."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before fixture validation or differs from a later exact Product Owner-reconciled immutable execution base before A1 dispatch.",
+    "Manifest/state or AI02 Claude Artifact Developer ValidateOnly validation fails.",
+    "Phased-child mode is not true, phase is not A1, sequence is not 1, predecessor bindings are not empty, or parent lineage is not GENESIS.",
+    "Any future A1 changed file is missing from or outside repositoryTransport.approvedFiles.",
+    "A schema/template is malformed, non-strict, mismatched, contains unsafe data, weakens identity constraints, expands authority, changes a P0 policy, or widens a v1 ceiling.",
+    "Claude receives an artifact-read credential, repository-write credential, branch/PR/merge authority, or persisted checkout credential.",
+    "A1 produces zero/incomplete output or fails validation/packaging; stop without automatic retry and request Product Owner reconciliation.",
+    "Developer/reviewer separation, deterministic child validation, Windows CI, Separate Codex Independent Review, or required fixture Claude Cross Review cannot be proven."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-09T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/865db354c405c2267198889e27889f94e526245c",
+    "approvalSummary": "Product Owner authorized only the CRITICAL A1 governance fixture. A1 remains undispatched and requires post-merge immutable source reconciliation and a separate one-dispatch authorization."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": false,
+    "pushFeatureBranch": false,
+    "openOrUpdatePr": false,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": false
+  },
+  "phasedChild": {
+    "enabled": true,
+    "phase": "A1",
+    "sequence": 1,
+    "predecessorBindings": [],
+    "parentAggregateStateDigest": "GENESIS",
+    "workflowId": "345910582",
+    "workflowPath": ".github/workflows/ai02-claude-artifact-developer.yml"
+  },
+  "attemptBudget": {
+    "initialAttempts": 1,
+    "maximumCauseSpecificRemediations": 1,
+    "maximumTotalAttempts": 2,
+    "automaticSecondAttempt": false,
+    "thirdAttemptAuthorized": false
+  },
+  "repositoryTransport": {
+    "required": true,
+    "requestPath": "",
+    "baseBinding": "EXACT",
+    "infrastructureSmoke": false,
+    "allowWorkflowChanges": false,
+    "openPullRequest": false,
+    "postMergeOperationalSmokeRequired": false,
+    "targetBranch": "",
+    "approvedFiles": [
+      "AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-request.template.json",
+      "AI/Orchestrator/Templates/artifact-intake-decision.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-decision.template.json"
+    ]
+  },
+  "intakePolicy": {
+    "schemaIdentifier": "vsp.ai02.artifact-intake-request/1.0",
+    "decisionSchemaIdentifier": "vsp.ai02.artifact-intake-decision/1.0",
+    "policyVersion": "vsp-ai02-intake-v1",
+    "asciiOnlyRepositoryPaths": true,
+    "artifactDigestAuthority": "GITHUB_ARTIFACT_DIGEST_PRIMARY_ACQUISITION_ANCHOR",
+    "externalInnerHashPins": "OPTIONAL_SEPARATELY_TRUSTED_SOURCE_ONLY",
+    "staleBasePolicy": "EXACT_BASE_ONLY",
+    "stalePackageDisposition": "REJECT_STALE_BASE_AND_REGENERATE",
+    "replayPolicy": "SUCCESSFULLY_CONSUMED_REQUEST_MUST_NOT_BE_SILENTLY_REPLAYED",
+    "emptyConsumedIdentitiesMeaning": "FIRST_USE_NOT_YET_CONSUMED",
+    "matchingConsumedIdentityDisposition": "REJECT_REPLAY",
+    "transportHandoff": "VALIDATED_INLINE_BYTES",
+    "transportInterface": "001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED",
+    "limits": {
+      "maxOuterArtifactCompressedBytes": 26214400,
+      "maxInnerPublicationZipCompressedBytes": 20971520,
+      "maxTotalInnerUncompressedBytes": 52428800,
+      "maxChangedFiles": 200,
+      "maxPerFileUncompressedBytes": 10485760,
+      "maxManifestJsonBytes": 262144,
+      "maxResultJsonBytes": 262144,
+      "maxRepositoryRelativePathCharacters": 240,
+      "maxPathSegmentCharacters": 100,
+      "maxJsonNestingDepth": 16,
+      "maxSanitizedEvidenceArtifactBytes": 1048576,
+      "maxCompressionRatio": 100,
+      "requiredOuterPublicationFileCount": 3
+    },
+    "credentialInvariants": {
+      "claudeGitHubWriteAuthority": false,
+      "claudeArtifactReadCredential": false,
+      "trustedIntakeRepositoryWriteAuthority": false,
+      "trustedIntakeBranchOrPullRequestWriteAuthority": false,
+      "checkoutPersistCredentials": false,
+      "repositoryTransportSoleAutomatedWriteBoundary": true,
+      "automatedMergeAuthority": false,
+      "productOwnerMergeAuthority": true
+    }
+  }
+}
