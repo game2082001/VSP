@@ -628,7 +628,7 @@ function New-PredecessorDescriptor {
     $manifest = Read-JsonBounded $manifestOut $Script:MaxManifestJsonBytes
     Assert-ExactSet @($manifest.files.path) (Get-PhaseFiles $ChildPhase) "descriptor package files"
     $normalizedArtifactDigest = if ($GitHubArtifactDigest -cmatch '^[0-9a-f]{64}$') { "sha256:$GitHubArtifactDigest" } else { $GitHubArtifactDigest }
-    $descriptor = [ordered]@{
+    $descriptor = [pscustomobject][ordered]@{
         schemaVersion = "1.0"; childTaskId = $ChildTaskId; phase = $ChildPhase; sequence = $Sequence; recoveryRepositorySha = $RecoveryRepositorySha
         workflowId = $WorkflowId; runId = $RunId; runAttempt = $RunAttempt; artifactId = $ArtifactId; artifactName = $ArtifactName
         githubArtifactDigest = $normalizedArtifactDigest; packageSha256 = [string]$result.packageSha256; manifestSha256 = [string]$result.manifestSha256
