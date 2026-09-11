@@ -146,7 +146,7 @@ function Test-ManifestClassification {
             }
         }
         "CRITICAL" {
-            $approvedCodexBootstrapTasks = @("VSP-AI02-001T", "VSP-AI02-001TI-B1", "VSP-AI02-001TI-A1-DS1")
+            $approvedCodexBootstrapTasks = @("VSP-AI02-001T", "VSP-AI02-001TI-B1", "VSP-AI02-001TI-A1-DS1", "VSP-AI02-001TI-A1D-POLICY")
             if ($Manifest.taskId -in $approvedCodexBootstrapTasks -and
                 $Manifest.bootstrapException.authorized -eq $true -and
                 $Manifest.bootstrapException.taskId -eq $Manifest.taskId -and

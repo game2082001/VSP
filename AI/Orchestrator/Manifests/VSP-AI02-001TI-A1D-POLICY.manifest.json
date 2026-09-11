@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A1D-POLICY",
+  "title": "Normative Machine-Readable Security Policy",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "30f7c171f7d5fdb376189f7a0f45f093a18ae2ae",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A1D-POLICY",
+    "scope": "Encode already-approved Product Owner P0/P1 security semantics as the canonical policy and closed policy schema; no generator or generated A1 contract output."
+  },
+  "approvedScope": [
+    "Create the canonical machine-readable P0/P1 artifact-intake policy and its strict Draft 2020-12 validating schema.",
+    "Create the minimum task manifest/state and exact task-manifest bootstrap registration required for this authorized CRITICAL Codex task.",
+    "Validate deterministic serialization and fail-closed rejection of changes to every normative policy section."
+  ],
+  "outOfScope": [
+    "Generator implementation or generator tests, generated request/decision schemas or templates, P2 changes, A1 rerun or attempt 3, historical artifact admission, A1D-GEN, A1D-VALIDATE, A2/A3, workflow or Repository Transport changes, publication, later AI02, C1/C2, or Local AI."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL normative security policy requires mandatory Claude Security Cross Review before merge."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before implementation.",
+    "Any changed file lies outside the exact five-file policy task allowlist.",
+    "Any approved P0/P1 identifier, failure category, path rule, numeric ceiling, replay/stale rule, credential invariant, state-machine rule, or Transport boundary is omitted or changed.",
+    "The policy or schema is nondeterministic, admits unknown fields, or does not fail closed on normative drift.",
+    "Generator/generated-contract, P2, workflow, Repository Transport, A2/A3, later AI02, C1/C2, or Local AI work begins.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-11T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/30f7c171f7d5fdb376189f7a0f45f093a18ae2ae",
+    "approvalSummary": "Product Owner authorized the canonical normative policy and schema under an exact task-specific CRITICAL Codex bootstrap exception."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "approvedFiles": [
+    "AI/Orchestrator/Policy/artifact-intake-policy.schema.json",
+    "AI/Orchestrator/Policy/artifact-intake-policy.json",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A1D-POLICY.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A1D-POLICY.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "policy": {
+    "schemaPath": "AI/Orchestrator/Policy/artifact-intake-policy.schema.json",
+    "canonicalPath": "AI/Orchestrator/Policy/artifact-intake-policy.json",
+    "normative": true,
+    "generatedOutputsDerived": true,
+    "modelOutputNormative": false,
+    "schemaDialect": "https://json-schema.org/draft/2020-12/schema",
+    "strictUnknownProperties": true,
+    "deterministic": true
+  },
+  "attemptBudget": {
+    "initialAttempts": 1,
+    "maximumCauseSpecificRemediations": 1,
+    "maximumTotalAttempts": 2,
+    "automaticRetry": false
+  },
+  "historicalArtifacts": [
+    { "runId": "34480651384", "use": "DIGEST_PINNED_READ_ONLY_REFERENCE", "normative": false, "aggregateEligible": false },
+    { "runId": "34490250854", "use": "DIGEST_PINNED_READ_ONLY_REFERENCE", "normative": false, "aggregateEligible": false }
+  ],
+  "sequence": {
+    "current": "A1D-POLICY",
+    "next": "A1D-GEN",
+    "final": "A1D-VALIDATE"
+  }
+}

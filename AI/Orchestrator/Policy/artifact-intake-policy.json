@@ -1,0 +1,169 @@
+{
+  "schemaVersion": "1.0",
+  "policyId": "vsp.ai02.artifact-intake-policy/1.0",
+  "identity": {
+    "requestSchemaIdentifier": "vsp.ai02.artifact-intake-request/1.0",
+    "decisionSchemaIdentifier": "vsp.ai02.artifact-intake-decision/1.0",
+    "policyVersion": "vsp-ai02-intake-v1",
+    "repository": {
+      "exactValue": "game2082001/VSP",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "taskId": {
+      "pattern": "^VSP-AI02-[A-Za-z0-9-]+$",
+      "maxLength": 100
+    },
+    "sourceSha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "binding": "AUTHORIZED_IMMUTABLE_EXECUTION_BASE"
+    },
+    "workflowId": { "pattern": "^[1-9][0-9]{0,19}$" },
+    "runId": { "pattern": "^[1-9][0-9]{0,19}$" },
+    "runAttempt": { "minimum": 1, "maximum": 2147483647 },
+    "artifactId": { "pattern": "^[1-9][0-9]{0,19}$" },
+    "artifactName": {
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "maxLength": 200
+    },
+    "artifactDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "authority": "GITHUB_ARTIFACT_DIGEST_PRIMARY_ACQUISITION_ANCHOR"
+    }
+  },
+  "provenance": {
+    "requiredBindings": [
+      "githubArtifactDigest",
+      "packageSha256",
+      "manifestSha256",
+      "stateSha256",
+      "requestSha256"
+    ],
+    "sha256HexPattern": "^[0-9a-f]{64}$",
+    "githubArtifactDigestPattern": "^sha256:[0-9a-f]{64}$",
+    "optionalInnerHashPins": "OPTIONAL_SEPARATELY_TRUSTED_SOURCE_ONLY",
+    "trustedExternalPinsAuthority": true,
+    "producerControlledPackageClaimsAuthority": false,
+    "producerClaimsMayElevateAuthority": false
+  },
+  "repositoryPath": {
+    "kind": "REPOSITORY_RELATIVE_FILE_PATH",
+    "characterSet": "PRINTABLE_ASCII_ONLY",
+    "minimumLength": 1,
+    "maximumLength": 240,
+    "maximumSegmentLength": 100,
+    "separator": "/",
+    "leadingSlashAllowed": false,
+    "backslashAllowed": false,
+    "colonAllowed": false,
+    "emptySegmentAllowed": false,
+    "dotSegmentAllowed": false,
+    "dotDotSegmentAllowed": false,
+    "trailingSlashAllowed": false,
+    "controlCharactersAllowed": false,
+    "nonAsciiAllowed": false
+  },
+  "limits": {
+    "maxOuterArtifactCompressedBytes": 26214400,
+    "maxInnerPublicationZipCompressedBytes": 20971520,
+    "maxTotalInnerUncompressedBytes": 52428800,
+    "maxChangedFiles": 200,
+    "maxPerFileUncompressedBytes": 10485760,
+    "maxManifestJsonBytes": 262144,
+    "maxResultJsonBytes": 262144,
+    "maxRepositoryRelativePathCharacters": 240,
+    "maxPathSegmentCharacters": 100,
+    "maxJsonNestingDepth": 16,
+    "maxSanitizedEvidenceArtifactBytes": 1048576,
+    "maxCompressionRatio": 100,
+    "requiredOuterPublicationFileCount": 3
+  },
+  "failureCategories": [
+    "NONE",
+    "VALID_PACKAGE",
+    "STALE_BASE",
+    "REPLAY_DETECTED",
+    "OVERSIZED_OUTER_ARTIFACT",
+    "OVERSIZED_INNER_ZIP",
+    "OVERSIZED_TOTAL_UNCOMPRESSED",
+    "TOO_MANY_CHANGED_FILES",
+    "OVERSIZED_FILE",
+    "PATH_POLICY_VIOLATION",
+    "JSON_DEPTH_EXCEEDED",
+    "MANIFEST_OR_STATE_INVALID",
+    "DIGEST_MISMATCH",
+    "SCHEMA_VALIDATION_FAILED",
+    "COMPRESSION_RATIO_EXCEEDED",
+    "STRUCTURE_MISMATCH",
+    "UNSUPPORTED_INPUT",
+    "APPROVED_FILES_MISMATCH"
+  ],
+  "replay": {
+    "emptyConsumedIdentitySet": "FIRST_USE_NOT_YET_CONSUMED",
+    "matchingConsumedIdentity": "REJECT_REPLAY",
+    "successfullyConsumedRequest": "MUST_NOT_BE_SILENTLY_REPLAYED",
+    "unknownReplayState": "FAIL_CLOSED_REJECT"
+  },
+  "staleBase": {
+    "policy": "EXACT_BASE_ONLY",
+    "sourceShaRequirement": "MUST_EQUAL_AUTHORIZED_IMMUTABLE_EXECUTION_BASE",
+    "mainDriftDisposition": "REJECT",
+    "automaticRebase": false,
+    "staleArtifactDisposition": "REGENERATE_AND_REAUTHORIZE"
+  },
+  "credentialInvariants": {
+    "claudeRepositoryWriteAuthority": false,
+    "claudeBranchOrPullRequestAuthority": false,
+    "claudeArtifactReadCredential": false,
+    "trustedIntakeRepositoryWriteAuthority": false,
+    "trustedIntakeBranchOrPullRequestWriteAuthority": false,
+    "checkoutPersistCredentials": false,
+    "repositoryTransportSoleAutomatedWriteBoundary": true,
+    "automatedMergeAuthority": false,
+    "productOwnerMergeAuthority": true
+  },
+  "transport": {
+    "handoff": "VALIDATED_INLINE_BYTES",
+    "interface": "001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED",
+    "authoritySource": "TASK_MANIFEST_TRUSTED_GOVERNANCE",
+    "trustedIntakeMayAuthorize": true,
+    "trustedIntakeMayInvoke": false,
+    "trustedIntakeMayWriteRepository": false
+  },
+  "decisionStateMachine": {
+    "allowedDecisions": ["REJECTED", "ACCEPTED_FOR_TRANSPORT"],
+    "global": {
+      "transportInvoked": false
+    },
+    "rejected": {
+      "decision": "REJECTED",
+      "transportAuthorized": false,
+      "transportInvoked": false,
+      "requestReferenceRequired": true,
+      "requestSha256Required": true,
+      "failureCategory": "MUST_NOT_EQUAL_NONE",
+      "successfulTransportReadyStatusAllowed": false
+    },
+    "acceptedForTransport": {
+      "decision": "ACCEPTED_FOR_TRANSPORT",
+      "transportAuthorized": true,
+      "transportInvoked": false,
+      "requestReferenceRequired": true,
+      "validRequestSha256Required": true,
+      "artifactIdentityAndDigestBindingsRequired": true,
+      "packageManifestStateBindingsRequired": true,
+      "validationStatus": "VALID_PACKAGE",
+      "failureCategory": "NONE"
+    }
+  },
+  "canonicalization": {
+    "encoding": "UTF-8_NO_BOM",
+    "lineEndings": "LF",
+    "propertyOrdering": "DOCUMENT_ORDER_FIXED",
+    "arrayOrdering": "DOCUMENT_ORDER_FIXED",
+    "timestampsAllowed": false,
+    "randomValuesAllowed": false,
+    "machineSpecificPathsAllowed": false,
+    "environmentDerivedValuesAllowed": false,
+    "networkDerivedValuesAllowed": false
+  }
+}
