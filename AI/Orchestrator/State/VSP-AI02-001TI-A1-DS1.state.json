@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "1.0",
+  "recordKind": "POINT_IN_TIME_GOVERNANCE_SNAPSHOT",
+  "asOfUtc": "2026-09-11T00:00:00Z",
+  "sourceSha": "d2de098a6920c50bbc8ac5d8442ea113ab9cce71",
+  "taskId": "VSP-AI02-001TI-A1-DS1",
+  "taskManifestPath": "AI/Orchestrator/Manifests/VSP-AI02-001TI-A1-DS1.manifest.json",
+  "taskManifestStatus": "VALID",
+  "classification": "CRITICAL",
+  "classificationConsistencyStatus": "VALID",
+  "authorizationStatus": "AUTHORIZED_DS1_GOVERNANCE_ARCHITECTURE_FIXTURE_ONLY",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "headBranch": "vsp-ai02-001ti-a1-ds1-deterministic-architecture",
+  "riskCeiling": "HIGH",
+  "currentStage": "DS1_IMPLEMENTATION",
+  "primaryDeveloperRole": "Codex Development Agent",
+  "primaryDeveloperAdapter": "codex",
+  "bootstrapException": true,
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "independentReviewerRole": "Separate Codex Independent Reviewer",
+  "independentReviewerContextId": "",
+  "developerEqualsReviewer": false,
+  "claudeRoleForReplacement": "MANDATORY_SECURITY_CROSS_REVIEWER_NOT_NORMATIVE_AUTHOR",
+  "claudeCrossReviewRequired": true,
+  "claudeCrossReviewStatus": "PENDING",
+  "ciStatus": "UNKNOWN",
+  "independentReviewStatus": "NOT_REQUESTED",
+  "findings": [],
+  "originalA1": {
+    "status": "BLOCKED_REMEDIATION_BUDGET_EXHAUSTED_RETIRED_FOR_DIRECT_MODEL_AUTHORED_SECURITY_CONTRACT_EXECUTION",
+    "attemptsConsumed": 2,
+    "maximumAttempts": 2,
+    "thirdAttemptAuthorized": false,
+    "aggregateEligibleArtifactCount": 0
+  },
+  "permanentLedger": [
+    {
+      "runId": "34480651384",
+      "disposition": "CLAUDE_CHILD_OUTPUT_CREATED_EXACT_4_FILE_PACKAGE_PASS_PREDECESSOR_DESCRIPTOR_CREATION_FAIL_A1_REQUEST_SCHEMA_PATH_POLICY_DEFECT",
+      "artifactId": "10153855735",
+      "artifactDigest": "sha256:a05e506c0d7e956ccca58e22869d35aecd20ee8af6de5a23635d89fdb64c08ca",
+      "packageSha256": "f24d8e75e79cd35af18c7a83de784574bab572c523e8f4b69c96066454c00454",
+      "manifestSha256": "8cd65fbe2c26280d9881ba5f06dd5cb9ffcca586db21cbfab6b38d715054c2da",
+      "fileSha256": {
+        "artifact-intake-request.schema.json": "3e5adce9f1353d3b08a7d41a5811e96945c921ef9d0472f898bd575f68168637",
+        "artifact-intake-request.template.json": "15b4fb98f6012780c010cf142f10d958df3364e0e3ca590c20919e96cc86cf92",
+        "artifact-intake-decision.schema.json": "8f14e4fde76c5a4f65a8ef3d4661a2f156cbdb931451af1313c860bd0ff7a332",
+        "artifact-intake-decision.template.json": "9142e301b8c41847f6622e228d49aa2ff82d0b1fb4fb01f6aa876196eb17c5f1"
+      },
+      "referenceOnly": true,
+      "aggregateEligible": false
+    },
+    {
+      "runId": "34490250854",
+      "disposition": "CLAUDE_EXECUTION_SUCCESS_EXACT_4_FILE_PACKAGE_PASS_PATH_POLICY_REMEDIATION_PASS_P2_DESCRIPTOR_AND_GENESIS_PASS_NON_PATH_SECURITY_CONTRACT_REGRESSION_INDEPENDENT_REVIEW_FAIL",
+      "artifactId": "10157773359",
+      "artifactDigest": "sha256:b36c419c472a1eb2990a33d0b20de21fccf0f7defea038f926375ab635b5771b",
+      "packageSha256": "fd719d4e57a98792c92cf9acdd54d3fbc3ac865a8435a58fcc68fb9e9987f5c6",
+      "manifestSha256": "c504a486580f47a4e5d3d021f22932e70b44089396b72d7b23ac225c14fe3eb9",
+      "fileSha256": {
+        "artifact-intake-request.schema.json": "73ea3bde1a762aa241e7dced17028b9008890f8418c305a595e87cc58c4da9ca",
+        "artifact-intake-request.template.json": "74488aedf2a70b4561865e1c68610fa86e0f25f4d3abdf2c659a2fa8bc245bd4",
+        "artifact-intake-decision.schema.json": "0160cf69cdc965727107ecca827e1de694a5fcb38de34d74b80e589b835f5945",
+        "artifact-intake-decision.template.json": "d5c361da009db1de6f67d0f55dd1edb611d8b3a3b478a5f0a0a44101c6fba799"
+      },
+      "referenceOnly": true,
+      "aggregateEligible": false
+    }
+  ],
+  "replacementArchitecture": {
+    "decision": "OPTION_F_DETERMINISTIC_SECURITY_CONTRACT_GENERATION",
+    "impact": "A1_REPLACEMENT_ARCHITECTURE_AND_CONTROLLED_BOOTSTRAP_EXCEPTION",
+    "taskIds": {
+      "policy": "VSP-AI02-001TI-A1D-POLICY",
+      "generator": "VSP-AI02-001TI-A1D-GEN",
+      "validation": "VSP-AI02-001TI-A1D-VALIDATE"
+    },
+    "canonicalPolicyPath": "AI/Orchestrator/Policy/artifact-intake-policy.json",
+    "policySchemaPath": "AI/Orchestrator/Policy/artifact-intake-policy.schema.json",
+    "generatorPath": "tools/orchestrator/generate-artifact-intake-contract.ps1",
+    "testPath": "tools/orchestrator/test-generate-artifact-intake-contract.ps1",
+    "generatedOutputOwner": "VSP-AI02-001TI-A1D-VALIDATE",
+    "generatedOutputs": [
+      "AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-request.template.json",
+      "AI/Orchestrator/Templates/artifact-intake-decision.schema.json",
+      "AI/Orchestrator/Templates/artifact-intake-decision.template.json"
+    ],
+    "policyNormative": true,
+    "generatedOutputsDerived": true,
+    "modelOutputNormative": false,
+    "p2ToolingChange": false
+  },
+  "attemptBudgets": {
+    "originalA1Reset": false,
+    "policy": { "initial": 1, "maximumCauseSpecificRemediations": 1, "automaticRetry": false },
+    "generator": { "initial": 1, "maximumCauseSpecificRemediations": 1, "automaticRetry": false },
+    "validation": {
+      "semanticAttempts": 1,
+      "infrastructureRerunAllowed": true,
+      "infrastructureRerunCondition": "PROVEN_PRE_SEMANTIC_INFRASTRUCTURE_FAILURE_SAME_IMMUTABLE_SOURCE_AND_INPUTS_ONLY",
+      "semanticFailureDisposition": "STOP_FOR_PRODUCT_OWNER_NEWLY_AUTHORIZED_REMEDIATION_TASK"
+    }
+  },
+  "p2Integration": {
+    "p2Status": "COMPLETE",
+    "p2R1Status": "COMPLETE",
+    "p2R2Status": "COMPLETE",
+    "toolingChangeRequired": false,
+    "childTaskId": "VSP-AI02-001TI-A1D-VALIDATE",
+    "phase": "A1",
+    "sequence": 1,
+    "predecessors": [],
+    "parentAggregateStateDigest": "GENESIS",
+    "authorizationMappingFixtureRequired": true
+  },
+  "futureRoles": {
+    "normativeAuthority": "Product Owner approved machine-readable policy",
+    "recommendedImplementationDeveloper": "Codex Development Agent under separately authorized CRITICAL bootstrap exception",
+    "independentReviewer": "Separate Codex Independent Reviewer",
+    "claude": "Mandatory security cross-reviewer",
+    "mergeAuthority": "Product Owner"
+  },
+  "a2Status": "BLOCKED_PENDING_DETERMINISTIC_A1_REPLACEMENT_AGGREGATE_ADMISSION",
+  "prohibitedActionsObserved": {
+    "productionA1FilesGenerated": false,
+    "generatorImplemented": false,
+    "a1Rerun": false,
+    "thirdAttemptCreated": false,
+    "artifactPublished": false,
+    "aggregateAdmission": false,
+    "a2OrA3Started": false,
+    "repositoryTransportInvoked": false,
+    "localAiCalled": false
+  },
+  "scopeDrift": "NONE",
+  "readyForMerge": false
+}

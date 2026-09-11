@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A1-DS1",
+  "title": "Deterministic Security-Contract Policy Source and Generator Architecture Fixture",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "d2de098a6920c50bbc8ac5d8442ea113ab9cce71",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A1-DS1",
+    "scope": "Governance and architecture fixture only; no policy source, generator, generated contract, artifact, or publication implementation."
+  },
+  "approvedScope": [
+    "Define the deterministic A1 replacement architecture, exact replacement task identities, ownership boundaries, attempt budgets, P2 integration, and publication lifecycle.",
+    "Define future canonical policy-source, meta-schema, generator, test, and exact four generated-output paths without implementing them.",
+    "Bind both failed A1 artifacts as digest-pinned read-only non-authoritative forensic references and preserve their permanent dispositions.",
+    "Register this exact CRITICAL DS1 task as a narrowly authorized Codex bootstrap exception in task-manifest validation."
+  ],
+  "outOfScope": [
+    "Creating the canonical policy source or meta-schema, implementing the generator or tests, or generating any production A1 contract file.",
+    "Any A1 rerun, third attempt, historical artifact repair/admission/publication, P2 implementation change, A2/A3 work, Repository Transport invocation, later AI02 work, C1/C2, or Local AI."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL deterministic security-contract architecture requires mandatory Claude Cross Review before merge."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before DS1 work or validation.",
+    "Any changed file lies outside the exact DS1 four-file fixture allowlist.",
+    "Any production policy, generator, test, generated contract, P2, workflow, Repository Transport, A2/A3, later AI02, C1/C2, or Local AI implementation begins.",
+    "Original A1 is reset, rerun, relabeled, or given a third attempt, or either historical artifact is treated as normative or aggregate-eligible.",
+    "Any approved P0/P1 identifier, provenance rule, path rule, numeric ceiling, replay/stale rule, credential invariant, decision state, or Transport boundary changes.",
+    "Independent review or Claude Cross Review finds an unresolved issue, CI fails, or scope drift occurs."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-11T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/actions/runs/34490250854",
+    "approvalSummary": "Product Owner authorized Option F and this DS1 governance/architecture fixture with a narrowly scoped Codex bootstrap exception."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "fixtureFiles": [
+    "AI/Orchestrator/A1_DETERMINISTIC_SECURITY_CONTRACT_ARCHITECTURE.md",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A1-DS1.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A1-DS1.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "replacementArchitecture": {
+    "decision": "OPTION_F_DETERMINISTIC_SECURITY_CONTRACT_GENERATION",
+    "governanceImpact": "A1_REPLACEMENT_ARCHITECTURE_AND_CONTROLLED_BOOTSTRAP_EXCEPTION",
+    "originalA1Status": "BLOCKED_REMEDIATION_BUDGET_EXHAUSTED_RETIRED_FOR_DIRECT_MODEL_AUTHORED_SECURITY_CONTRACT_EXECUTION",
+    "taskIds": [
+      "VSP-AI02-001TI-A1D-POLICY",
+      "VSP-AI02-001TI-A1D-GEN",
+      "VSP-AI02-001TI-A1D-VALIDATE"
+    ],
+    "canonicalPolicyPath": "AI/Orchestrator/Policy/artifact-intake-policy.json",
+    "policySchemaPath": "AI/Orchestrator/Policy/artifact-intake-policy.schema.json",
+    "generatorPath": "tools/orchestrator/generate-artifact-intake-contract.ps1",
+    "testPath": "tools/orchestrator/test-generate-artifact-intake-contract.ps1",
+    "designPath": "AI/Orchestrator/A1_DETERMINISTIC_SECURITY_CONTRACT_ARCHITECTURE.md",
+    "policyNormative": true,
+    "generatedFilesDerived": true,
+    "modelOutputNormative": false,
+    "p2ToolingChange": false,
+    "a2Status": "BLOCKED"
+  },
+  "historicalLedger": [
+    {
+      "runId": "34480651384",
+      "artifactId": "10153855735",
+      "githubArtifactDigest": "sha256:a05e506c0d7e956ccca58e22869d35aecd20ee8af6de5a23635d89fdb64c08ca",
+      "packageSha256": "f24d8e75e79cd35af18c7a83de784574bab572c523e8f4b69c96066454c00454",
+      "manifestSha256": "8cd65fbe2c26280d9881ba5f06dd5cb9ffcca586db21cbfab6b38d715054c2da",
+      "fileSha256": {
+        "artifact-intake-request.schema.json": "3e5adce9f1353d3b08a7d41a5811e96945c921ef9d0472f898bd575f68168637",
+        "artifact-intake-request.template.json": "15b4fb98f6012780c010cf142f10d958df3364e0e3ca590c20919e96cc86cf92",
+        "artifact-intake-decision.schema.json": "8f14e4fde76c5a4f65a8ef3d4661a2f156cbdb931451af1313c860bd0ff7a332",
+        "artifact-intake-decision.template.json": "9142e301b8c41847f6622e228d49aa2ff82d0b1fb4fb01f6aa876196eb17c5f1"
+      },
+      "use": "DIGEST_PINNED_READ_ONLY_REFERENCE_FOR_KNOWN_GOOD_STRUCTURE",
+      "aggregateEligible": false
+    },
+    {
+      "runId": "34490250854",
+      "artifactId": "10157773359",
+      "githubArtifactDigest": "sha256:b36c419c472a1eb2990a33d0b20de21fccf0f7defea038f926375ab635b5771b",
+      "packageSha256": "fd719d4e57a98792c92cf9acdd54d3fbc3ac865a8435a58fcc68fb9e9987f5c6",
+      "manifestSha256": "c504a486580f47a4e5d3d021f22932e70b44089396b72d7b23ac225c14fe3eb9",
+      "fileSha256": {
+        "artifact-intake-request.schema.json": "73ea3bde1a762aa241e7dced17028b9008890f8418c305a595e87cc58c4da9ca",
+        "artifact-intake-request.template.json": "74488aedf2a70b4561865e1c68610fa86e0f25f4d3abdf2c659a2fa8bc245bd4",
+        "artifact-intake-decision.schema.json": "0160cf69cdc965727107ecca827e1de694a5fcb38de34d74b80e589b835f5945",
+        "artifact-intake-decision.template.json": "d5c361da009db1de6f67d0f55dd1edb611d8b3a3b478a5f0a0a44101c6fba799"
+      },
+      "use": "DIGEST_PINNED_READ_ONLY_REFERENCE_FOR_VALIDATED_PATH_POLICY_AND_DRIFT_EVIDENCE",
+      "aggregateEligible": false
+    }
+  ]
+}
