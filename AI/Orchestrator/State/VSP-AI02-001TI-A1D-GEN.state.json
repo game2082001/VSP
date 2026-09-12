@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0",
+  "recordKind": "POINT_IN_TIME_GOVERNANCE_SNAPSHOT",
+  "asOfUtc": "2026-09-12T00:00:00Z",
+  "sourceSha": "a329eeaf85b490439dc40d6dc999f33fdf596b56",
+  "taskId": "VSP-AI02-001TI-A1D-GEN",
+  "taskManifestPath": "AI/Orchestrator/Manifests/VSP-AI02-001TI-A1D-GEN.manifest.json",
+  "taskManifestStatus": "VALID",
+  "classification": "CRITICAL",
+  "classificationConsistencyStatus": "VALID",
+  "authorizationStatus": "AUTHORIZED_DETERMINISTIC_GENERATOR_AND_TESTS_ONLY",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "headBranch": "vsp-ai02-001ti-a1d-gen",
+  "currentStage": "IMPLEMENTATION",
+  "primaryDeveloperRole": "Codex Development Agent",
+  "primaryDeveloperAdapter": "codex",
+  "bootstrapException": true,
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "independentReviewerRole": "Separate Codex Independent Reviewer",
+  "independentReviewerContextId": "",
+  "developerEqualsReviewer": false,
+  "claudeRole": "MANDATORY_SECURITY_CROSS_REVIEWER_NOT_NORMATIVE_AUTHOR",
+  "claudeCrossReviewRequired": true,
+  "claudeCrossReviewStatus": "PENDING",
+  "ciStatus": "UNKNOWN",
+  "independentReviewStatus": "NOT_REQUESTED",
+  "findings": [],
+  "originalA1": {
+    "status": "BLOCKED_REMEDIATION_BUDGET_EXHAUSTED_RETIRED_FOR_DIRECT_MODEL_AUTHORED_SECURITY_CONTRACT_EXECUTION",
+    "attemptsConsumed": 2,
+    "maximumAttempts": 2,
+    "thirdAttemptAuthorized": false
+  },
+  "generator": {
+    "path": "tools/orchestrator/generate-artifact-intake-contract.ps1",
+    "testPath": "tools/orchestrator/test-generate-artifact-intake-contract.ps1",
+    "policyPath": "AI/Orchestrator/Policy/artifact-intake-policy.json",
+    "policySchemaPath": "AI/Orchestrator/Policy/artifact-intake-policy.schema.json",
+    "policyFirstValidation": true,
+    "duplicatePropertiesRejected": true,
+    "deterministic": true,
+    "generatedOutputsCommitted": false
+  },
+  "attemptBudget": {
+    "initialAttempts": 1,
+    "maximumCauseSpecificRemediations": 1,
+    "maximumTotalAttempts": 2,
+    "automaticRetry": false,
+    "semanticFailureDisposition": "STOP_FOR_PRODUCT_OWNER_REVIEW"
+  },
+  "p2": {
+    "status": "COMPLETE",
+    "r1Status": "COMPLETE",
+    "r2Status": "COMPLETE",
+    "changed": false
+  },
+  "a2Status": "BLOCKED_PENDING_DETERMINISTIC_A1_REPLACEMENT_AGGREGATE_ADMISSION",
+  "prohibitedActionsObserved": {
+    "canonicalPolicyChanged": false,
+    "policySchemaChanged": false,
+    "productionA1ContractFilesCommitted": false,
+    "p2Changed": false,
+    "a1Rerun": false,
+    "a1Attempt3Created": false,
+    "a1dValidateStarted": false,
+    "a2OrA3Started": false,
+    "repositoryTransportInvoked": false,
+    "localAiCalled": false
+  },
+  "scopeDrift": "NONE",
+  "readyForMerge": false
+}

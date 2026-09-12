@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A1D-GEN",
+  "title": "Deterministic Security Contract Generator",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "a329eeaf85b490439dc40d6dc999f33fdf596b56",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A1D-GEN",
+    "scope": "Implement and test deterministic translation of the merged normative policy; do not commit generated A1 contracts or change normative policy."
+  },
+  "approvedScope": [
+    "Implement the deterministic policy-first generator and focused self-contained generator tests.",
+    "Create the minimum GEN manifest/state and exact task-manifest bootstrap registration.",
+    "Prove exact four-output determinism, schema/template conformance, historical path and non-path regression rejection, and fail-closed policy validation."
+  ],
+  "outOfScope": [
+    "Changing canonical policy or its schema; committing generated A1 contracts; A1D-VALIDATE; P2 descriptor or aggregate creation; P2, workflow, Repository Transport, A2/A3, publication, later AI02, C1/C2, or Local AI changes."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL deterministic security-contract generator requires mandatory Claude Security Cross Review before merge."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before implementation.",
+    "Any changed file lies outside the exact five-file GEN allowlist or any generated production contract is committed.",
+    "Generator duplicates, changes, weakens, or invents normative policy instead of deriving it from the merged policy.",
+    "Policy-first strict validation, deterministic byte/hash repeatability, generated schema/template validation, path/non-path regression, or state-machine tests fail.",
+    "P2, Artifact Developer workflow, Repository Transport, A1D-VALIDATE, A2/A3, publication, later AI02, C1/C2, or Local AI work begins.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-12T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/a329eeaf85b490439dc40d6dc999f33fdf596b56",
+    "approvalSummary": "Product Owner authorized deterministic generator mechanics from the merged normative policy under an exact CRITICAL Codex bootstrap exception."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "approvedFiles": [
+    "tools/orchestrator/generate-artifact-intake-contract.ps1",
+    "tools/orchestrator/test-generate-artifact-intake-contract.ps1",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A1D-GEN.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A1D-GEN.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "normativeInputs": [
+    "AI/Orchestrator/Policy/artifact-intake-policy.json",
+    "AI/Orchestrator/Policy/artifact-intake-policy.schema.json"
+  ],
+  "derivedOutputs": [
+    "AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+    "AI/Orchestrator/Templates/artifact-intake-request.template.json",
+    "AI/Orchestrator/Templates/artifact-intake-decision.schema.json",
+    "AI/Orchestrator/Templates/artifact-intake-decision.template.json"
+  ],
+  "derivedOutputsCommitted": false,
+  "generatorContract": {
+    "policyValidationFirst": true,
+    "duplicatePropertiesRejected": true,
+    "invalidPolicyCreatesOutput": false,
+    "encoding": "UTF-8_NO_BOM",
+    "lineEndings": "LF",
+    "stableOrdering": true,
+    "samePolicyBytesProduceSameOutputBytes": true,
+    "networkDependency": false,
+    "environmentDependency": false,
+    "currentTimeDependency": false,
+    "randomDependency": false
+  },
+  "attemptBudget": {
+    "initialAttempts": 1,
+    "maximumCauseSpecificRemediations": 1,
+    "maximumTotalAttempts": 2,
+    "automaticRetry": false
+  }
+}
