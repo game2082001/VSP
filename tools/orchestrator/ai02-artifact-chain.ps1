@@ -950,10 +950,12 @@ function Test-ParentPublicationGitBinding {
     Assert-ExactSet $changed @($Publication.productionFiles.path) "publication merge changed files"
     foreach ($file in @($Publication.productionFiles)) {
         $mergeTree = @(Invoke-CheckpointGit @("ls-tree",[string]$Publication.mergeCommit,"--",[string]$file.path) "PUBLICATION_CONTENT_MISMATCH")
+        $publishedTree = @(Invoke-CheckpointGit @("ls-tree",[string]$Publication.publishedProductionHead,"--",[string]$file.path) "PUBLICATION_CONTENT_MISMATCH")
         $childTree = @(Invoke-CheckpointGit @("ls-tree",$ChildExecutionSha,"--",[string]$file.path) "PUBLICATION_CONTENT_MISMATCH")
-        if ($mergeTree.Count -ne 1 -or $childTree.Count -ne 1 -or $mergeTree[0] -cnotmatch '^([0-9]{6}) blob ([0-9a-f]{40})\t(.+)$') { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        if ($mergeTree.Count -ne 1 -or $publishedTree.Count -ne 1 -or $childTree.Count -ne 1 -or $mergeTree[0] -cnotmatch '^([0-9]{6}) blob ([0-9a-f]{40})\t(.+)$') { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
         $mode=$Matches[1];$blob=$Matches[2];$path=$Matches[3]
         if ($mode -ne $file.mode -or $blob -ne $file.gitBlobId -or $path -cne $file.path) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        if ($publishedTree[0] -cnotmatch '^([0-9]{6}) blob ([0-9a-f]{40})\t(.+)$' -or $Matches[1] -ne $file.mode -or $Matches[2] -ne $file.gitBlobId -or $Matches[3] -cne $file.path) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
         if ($childTree[0] -cnotmatch '^([0-9]{6}) blob ([0-9a-f]{40})\t(.+)$' -or $Matches[1] -ne $file.mode -or $Matches[2] -ne $file.gitBlobId -or $Matches[3] -cne $file.path) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
         $sizeLines = @(Invoke-CheckpointGit @("cat-file","-s",$blob) "PUBLICATION_CONTENT_MISMATCH")
         if ($sizeLines.Count -ne 1) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }

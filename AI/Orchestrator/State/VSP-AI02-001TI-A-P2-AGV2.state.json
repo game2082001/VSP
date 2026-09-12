@@ -47,8 +47,8 @@
     "bytesRewritten": false
   },
   "p2ExistingFocusedTestCount": 66,
-  "agv2FocusedTestCount": 57,
-  "focusedTestTotal": 123,
+  "agv2FocusedTestCount": 59,
+  "focusedTestTotal": 125,
   "attemptAccounting": {
     "agv2ConsumesA2Attempt": false,
     "pm1ConsumesA2Attempt": false,

@@ -168,6 +168,26 @@ function New-SyntheticA2PublicationRepository {
     return [pscustomobject]@{ Path=$Path; ProductionHead=$productionHead; MergeCommit=$mergeCommit; Parents=$parents; ChildExecution=$childExecution; File=$file }
 }
 
+function New-MaliciousPublishedHeadScenario {
+    param([string]$RepositoryPath, [string]$BaseSha, [string]$ExpectedMerge, [string]$Kind)
+    & git -C $RepositoryPath checkout --quiet --detach $BaseSha
+    & git -C $RepositoryPath switch --quiet -c ("malicious-"+$Kind)
+    if ($Kind -eq "changed") {
+        $path=Join-Path $RepositoryPath $phaseFiles.A2[0]
+        New-Item -ItemType Directory -Force (Split-Path -Parent $path)|Out-Null
+        [IO.File]::WriteAllText($path,"different predecessor bytes",[Text.UTF8Encoding]::new($false))
+        & git -C $RepositoryPath add -- $phaseFiles.A2[0]
+        & git -C $RepositoryPath commit --quiet -m "changed published head"
+    } else {
+        & git -C $RepositoryPath commit --quiet --allow-empty -m "published head missing predecessor"
+    }
+    $publishedHead=(& git -C $RepositoryPath rev-parse HEAD).Trim()
+    $expectedTree=(& git -C $RepositoryPath rev-parse ($ExpectedMerge+"^{tree}")).Trim()
+    $merge=(& git -C $RepositoryPath commit-tree $expectedTree -p $BaseSha -p $publishedHead -m ("malicious "+$Kind+" production merge")).Trim()
+    $child=(& git -C $RepositoryPath commit-tree $expectedTree -p $merge -m ("child after malicious "+$Kind+" merge")).Trim()
+    return [pscustomobject]@{PublishedHead=$publishedHead;MergeCommit=$merge;Parents=@($BaseSha,$publishedHead);ChildExecution=$child}
+}
+
 $root = Join-Path ([IO.Path]::GetTempPath()) ("ai02-chain-tests-" + [Guid]::NewGuid().ToString("N"))
 try {
     $genesisOneState=Join-Path $root "genesis-one-state.json"; $genesisOneBaseline=Join-Path $root "genesis-one-baseline.json"
@@ -359,6 +379,14 @@ try {
     $validateA3Args=@{Mode="ValidateCheckpointV2";Repository="game2082001/VSP";WorkspacePath=$syntheticRepo.Path;CheckpointEvidencePaths=@($legacy.AggregatePath,$checkpointA2One,$checkpointA3);DescriptorEvidencePaths=@($legacy.DescriptorPath,$crossBaseA2.DescriptorPath,$crossBaseA3.DescriptorPath);PackageResultEvidencePaths=@($legacy.ResultPath,$a2ResultPath,$a3ResultPath);PublicationEvidencePaths=@($legacy.PublicationPath,$publicationA2Path)}
     Expect-Pass "complete D1 M1 D2 M2 D3 lineage validates" { Invoke-Chain $validateA3Args }
     Expect-Pass "A2 publication exact merge parents blobs modes sizes and hashes validate" { $validated=Invoke-Chain $validateA3Args;if($validated-notmatch'completeLineageEvidence'){throw "complete lineage result missing"} }
+    foreach($kind in @("missing","changed")){
+        $scenario=New-MaliciousPublishedHeadScenario $syntheticRepo.Path $a2ExecutionSha $syntheticRepo.MergeCommit $kind
+        $badPublishedHeadPath=Join-Path $root ("published-head-"+$kind+".json")
+        Write-Json ([ordered]@{sourceType="AUTHORITATIVE_REPOSITORY_MERGE";repository="game2082001/VSP";mergeCommit=$scenario.MergeCommit;orderedMergeParents=$scenario.Parents;publishedProductionHead=$scenario.PublishedHead;checkpointAggregateStateDigest=$checkpointA2.aggregateStateDigest;checkpointAggregateFileSha256=(Get-Hash $checkpointA2One);productionFiles=@($syntheticRepo.File)}) $badPublishedHeadPath
+        $badHeadChild=New-Package (Join-Path $root ("bad-head-child-"+$kind)) A3 $checkpointA2.aggregateStateDigest "VSP-AI02-001TI-A3" @{} @() $scenario.ChildExecution
+        $badHeadArguments=Merge-Arguments $a3CheckpointArgs @{PublicationEvidencePaths=@($legacy.PublicationPath,$badPublishedHeadPath);ChildDescriptorPath=$badHeadChild.DescriptorPath;ChildPackageResultPath=(Join-Path $badHeadChild.Root "publication-package.result.json");CheckpointPath=(Join-Path $root ("bad-published-head-checkpoint-"+$kind+".json"))}
+        Expect-Fail ("published production HEAD with "+$kind+" predecessor blob rejects") { Invoke-Chain $badHeadArguments }
+    }
 
     $modifiedLegacy=Join-Path $root "modified-legacy.json";Copy-Item $legacy.AggregatePath $modifiedLegacy;[IO.File]::AppendAllText($modifiedLegacy," ",[Text.UTF8Encoding]::new($false))
     Expect-Fail "modified legacy v1 bytes reject" { Invoke-Chain @{Mode="ValidateLegacyCheckpoint";CheckpointPath=$modifiedLegacy;DescriptorPath=$legacy.DescriptorPath;ChildPackageResultPath=$legacy.ResultPath} }
