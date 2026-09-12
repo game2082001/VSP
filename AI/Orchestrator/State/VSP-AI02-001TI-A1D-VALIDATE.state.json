@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "1.0",
+  "recordKind": "POINT_IN_TIME_GOVERNANCE_SNAPSHOT",
+  "asOfUtc": "2026-09-12T00:00:00Z",
+  "sourceSha": "c8329062a73aba181df0120f1378cceb5107eab4",
+  "taskId": "VSP-AI02-001TI-A1D-VALIDATEF",
+  "taskManifestPath": "AI/Orchestrator/Manifests/VSP-AI02-001TI-A1D-VALIDATE.manifest.json",
+  "taskManifestStatus": "VALID",
+  "classification": "CRITICAL",
+  "classificationConsistencyStatus": "VALID",
+  "authorizationStatus": "AUTHORIZED_VALIDATION_FIXTURE_ONLY",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "headBranch": "vsp-ai02-001ti-a1d-validatef",
+  "currentStage": "IMPLEMENTATION",
+  "primaryDeveloperRole": "Codex Development Agent",
+  "primaryDeveloperAdapter": "codex",
+  "bootstrapException": true,
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "independentReviewerRole": "Separate Codex Independent Reviewer",
+  "independentReviewerContextId": "",
+  "developerEqualsReviewer": false,
+  "claudeRole": "MANDATORY_SECURITY_CROSS_REVIEWER_NOT_NORMATIVE_AUTHOR",
+  "claudeCrossReviewRequired": true,
+  "claudeCrossReviewStatus": "PENDING",
+  "ciStatus": "UNKNOWN",
+  "independentReviewStatus": "NOT_REQUESTED",
+  "findings": [],
+  "replacementArchitecture": {
+    "a1dPolicy": "COMPLETE",
+    "a1dGen": "COMPLETE",
+    "a1dValidate": "NOT_STARTED_NOT_AUTHORIZED",
+    "originalA1": "RETIRED",
+    "originalA1AttemptsConsumed": 2,
+    "originalA1MaximumAttempts": 2,
+    "a1Attempt3Authorized": false,
+    "a2": "BLOCKED"
+  },
+  "normativeInputs": {
+    "policyPath": "AI/Orchestrator/Policy/artifact-intake-policy.json",
+    "policySchemaPath": "AI/Orchestrator/Policy/artifact-intake-policy.schema.json",
+    "generatorPath": "tools/orchestrator/generate-artifact-intake-contract.ps1",
+    "generatorTestPath": "tools/orchestrator/test-generate-artifact-intake-contract.ps1"
+  },
+  "expectedOutputs": [
+    {
+      "path": "AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+      "sha256": "f1b4b8d8f6cc434a2d1900161ee191fea61be77ab60a85fa1cb83cbb267f4e95"
+    },
+    {
+      "path": "AI/Orchestrator/Templates/artifact-intake-request.template.json",
+      "sha256": "48b167ecece4381a87fcc010c615581b06188f57c137843232068b3f3ff87db0"
+    },
+    {
+      "path": "AI/Orchestrator/Templates/artifact-intake-decision.schema.json",
+      "sha256": "c21dd6856a20ca39df707ce28181e09056e272ed603962562c5a24dd554aa01b"
+    },
+    {
+      "path": "AI/Orchestrator/Templates/artifact-intake-decision.template.json",
+      "sha256": "fc04cabe343326c87b68ed121165687f0eb528a51ab380db056ac72bebdc3558"
+    }
+  ],
+  "p2Admission": {
+    "phase": "A1",
+    "sequence": 1,
+    "predecessors": [],
+    "parentLineage": "GENESIS",
+    "status": "NOT_PERFORMED"
+  },
+  "attemptSemantics": {
+    "semanticExecutionBudget": 1,
+    "semanticExecutionsConsumed": 0,
+    "automaticRetry": false,
+    "semanticMismatchRetryable": false,
+    "semanticFailureDisposition": "ARCHITECTURAL_REVIEW",
+    "preSemanticRerunRequiresIdenticalInputsAndExplicitProductOwnerAuthorization": true
+  },
+  "credentialBoundaries": {
+    "repositoryWriteCredentialAvailableToValidationExecution": false,
+    "repositoryTransportTokenAvailable": false,
+    "claudeOauthRequired": false,
+    "artifactReadCredentialAvailableForGenesis": false,
+    "persistedCheckoutCredentials": false,
+    "branchPrPushAuthority": false,
+    "productOwnerSoleMergeAndPublicationAuthority": true
+  },
+  "validationRequirements": {
+    "generatorFocusedTestsExpected": 98,
+    "twoRunByteEqualityRequired": true,
+    "exactExpectedHashesRequired": true,
+    "jsonParsingRequired": true,
+    "draft202012MetaValidationRequired": true,
+    "templateValidationRequired": true,
+    "pathSecurityRegressionRequired": true,
+    "historicalNonPathRegressionRequired": true,
+    "closedDecisionStateValidationRequired": true,
+    "normativePolicyEqualityRequired": true,
+    "descriptorRoundTripValidationRequired": true,
+    "genesisAppendRequired": true,
+    "aggregateStateDigestRequired": true,
+    "separateCodexIndependentArtifactReviewRequired": true,
+    "zeroUnresolvedFindingsRequired": true
+  },
+  "prohibitedActionsObserved": {
+    "a1dValidateExecutionStarted": false,
+    "productionContractsGenerated": false,
+    "aggregateAdmissionPerformed": false,
+    "canonicalPolicyChanged": false,
+    "policySchemaChanged": false,
+    "generatorChanged": false,
+    "p2Changed": false,
+    "retiredA1Rerun": false,
+    "a1Attempt3Created": false,
+    "a2OrA3Started": false,
+    "repositoryTransportInvoked": false,
+    "publicationStarted": false,
+    "localAiCalled": false
+  },
+  "scopeDrift": "NONE",
+  "readyForMerge": false
+}
