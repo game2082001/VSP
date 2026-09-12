@@ -1,29 +1,24 @@
 {
   "schemaVersion": "1.0",
-  "taskId": "VSP-AI02-001TI-A2F",
-  "title": "A2 Authorization Fixture and Immutable A1 Predecessor Binding",
+  "taskId": "VSP-AI02-001TI-A2",
+  "title": "Executable A2 Trusted Intake Contract Authorization",
   "classification": "CRITICAL",
   "repository": "game2082001/VSP",
   "baseBranch": "main",
-  "authorizedSourceSha": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
-  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
-  "bootstrapException": {
-    "authorized": true,
-    "taskId": "VSP-AI02-001TI-A2F",
-    "scope": "Create only the A2 authorization fixture and immutable A1 predecessor binding; do not implement or dispatch A2."
-  },
+  "authorizedSourceSha": "b222ef7cb391f8f3eb7f4cd98b45dda2a01e9fe3",
   "approvedScope": [
-    "Create the A2 manifest/state and exact CRITICAL fixture registration.",
-    "Freeze future A2 ownership, security semantics, and immutable deterministic A1 predecessor binding."
+    "Implement the A2 Trusted Intake Contract Validator in exactly one production file through AI02 Claude Artifact Developer.",
+    "Consume the exact A1 authoritative repository-merge predecessor through PM1 and create the A2 schema 2.0 checkpoint through AGV2.",
+    "Package validated child output for a later separately authorized Repository Transport publication."
   ],
   "outOfScope": [
-    "A2 implementation or dispatch; A2 child artifacts; A1, policy, generator, P2, Transport, A3, later AI02, C1/C2, Local AI, or PR #79 changes."
+    "Direct branch, push, pull request, merge, Repository Transport invocation, A1, policy, generator, P2/PM1/AGV2, A3, later AI02, Local AI, or PR #79 changes."
   ],
   "primaryDeveloper": {
-    "role": "Codex Development Agent",
-    "adapter": "codex",
+    "role": "Claude Code Primary Developer",
+    "adapter": "claude",
     "assignedBy": "Product Owner",
-    "contextId": "root",
+    "contextId": "",
     "runId": ""
   },
   "independentReviewer": {
@@ -39,9 +34,9 @@
     "reason": "CRITICAL A2 authorization and predecessor-binding fixture requires mandatory Claude Security Cross Review."
   },
   "stopConditions": [
-    "GitHub main differs from authorizedSourceSha before fixture implementation.",
-    "Any changed file lies outside the exact A2F three-file allowlist.",
-    "A2 implementation, dispatch, child packaging, descriptor creation, or aggregate append begins.",
+    "The separately Product Owner-authorized immutable A2 execution SHA differs from the checked-out workflow HEAD.",
+    "Any Claude changed file lies outside the exact one-file A2 production allowlist.",
+    "A1 repository-merge evidence, PM1 materialization, or AGV2 checkpoint validation fails.",
     "Any A1 predecessor identity, path, hash, mode, lineage, or aggregate binding differs from authorization.",
     "A2 ownership, credentials, network authority, attempt rules, A3 ownership, or policy semantics expand.",
     "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
@@ -51,27 +46,25 @@
     "authorizedBy": "Product Owner",
     "authorizedAtUtc": "2026-09-12T00:00:00Z",
     "evidenceSource": "Conversation",
-    "evidenceUrl": "https://github.com/game2082001/VSP/commit/aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
-    "approvalSummary": "Product Owner authorized only the CRITICAL A2 governance fixture; implementation and dispatch remain unauthorized."
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/b222ef7cb391f8f3eb7f4cd98b45dda2a01e9fe3",
+    "approvalSummary": "Product Owner authorized the executable CRITICAL A2 contract for one future Claude Artifact Developer execution after separate immutable execution-base authorization."
   },
   "executionAuthorization": {
     "implementation": true,
     "localValidation": true,
-    "commit": true,
-    "pushFeatureBranch": true,
-    "openOrUpdatePr": true,
+    "commit": false,
+    "pushFeatureBranch": false,
+    "openOrUpdatePr": false,
     "ciGate": true,
     "automatedReviewGate": true,
     "requiredIndependentReview": true,
     "inScopeRemediation": true,
-    "remediationCommitPushAndGates": true
+    "remediationCommitPushAndGates": false
   },
   "approvedFiles": [
-    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2.manifest.json",
-    "AI/Orchestrator/State/VSP-AI02-001TI-A2.state.json",
-    "tools/orchestrator/task-manifest.ps1"
+    "tools/orchestrator/artifact-intake-contract.ps1"
   ],
-  "futureA2": {
+  "executableA2": {
     "taskId": "VSP-AI02-001TI-A2",
     "purpose": "Trusted Intake Contract Validator",
     "primaryDeveloper": "Claude Code Primary Developer",
@@ -86,7 +79,11 @@
     "artifactReadCredentialAvailableToClaude": false,
     "branchOrPullRequestAuthority": false,
     "repositoryTransportAuthority": false,
-    "localAiAuthority": false
+    "localAiAuthority": false,
+    "implementationAuthorized": true,
+    "directMergeAuthority": false,
+    "persistedCheckoutCredentials": false,
+    "productOwnerSoleMergeAuthority": true
   },
   "phasedChild": {
     "enabled": true,
@@ -94,7 +91,8 @@
     "sequence": 2,
     "predecessorCount": 1,
     "parentAggregateStateDigest": "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1",
-    "workflowId": "345910582",
+    "predecessorSourceType": "AUTHORITATIVE_REPOSITORY_MERGE",
+    "checkpointSchemaVersion": "2.0",
     "workflowPath": ".github/workflows/ai02-claude-artifact-developer.yml"
   },
   "a1Predecessor": {
@@ -104,7 +102,8 @@
     "predecessors": [],
     "parentLineage": "GENESIS",
     "productionMergeCommit": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
-    "productionParent": "8a0a441c532295405b8133d96142844026ee4a93",
+    "repository": "game2082001/VSP",
+    "orderedMergeParents": ["8a0a441c532295405b8133d96142844026ee4a93", "cb7dbf0cfbcb0f715001588cdd6da97264e19d06"],
     "publishedProductionHead": "cb7dbf0cfbcb0f715001588cdd6da97264e19d06",
     "packageSha256": "64fa19736ce6a2d15211fb8646ae1bafabda8918a7510b13dece18b414736fef",
     "manifestSha256": "4b2e05f25c45461a9cc754a7fc2bc0480da347379f5bd6070b51d387af94fd85",
@@ -113,12 +112,41 @@
     "aggregateStateDigest": "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1",
     "aggregateFileSha256": "750334cd06ecf529303b14ba0431f5ca492c714e606baca6767aef5961106ddc",
     "files": [
-      {"path":"AI/Orchestrator/Templates/artifact-intake-request.schema.json","mode":"100644","sha256":"f1b4b8d8f6cc434a2d1900161ee191fea61be77ab60a85fa1cb83cbb267f4e95"},
-      {"path":"AI/Orchestrator/Templates/artifact-intake-request.template.json","mode":"100644","sha256":"48b167ecece4381a87fcc010c615581b06188f57c137843232068b3f3ff87db0"},
-      {"path":"AI/Orchestrator/Templates/artifact-intake-decision.schema.json","mode":"100644","sha256":"c21dd6856a20ca39df707ce28181e09056e272ed603962562c5a24dd554aa01b"},
-      {"path":"AI/Orchestrator/Templates/artifact-intake-decision.template.json","mode":"100644","sha256":"fc04cabe343326c87b68ed121165687f0eb528a51ab380db056ac72bebdc3558"}
+      {"path":"AI/Orchestrator/Templates/artifact-intake-request.schema.json","mode":"100644","gitBlobId":"7378d130eda351b85c17ff3564de1fa45e701af1","size":7237,"sha256":"f1b4b8d8f6cc434a2d1900161ee191fea61be77ab60a85fa1cb83cbb267f4e95"},
+      {"path":"AI/Orchestrator/Templates/artifact-intake-request.template.json","mode":"100644","gitBlobId":"ef68b6df094c7f117a33658a031cc93bc747aaac","size":3733,"sha256":"48b167ecece4381a87fcc010c615581b06188f57c137843232068b3f3ff87db0"},
+      {"path":"AI/Orchestrator/Templates/artifact-intake-decision.schema.json","mode":"100644","gitBlobId":"407a195e093f7a8a6136983fb2bf946d7eac64ef","size":8618,"sha256":"c21dd6856a20ca39df707ce28181e09056e272ed603962562c5a24dd554aa01b"},
+      {"path":"AI/Orchestrator/Templates/artifact-intake-decision.template.json","mode":"100644","gitBlobId":"cc9ac0c9e490a75a7643ea7394a09fe338084f35","size":3450,"sha256":"fc04cabe343326c87b68ed121165687f0eb528a51ab380db056ac72bebdc3558"}
     ]
   },
+  "predecessorBindings": [
+    {
+      "sourceType": "AUTHORITATIVE_REPOSITORY_MERGE",
+      "repository": "game2082001/VSP",
+      "mergeCommit": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
+      "orderedMergeParents": ["8a0a441c532295405b8133d96142844026ee4a93", "cb7dbf0cfbcb0f715001588cdd6da97264e19d06"],
+      "publishedProductionHead": "cb7dbf0cfbcb0f715001588cdd6da97264e19d06",
+      "predecessorTaskId": "VSP-AI02-001TI-A1D-VALIDATE",
+      "phase": "A1",
+      "sequence": 1,
+      "executionRepositorySha": "8a0a441c532295405b8133d96142844026ee4a93",
+      "checkpointSchemaVersion": "1.0",
+      "descriptorSha256": "c1595130a63ffb3eaba0facbb4c0f1e73c5dbf17db098ea5052ca23ff021a253",
+      "aggregateStateDigest": "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1",
+      "aggregateFileSha256": "750334cd06ecf529303b14ba0431f5ca492c714e606baca6767aef5961106ddc",
+      "packageSha256": "64fa19736ce6a2d15211fb8646ae1bafabda8918a7510b13dece18b414736fef",
+      "manifestSha256": "4b2e05f25c45461a9cc754a7fc2bc0480da347379f5bd6070b51d387af94fd85",
+      "resultSha256": "fc78ce57a27bed3cf757074cf1c7769ae4d6d2e75c5354ac0c9abd3eac85c67e",
+      "checkpointEvidenceBase64": "eyJzY2hlbWFWZXJzaW9uIjoiMS4wIiwicmVjb3ZlcnlSZXBvc2l0b3J5U2hhIjoiOGEwYTQ0MWM1MzIyOTU0MDViODEzM2Q5NjE0Mjg0NDAyNmVlNGE5MyIsInByZWRlY2Vzc29ycyI6W3sic2NoZW1hVmVyc2lvbiI6IjEuMCIsImNoaWxkVGFza0lkIjoiVlNQLUFJMDItMDAxVEktQTFELVZBTElEQVRFIiwicGhhc2UiOiJBMSIsInNlcXVlbmNlIjoxLCJyZWNvdmVyeVJlcG9zaXRvcnlTaGEiOiI4YTBhNDQxYzUzMjI5NTQwNWI4MTMzZDk2MTQyODQ0MDI2ZWU0YTkzIiwid29ya2Zsb3dJZCI6IjEiLCJydW5JZCI6IjEiLCJydW5BdHRlbXB0IjoxLCJhcnRpZmFjdElkIjoiMSIsImFydGlmYWN0TmFtZSI6ImExZC12YWxpZGF0ZS1sb2NhbC1jaGlsZC1wYWNrYWdlIiwiZ2l0aHViQXJ0aWZhY3REaWdlc3QiOiJzaGEyNTY6NjRmYTE5NzM2Y2U2YTJkMTUyMTFmYjg2NDZhZTFiYWZhYmRhODkxOGE3NTEwYjEzZGVjZTE4YjQxNDczNmZlZiIsInBhY2thZ2VTaGEyNTYiOiI2NGZhMTk3MzZjZTZhMmQxNTIxMWZiODY0NmFlMWJhZmFiZGE4OTE4YTc1MTBiMTNkZWNlMThiNDE0NzM2ZmVmIiwibWFuaWZlc3RTaGEyNTYiOiI0YjJlMDVmMjVjNDU0NjFhOWNjNzU0YTdmYzJiYzA0ODBkYTM0NzM3OWY1YmQ2MDcwYjUxZDM4N2FmOTRmZDg1Iiwib3duZWRGaWxlcyI6W3sicGF0aCI6IkFJL09yY2hlc3RyYXRvci9UZW1wbGF0ZXMvYXJ0aWZhY3QtaW50YWtlLWRlY2lzaW9uLnNjaGVtYS5qc29uIiwibW9kZSI6IjEwMDY0NCIsInNpemUiOjg2MTgsInNoYTI1NiI6ImMyMWRkNjg1NmEyMGNhMzlkZjcwN2NlMjgxODFlMDkwNTZlMjcyZWQ2MDM5NjI1NjJjNWEyNGRkNTU0YWEwMWIifSx7InBhdGgiOiJBSS9PcmNoZXN0cmF0b3IvVGVtcGxhdGVzL2FydGlmYWN0LWludGFrZS1kZWNpc2lvbi50ZW1wbGF0ZS5qc29uIiwibW9kZSI6IjEwMDY0NCIsInNpemUiOjM0NTAsInNoYTI1NiI6ImZjMDRjYWJlMzQzMzI2Yzg3YjY4ZWQxMjExNjU2ODdmMGViNTI4YTUxYWIzODBkYjA1NmFjNzJiZWJkYzM1NTgifSx7InBhdGgiOiJBSS9PcmNoZXN0cmF0b3IvVGVtcGxhdGVzL2FydGlmYWN0LWludGFrZS1yZXF1ZXN0LnNjaGVtYS5qc29uIiwibW9kZSI6IjEwMDY0NCIsInNpemUiOjcyMzcsInNoYTI1NiI6ImYxYjRiOGQ4ZjZjYzQzNGEyZDE5MDAxNjFlZTE5MWZlYTYxYmU3N2FiNjBhODVmYTFjYjgzY2JiMjY3ZjRlOTUifSx7InBhdGgiOiJBSS9PcmNoZXN0cmF0b3IvVGVtcGxhdGVzL2FydGlmYWN0LWludGFrZS1yZXF1ZXN0LnRlbXBsYXRlLmpzb24iLCJtb2RlIjoiMTAwNjQ0Iiwic2l6ZSI6MzczMywic2hhMjU2IjoiNDhiMTY3ZWNlY2U0MzgxYTg3ZmNjMDEwYzYxNTU4MWIwNjE4OGY1N2MxMzc4NDMyMzIwNjhiM2YzZmY4N2RiMCJ9XSwidmFsaWRhdGlvblJlc3VsdCI6IlBBU1MiLCJwYXJlbnRBZ2dyZWdhdGVTdGF0ZURpZ2VzdCI6IkdFTkVTSVMifV0sImZpbGVPd25lcnNoaXAiOlt7InBhdGgiOiJBSS9PcmNoZXN0cmF0b3IvVGVtcGxhdGVzL2FydGlmYWN0LWludGFrZS1kZWNpc2lvbi5zY2hlbWEuanNvbiIsIm93bmVyVGFza0lkIjoiVlNQLUFJMDItMDAxVEktQTFELVZBTElEQVRFIiwicGhhc2UiOiJBMSIsIm1vZGUiOiIxMDA2NDQiLCJzaXplIjo4NjE4LCJzaGEyNTYiOiJjMjFkZDY4NTZhMjBjYTM5ZGY3MDdjZTI4MTgxZTA5MDU2ZTI3MmVkNjAzOTYyNTYyYzVhMjRkZDU1NGFhMDFiIn0seyJwYXRoIjoiQUkvT3JjaGVzdHJhdG9yL1RlbXBsYXRlcy9hcnRpZmFjdC1pbnRha2UtZGVjaXNpb24udGVtcGxhdGUuanNvbiIsIm93bmVyVGFza0lkIjoiVlNQLUFJMDItMDAxVEktQTFELVZBTElEQVRFIiwicGhhc2UiOiJBMSIsIm1vZGUiOiIxMDA2NDQiLCJzaXplIjozNDUwLCJzaGEyNTYiOiJmYzA0Y2FiZTM0MzMyNmM4N2I2OGVkMTIxMTY1Njg3ZjBlYjUyOGE1MWFiMzgwZGIwNTZhYzcyYmViZGMzNTU4In0seyJwYXRoIjoiQUkvT3JjaGVzdHJhdG9yL1RlbXBsYXRlcy9hcnRpZmFjdC1pbnRha2UtcmVxdWVzdC5zY2hlbWEuanNvbiIsIm93bmVyVGFza0lkIjoiVlNQLUFJMDItMDAxVEktQTFELVZBTElEQVRFIiwicGhhc2UiOiJBMSIsIm1vZGUiOiIxMDA2NDQiLCJzaXplIjo3MjM3LCJzaGEyNTYiOiJmMWI0YjhkOGY2Y2M0MzRhMmQxOTAwMTYxZWUxOTFmZWE2MWJlNzdhYjYwYTg1ZmExY2I4M2NiYjI2N2Y0ZTk1In0seyJwYXRoIjoiQUkvT3JjaGVzdHJhdG9yL1RlbXBsYXRlcy9hcnRpZmFjdC1pbnRha2UtcmVxdWVzdC50ZW1wbGF0ZS5qc29uIiwib3duZXJUYXNrSWQiOiJWU1AtQUkwMi0wMDFUSS1BMUQtVkFMSURBVEUiLCJwaGFzZSI6IkExIiwibW9kZSI6IjEwMDY0NCIsInNpemUiOjM3MzMsInNoYTI1NiI6IjQ4YjE2N2VjZWNlNDM4MWE4N2ZjYzAxMGM2MTU1ODFiMDYxODhmNTdjMTM3ODQzMjMyMDY4YjNmM2ZmODdkYjAifV0sImFnZ3JlZ2F0ZVN0YXRlRGlnZXN0Ijoic2hhMjU2OmEyOWVhNjZlNTNmMzY0NWNhMzhjMGIyYjZlMjg4MGNiNDcyYTNmMzdiYzFmZWExNWIwMTk4MGJlYTJhMmNhYTEifQ==",
+      "descriptorEvidenceBase64": "eyJzY2hlbWFWZXJzaW9uIjoiMS4wIiwiY2hpbGRUYXNrSWQiOiJWU1AtQUkwMi0wMDFUSS1BMUQtVkFMSURBVEUiLCJwaGFzZSI6IkExIiwic2VxdWVuY2UiOjEsInJlY292ZXJ5UmVwb3NpdG9yeVNoYSI6IjhhMGE0NDFjNTMyMjk1NDA1YjgxMzNkOTYxNDI4NDQwMjZlZTRhOTMiLCJ3b3JrZmxvd0lkIjoiMSIsInJ1bklkIjoiMSIsInJ1bkF0dGVtcHQiOjEsImFydGlmYWN0SWQiOiIxIiwiYXJ0aWZhY3ROYW1lIjoiYTFkLXZhbGlkYXRlLWxvY2FsLWNoaWxkLXBhY2thZ2UiLCJnaXRodWJBcnRpZmFjdERpZ2VzdCI6InNoYTI1Njo2NGZhMTk3MzZjZTZhMmQxNTIxMWZiODY0NmFlMWJhZmFiZGE4OTE4YTc1MTBiMTNkZWNlMThiNDE0NzM2ZmVmIiwicGFja2FnZVNoYTI1NiI6IjY0ZmExOTczNmNlNmEyZDE1MjExZmI4NjQ2YWUxYmFmYWJkYTg5MThhNzUxMGIxM2RlY2UxOGI0MTQ3MzZmZWYiLCJtYW5pZmVzdFNoYTI1NiI6IjRiMmUwNWYyNWM0NTQ2MWE5Y2M3NTRhN2ZjMmJjMDQ4MGRhMzQ3Mzc5ZjViZDYwNzBiNTFkMzg3YWY5NGZkODUiLCJvd25lZEZpbGVzIjpbeyJwYXRoIjoiQUkvT3JjaGVzdHJhdG9yL1RlbXBsYXRlcy9hcnRpZmFjdC1pbnRha2UtZGVjaXNpb24uc2NoZW1hLmpzb24iLCJtb2RlIjoiMTAwNjQ0Iiwic2l6ZSI6ODYxOCwic2hhMjU2IjoiYzIxZGQ2ODU2YTIwY2EzOWRmNzA3Y2UyODE4MWUwOTA1NmUyNzJlZDYwMzk2MjU2MmM1YTI0ZGQ1NTRhYTAxYiJ9LHsicGF0aCI6IkFJL09yY2hlc3RyYXRvci9UZW1wbGF0ZXMvYXJ0aWZhY3QtaW50YWtlLWRlY2lzaW9uLnRlbXBsYXRlLmpzb24iLCJtb2RlIjoiMTAwNjQ0Iiwic2l6ZSI6MzQ1MCwic2hhMjU2IjoiZmMwNGNhYmUzNDMzMjZjODdiNjhlZDEyMTE2NTY4N2YwZWI1MjhhNTFhYjM4MGRiMDU2YWM3MmJlYmRjMzU1OCJ9LHsicGF0aCI6IkFJL09yY2hlc3RyYXRvci9UZW1wbGF0ZXMvYXJ0aWZhY3QtaW50YWtlLXJlcXVlc3Quc2NoZW1hLmpzb24iLCJtb2RlIjoiMTAwNjQ0Iiwic2l6ZSI6NzIzNywic2hhMjU2IjoiZjFiNGI4ZDhmNmNjNDM0YTJkMTkwMDE2MWVlMTkxZmVhNjFiZTc3YWI2MGE4NWZhMWNiODNjYmIyNjdmNGU5NSJ9LHsicGF0aCI6IkFJL09yY2hlc3RyYXRvci9UZW1wbGF0ZXMvYXJ0aWZhY3QtaW50YWtlLXJlcXVlc3QudGVtcGxhdGUuanNvbiIsIm1vZGUiOiIxMDA2NDQiLCJzaXplIjozNzMzLCJzaGEyNTYiOiI0OGIxNjdlY2VjZTQzODFhODdmY2MwMTBjNjE1NTgxYjA2MTg4ZjU3YzEzNzg0MzIzMjA2OGIzZjNmZjg3ZGIwIn1dLCJ2YWxpZGF0aW9uUmVzdWx0IjoiUEFTUyIsInBhcmVudEFnZ3JlZ2F0ZVN0YXRlRGlnZXN0IjoiR0VORVNJUyJ9",
+      "packageResultEvidenceBase64": "eyJ0YXNrSWQiOiJWU1AtQUkwMi0wMDFUSS1BMUQtVkFMSURBVEUiLCJhcHByb3ZlZEJhc2VTaGEiOiI4YTBhNDQxYzUzMjI5NTQwNWI4MTMzZDk2MTQyODQ0MDI2ZWU0YTkzIiwicGFyZW50QWdncmVnYXRlU3RhdGVEaWdlc3QiOiJHRU5FU0lTIiwiY2hhbmdlZEZpbGVzIjpbeyJwYXRoIjoiQUkvT3JjaGVzdHJhdG9yL1RlbXBsYXRlcy9hcnRpZmFjdC1pbnRha2UtZGVjaXNpb24uc2NoZW1hLmpzb24iLCJtb2RlIjoiMTAwNjQ0Iiwic2l6ZSI6ODYxOCwic2hhMjU2IjoiYzIxZGQ2ODU2YTIwY2EzOWRmNzA3Y2UyODE4MWUwOTA1NmUyNzJlZDYwMzk2MjU2MmM1YTI0ZGQ1NTRhYTAxYiJ9LHsicGF0aCI6IkFJL09yY2hlc3RyYXRvci9UZW1wbGF0ZXMvYXJ0aWZhY3QtaW50YWtlLWRlY2lzaW9uLnRlbXBsYXRlLmpzb24iLCJtb2RlIjoiMTAwNjQ0Iiwic2l6ZSI6MzQ1MCwic2hhMjU2IjoiZmMwNGNhYmUzNDMzMjZjODdiNjhlZDEyMTE2NTY4N2YwZWI1MjhhNTFhYjM4MGRiMDU2YWM3MmJlYmRjMzU1OCJ9LHsicGF0aCI6IkFJL09yY2hlc3RyYXRvci9UZW1wbGF0ZXMvYXJ0aWZhY3QtaW50YWtlLXJlcXVlc3Quc2NoZW1hLmpzb24iLCJtb2RlIjoiMTAwNjQ0Iiwic2l6ZSI6NzIzNywic2hhMjU2IjoiZjFiNGI4ZDhmNmNjNDM0YTJkMTkwMDE2MWVlMTkxZmVhNjFiZTc3YWI2MGE4NWZhMWNiODNjYmIyNjdmNGU5NSJ9LHsicGF0aCI6IkFJL09yY2hlc3RyYXRvci9UZW1wbGF0ZXMvYXJ0aWZhY3QtaW50YWtlLXJlcXVlc3QudGVtcGxhdGUuanNvbiIsIm1vZGUiOiIxMDA2NDQiLCJzaXplIjozNzMzLCJzaGEyNTYiOiI0OGIxNjdlY2VjZTQzODFhODdmY2MwMTBjNjE1NTgxYjA2MTg4ZjU3YzEzNzg0MzIzMjA2OGIzZjNmZjg3ZGIwIn1dLCJwYWNrYWdlU2hhMjU2IjoiNjRmYTE5NzM2Y2U2YTJkMTUyMTFmYjg2NDZhZTFiYWZhYmRhODkxOGE3NTEwYjEzZGVjZTE4YjQxNDczNmZlZiIsIm1hbmlmZXN0U2hhMjU2IjoiNGIyZTA1ZjI1YzQ1NDYxYTljYzc1NGE3ZmMyYmMwNDgwZGEzNDczNzlmNWJkNjA3MGI1MWQzODdhZjk0ZmQ4NSIsInJlcG9zaXRvcnlXcml0ZUNyZWRlbnRpYWxBdmFpbGFibGVUb0RldmVsb3BlciI6ZmFsc2UsInByb2R1Y3RPd25lck1hbnVhbFRyYW5zcG9ydCI6ZmFsc2V9Cg==",
+      "productionFiles": [
+        {"path":"AI/Orchestrator/Templates/artifact-intake-decision.schema.json","mode":"100644","gitBlobId":"407a195e093f7a8a6136983fb2bf946d7eac64ef","size":8618,"sha256":"c21dd6856a20ca39df707ce28181e09056e272ed603962562c5a24dd554aa01b"},
+        {"path":"AI/Orchestrator/Templates/artifact-intake-decision.template.json","mode":"100644","gitBlobId":"cc9ac0c9e490a75a7643ea7394a09fe338084f35","size":3450,"sha256":"fc04cabe343326c87b68ed121165687f0eb528a51ab380db056ac72bebdc3558"},
+        {"path":"AI/Orchestrator/Templates/artifact-intake-request.schema.json","mode":"100644","gitBlobId":"7378d130eda351b85c17ff3564de1fa45e701af1","size":7237,"sha256":"f1b4b8d8f6cc434a2d1900161ee191fea61be77ab60a85fa1cb83cbb267f4e95"},
+        {"path":"AI/Orchestrator/Templates/artifact-intake-request.template.json","mode":"100644","gitBlobId":"ef68b6df094c7f117a33658a031cc93bc747aaac","size":3733,"sha256":"48b167ecece4381a87fcc010c615581b06188f57c137843232068b3f3ff87db0"}
+      ]
+    }
+  ],
   "trustedContext": {
     "repositoryGovernanceAuthority": ["repository","taskId","sourceSha","approvedFiles","modes","maxBytes","policyIdentity","predecessorIdentity"],
     "githubTrustedCallerAuthority": ["workflowId","runId","runAttempt","artifactId","artifactName","artifactDigest"],
@@ -170,9 +198,17 @@
     "initialAttempts": 1,
     "maximumCauseSpecificRemediations": 1,
     "maximumTotalAttempts": 2,
+    "attemptsConsumed": 0,
     "automaticSecondAttempt": false,
     "thirdAttemptAuthorized": false,
     "infrastructureRerunRequiresIdenticalInputsAndProductOwnerAuthorization": true
+  },
+  "executionBaseHandling": {
+    "fixtureImplementationBaseSha": "b222ef7cb391f8f3eb7f4cd98b45dda2a01e9fe3",
+    "fixtureSourceIsHistoricalAfterMerge": true,
+    "shaChasingFixtureRequired": false,
+    "actualExecutionShaSource": "PRODUCT_OWNER_AUTHORIZED_WORKFLOW_INPUT",
+    "postMergeExecutionBaseAuthorizationRequired": true
   },
   "temporaryValidationHarness": {
     "allowed": true,
@@ -183,8 +219,22 @@
     "permanentSuiteOwner": "A3"
   },
   "repositoryTransport": {
-    "required": false,
+    "required": true,
+    "baseBinding": "EXACT",
+    "infrastructureSmoke": false,
+    "allowWorkflowChanges": false,
+    "openPullRequest": false,
+    "postMergeOperationalSmokeRequired": false,
+    "targetBranch": "main",
     "requestPath": "",
-    "approvedFiles": []
+    "approvedFiles": ["tools/orchestrator/artifact-intake-contract.ps1"],
+    "invokedDuringA2Execution": false,
+    "separateProductOwnerAuthorizationRequired": true
+  },
+  "historicalFixture": {
+    "taskId": "VSP-AI02-001TI-A2F",
+    "status": "COMPLETE",
+    "authoritativeForExecutableTaskIdentity": false,
+    "sourceSha": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14"
   }
 }
