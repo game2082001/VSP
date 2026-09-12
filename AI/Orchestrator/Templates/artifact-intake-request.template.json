@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1.0",
+  "schemaId": "vsp.ai02.artifact-intake-request/1.0",
+  "policyVersion": "vsp-ai02-intake-v1",
+  "taskId": "VSP-AI02-EXAMPLE",
+  "repository": "game2082001/VSP",
+  "expectedSourceSha": "0000000000000000000000000000000000000000",
+  "developer": {
+    "workflowId": "1",
+    "runId": "1",
+    "runAttempt": 1
+  },
+  "artifact": {
+    "artifactId": "1",
+    "artifactName": "example-artifact",
+    "githubArtifactDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "hashBindings": {
+    "packageSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "manifestSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "stateSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "trustedInnerHashPins": []
+  },
+  "authorization": {
+    "manifestPath": "AI/Orchestrator/Manifests/example.manifest.json",
+    "statePath": "AI/Orchestrator/State/example.state.json",
+    "approvedFiles": [
+      "AI/Orchestrator/file.json"
+    ]
+  },
+  "transportIntent": {
+    "handoff": "VALIDATED_INLINE_BYTES",
+    "interface": "001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED",
+    "requestTransportAuthorization": true
+  },
+  "policy": {
+    "repositoryPath": {
+      "kind": "REPOSITORY_RELATIVE_FILE_PATH",
+      "characterSet": "PRINTABLE_ASCII_ONLY",
+      "minimumLength": 1,
+      "maximumLength": 240,
+      "maximumSegmentLength": 100,
+      "separator": "/",
+      "leadingSlashAllowed": false,
+      "backslashAllowed": false,
+      "colonAllowed": false,
+      "emptySegmentAllowed": false,
+      "dotSegmentAllowed": false,
+      "dotDotSegmentAllowed": false,
+      "trailingSlashAllowed": false,
+      "controlCharactersAllowed": false,
+      "nonAsciiAllowed": false
+    },
+    "limits": {
+      "maxOuterArtifactCompressedBytes": 26214400,
+      "maxInnerPublicationZipCompressedBytes": 20971520,
+      "maxTotalInnerUncompressedBytes": 52428800,
+      "maxChangedFiles": 200,
+      "maxPerFileUncompressedBytes": 10485760,
+      "maxManifestJsonBytes": 262144,
+      "maxResultJsonBytes": 262144,
+      "maxRepositoryRelativePathCharacters": 240,
+      "maxPathSegmentCharacters": 100,
+      "maxJsonNestingDepth": 16,
+      "maxSanitizedEvidenceArtifactBytes": 1048576,
+      "maxCompressionRatio": 100,
+      "requiredOuterPublicationFileCount": 3
+    },
+    "replay": {
+      "emptyConsumedIdentitySet": "FIRST_USE_NOT_YET_CONSUMED",
+      "matchingConsumedIdentity": "REJECT_REPLAY",
+      "successfullyConsumedRequest": "MUST_NOT_BE_SILENTLY_REPLAYED",
+      "unknownReplayState": "FAIL_CLOSED_REJECT"
+    },
+    "staleBase": {
+      "policy": "EXACT_BASE_ONLY",
+      "sourceShaRequirement": "MUST_EQUAL_AUTHORIZED_IMMUTABLE_EXECUTION_BASE",
+      "mainDriftDisposition": "REJECT",
+      "automaticRebase": false,
+      "staleArtifactDisposition": "REGENERATE_AND_REAUTHORIZE"
+    },
+    "credentialInvariants": {
+      "claudeRepositoryWriteAuthority": false,
+      "claudeBranchOrPullRequestAuthority": false,
+      "claudeArtifactReadCredential": false,
+      "trustedIntakeRepositoryWriteAuthority": false,
+      "trustedIntakeBranchOrPullRequestWriteAuthority": false,
+      "checkoutPersistCredentials": false,
+      "repositoryTransportSoleAutomatedWriteBoundary": true,
+      "automatedMergeAuthority": false,
+      "productOwnerMergeAuthority": true
+    },
+    "transport": {
+      "handoff": "VALIDATED_INLINE_BYTES",
+      "interface": "001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED",
+      "authoritySource": "TASK_MANIFEST_TRUSTED_GOVERNANCE",
+      "trustedIntakeMayAuthorize": true,
+      "trustedIntakeMayInvoke": false,
+      "trustedIntakeMayWriteRepository": false
+    }
+  }
+}
