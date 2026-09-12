@@ -1,0 +1,190 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A2F",
+  "title": "A2 Authorization Fixture and Immutable A1 Predecessor Binding",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A2F",
+    "scope": "Create only the A2 authorization fixture and immutable A1 predecessor binding; do not implement or dispatch A2."
+  },
+  "approvedScope": [
+    "Create the A2 manifest/state and exact CRITICAL fixture registration.",
+    "Freeze future A2 ownership, security semantics, and immutable deterministic A1 predecessor binding."
+  ],
+  "outOfScope": [
+    "A2 implementation or dispatch; A2 child artifacts; A1, policy, generator, P2, Transport, A3, later AI02, C1/C2, Local AI, or PR #79 changes."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL A2 authorization and predecessor-binding fixture requires mandatory Claude Security Cross Review."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before fixture implementation.",
+    "Any changed file lies outside the exact A2F three-file allowlist.",
+    "A2 implementation, dispatch, child packaging, descriptor creation, or aggregate append begins.",
+    "Any A1 predecessor identity, path, hash, mode, lineage, or aggregate binding differs from authorization.",
+    "A2 ownership, credentials, network authority, attempt rules, A3 ownership, or policy semantics expand.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-12T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
+    "approvalSummary": "Product Owner authorized only the CRITICAL A2 governance fixture; implementation and dispatch remain unauthorized."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "approvedFiles": [
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A2.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "futureA2": {
+    "taskId": "VSP-AI02-001TI-A2",
+    "purpose": "Trusted Intake Contract Validator",
+    "primaryDeveloper": "Claude Code Primary Developer",
+    "executionPlane": "AI02 Claude Artifact Developer",
+    "productionOwnership": ["tools/orchestrator/artifact-intake-contract.ps1"],
+    "a3Ownership": [
+      "tools/orchestrator/test-artifact-intake-contract.ps1",
+      "AI/Orchestrator/ARTIFACT_INTAKE_SCHEMA.md"
+    ],
+    "networkAuthority": false,
+    "repositoryWriteAuthority": false,
+    "artifactReadCredentialAvailableToClaude": false,
+    "branchOrPullRequestAuthority": false,
+    "repositoryTransportAuthority": false,
+    "localAiAuthority": false
+  },
+  "phasedChild": {
+    "enabled": true,
+    "phase": "A2",
+    "sequence": 2,
+    "predecessorCount": 1,
+    "parentAggregateStateDigest": "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1",
+    "workflowId": "345910582",
+    "workflowPath": ".github/workflows/ai02-claude-artifact-developer.yml"
+  },
+  "a1Predecessor": {
+    "childTaskId": "VSP-AI02-001TI-A1D-VALIDATE",
+    "phase": "A1",
+    "sequence": 1,
+    "predecessors": [],
+    "parentLineage": "GENESIS",
+    "productionMergeCommit": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
+    "productionParent": "8a0a441c532295405b8133d96142844026ee4a93",
+    "publishedProductionHead": "cb7dbf0cfbcb0f715001588cdd6da97264e19d06",
+    "packageSha256": "64fa19736ce6a2d15211fb8646ae1bafabda8918a7510b13dece18b414736fef",
+    "manifestSha256": "4b2e05f25c45461a9cc754a7fc2bc0480da347379f5bd6070b51d387af94fd85",
+    "resultSha256": "fc78ce57a27bed3cf757074cf1c7769ae4d6d2e75c5354ac0c9abd3eac85c67e",
+    "descriptorSha256": "c1595130a63ffb3eaba0facbb4c0f1e73c5dbf17db098ea5052ca23ff021a253",
+    "aggregateStateDigest": "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1",
+    "aggregateFileSha256": "750334cd06ecf529303b14ba0431f5ca492c714e606baca6767aef5961106ddc",
+    "files": [
+      {"path":"AI/Orchestrator/Templates/artifact-intake-request.schema.json","mode":"100644","sha256":"f1b4b8d8f6cc434a2d1900161ee191fea61be77ab60a85fa1cb83cbb267f4e95"},
+      {"path":"AI/Orchestrator/Templates/artifact-intake-request.template.json","mode":"100644","sha256":"48b167ecece4381a87fcc010c615581b06188f57c137843232068b3f3ff87db0"},
+      {"path":"AI/Orchestrator/Templates/artifact-intake-decision.schema.json","mode":"100644","sha256":"c21dd6856a20ca39df707ce28181e09056e272ed603962562c5a24dd554aa01b"},
+      {"path":"AI/Orchestrator/Templates/artifact-intake-decision.template.json","mode":"100644","sha256":"fc04cabe343326c87b68ed121165687f0eb528a51ab380db056ac72bebdc3558"}
+    ]
+  },
+  "trustedContext": {
+    "repositoryGovernanceAuthority": ["repository","taskId","sourceSha","approvedFiles","modes","maxBytes","policyIdentity","predecessorIdentity"],
+    "githubTrustedCallerAuthority": ["workflowId","runId","runAttempt","artifactId","artifactName","artifactDigest"],
+    "artifactDerivedObservations": ["packageSha256","manifestSha256","stateSha256","fileSizes","fileHashes"],
+    "intakeContext": ["consumedIdentities","trustedCurrentBaseObservation"],
+    "a2Derived": ["requestSha256","sanitizedEvidence","findingCodes","result"],
+    "producerClaimsAuthoritative": false,
+    "requiredMode": "100644"
+  },
+  "pathResponsibility": {
+    "a2": ["EMPTY","LEADING_OR_TRAILING_SLASH","DOT_SEGMENT","DOT_DOT_SEGMENT","DOUBLE_SLASH","BACKSLASH","COLON","CONTROL","NON_ASCII","PATH_OVER_240","SEGMENT_OVER_100","EXACT_DUPLICATE"],
+    "laterArchiveAcquisition": ["WINDOWS_DEVICE_NAME","TRAILING_DOT_OR_SPACE","CASE_FOLD_COLLISION","UNICODE_NORMALIZATION_COLLISION","ARCHIVE_AMBIGUITY","SYMLINK_OR_REPARSE","EXTRACTION_CONTAINMENT"],
+    "silentPolicyExpansionAllowed": false
+  },
+  "failureMapping": [
+    {"findingCode":"REQUEST_SCHEMA_INVALID","canonicalCategory":"SCHEMA_VALIDATION_FAILED"},
+    {"findingCode":"UNSUPPORTED_SCHEMA_VERSION","canonicalCategory":"UNSUPPORTED_INPUT"},
+    {"findingCode":"JSON_DUPLICATE_PROPERTY","canonicalCategory":"STRUCTURE_MISMATCH"},
+    {"findingCode":"SOURCE_SHA_MISMATCH","canonicalCategory":"STALE_BASE"},
+    {"findingCode":"TASK_REPOSITORY_MANIFEST_OR_STATE_BINDING_MISMATCH","canonicalCategory":"MANIFEST_OR_STATE_INVALID"},
+    {"findingCode":"UNAUTHORIZED_MISSING_OR_CHANGED_FILE_SET","canonicalCategory":"APPROVED_FILES_MISMATCH"},
+    {"findingCode":"DUPLICATE_OR_UNSAFE_PATH","canonicalCategory":"PATH_POLICY_VIOLATION"},
+    {"findingCode":"HASH_OR_PROVENANCE_MISMATCH","canonicalCategory":"DIGEST_MISMATCH"},
+    {"findingCode":"SIZE_OR_CEILING_VIOLATION","canonicalCategory":"OVERSIZED_FILE"},
+    {"findingCode":"REQUEST_REPLAY_DETECTED","canonicalCategory":"REPLAY_DETECTED"},
+    {"findingCode":"INTERNAL_VALIDATION_ERROR","canonicalCategory":"UNSUPPORTED_INPUT"}
+  ],
+  "replayAndStaleBase": {
+    "emptyConsumedIdentities": "FIRST_USE_NOT_YET_CONSUMED",
+    "matchingConsumedIdentity": "REJECT_REPLAY",
+    "nonmatchingValidCollection": "NOT_PREVIOUSLY_CONSUMED",
+    "unknownReplayState": "FAIL_CLOSED_REJECT",
+    "allowEmptyCollectionRequired": true,
+    "staleBasePolicy": "EXACT_BASE_ONLY",
+    "a2PerformsGitHubLookup": false,
+    "automaticRebase": false
+  },
+  "decisionStateMachine": {
+    "transportInvokedGlobally": false,
+    "rejected": {"transportAuthorized":false,"transportInvoked":false,"requestReferenceRequired":true,"requestShaExact":true,"failureNotNone":true,"statusNotValidPackage":true},
+    "acceptedForTransport": {"requestValidation":"PASS","transportAuthorized":true,"transportInvoked":false,"requestReferenceExact":true,"requestShaExact":true,"provenanceExact":true,"status":"VALID_PACKAGE","failureCategory":"NONE"}
+  },
+  "evidenceContract": {
+    "resultValues": ["PASS","REJECT"],
+    "sanitizedFields": ["validatorSchemaVersion","policyVersion","result","canonicalFailureCategory","findingCodes","checkIds","taskId","repository","computedRequestSha256","approvedFileMetadata","trustedSourceIdentity","trustedArtifactIdentity","predecessorTaskPhaseSequence","predecessorDescriptorSha256","parentAggregateStateDigest","validatorVersion"],
+    "excluded": ["credentials","authorizationHeaders","fileContents","rawExceptionText","environmentDump","machineLocalPaths","rawClaudeOutput","timestampsAffectingValidation"]
+  },
+  "attemptBudget": {
+    "initialAttempts": 1,
+    "maximumCauseSpecificRemediations": 1,
+    "maximumTotalAttempts": 2,
+    "automaticSecondAttempt": false,
+    "thirdAttemptAuthorized": false,
+    "infrastructureRerunRequiresIdenticalInputsAndProductOwnerAuthorization": true
+  },
+  "temporaryValidationHarness": {
+    "allowed": true,
+    "credentialless": true,
+    "location": "RUNNER_TEMP_OUTSIDE_REPOSITORY_OWNERSHIP",
+    "committed": false,
+    "normative": false,
+    "permanentSuiteOwner": "A3"
+  },
+  "repositoryTransport": {
+    "required": false,
+    "requestPath": "",
+    "approvedFiles": []
+  }
+}
