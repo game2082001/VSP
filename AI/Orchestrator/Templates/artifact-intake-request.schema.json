@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/game2082001/VSP/AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+  "title": "AI02 Trusted Artifact Intake request",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifactDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "commitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "positiveDecimalId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^(?=.{1,240}$)(?!/)(?!.*[\\\\:])(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\/$)(?!.*(?:^|/)[^/]{101,}(?:/|$))[\\x20-\\x7E]+$"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "schemaId",
+    "policyVersion",
+    "taskId",
+    "repository",
+    "expectedSourceSha",
+    "developer",
+    "artifact",
+    "hashBindings",
+    "authorization",
+    "transportIntent",
+    "policy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "schemaId": {
+      "const": "vsp.ai02.artifact-intake-request/1.0"
+    },
+    "policyVersion": {
+      "const": "vsp-ai02-intake-v1"
+    },
+    "taskId": {
+      "type": "string",
+      "pattern": "^VSP-AI02-[A-Za-z0-9-]+$",
+      "maxLength": 100
+    },
+    "repository": {
+      "const": "game2082001/VSP"
+    },
+    "expectedSourceSha": {
+      "$ref": "#/$defs/commitSha"
+    },
+    "developer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflowId",
+        "runId",
+        "runAttempt"
+      ],
+      "properties": {
+        "workflowId": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,19}$"
+        },
+        "runId": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,19}$"
+        },
+        "runAttempt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "artifactName",
+        "githubArtifactDigest"
+      ],
+      "properties": {
+        "artifactId": {
+          "$ref": "#/$defs/positiveDecimalId"
+        },
+        "artifactName": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$",
+          "maxLength": 200
+        },
+        "githubArtifactDigest": {
+          "$ref": "#/$defs/artifactDigest"
+        }
+      }
+    },
+    "hashBindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageSha256",
+        "manifestSha256",
+        "stateSha256"
+      ],
+      "properties": {
+        "packageSha256": {
+          "$ref": "#/$defs/sha256Hex"
+        },
+        "manifestSha256": {
+          "$ref": "#/$defs/sha256Hex"
+        },
+        "stateSha256": {
+          "$ref": "#/$defs/sha256Hex"
+        },
+        "trustedInnerHashPins": {
+          "type": "array",
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/repositoryPath"
+              },
+              "sha256": {
+                "$ref": "#/$defs/sha256Hex"
+              }
+            }
+          }
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifestPath",
+        "statePath",
+        "approvedFiles"
+      ],
+      "properties": {
+        "manifestPath": {
+          "$ref": "#/$defs/repositoryPath"
+        },
+        "statePath": {
+          "$ref": "#/$defs/repositoryPath"
+        },
+        "approvedFiles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/repositoryPath"
+          }
+        }
+      }
+    },
+    "transportIntent": {
+      "const": {
+        "handoff": "VALIDATED_INLINE_BYTES",
+        "interface": "001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED",
+        "requestTransportAuthorization": true
+      }
+    },
+    "policy": {
+      "const": {
+        "repositoryPath": {
+          "kind": "REPOSITORY_RELATIVE_FILE_PATH",
+          "characterSet": "PRINTABLE_ASCII_ONLY",
+          "minimumLength": 1,
+          "maximumLength": 240,
+          "maximumSegmentLength": 100,
+          "separator": "/",
+          "leadingSlashAllowed": false,
+          "backslashAllowed": false,
+          "colonAllowed": false,
+          "emptySegmentAllowed": false,
+          "dotSegmentAllowed": false,
+          "dotDotSegmentAllowed": false,
+          "trailingSlashAllowed": false,
+          "controlCharactersAllowed": false,
+          "nonAsciiAllowed": false
+        },
+        "limits": {
+          "maxOuterArtifactCompressedBytes": 26214400,
+          "maxInnerPublicationZipCompressedBytes": 20971520,
+          "maxTotalInnerUncompressedBytes": 52428800,
+          "maxChangedFiles": 200,
+          "maxPerFileUncompressedBytes": 10485760,
+          "maxManifestJsonBytes": 262144,
+          "maxResultJsonBytes": 262144,
+          "maxRepositoryRelativePathCharacters": 240,
+          "maxPathSegmentCharacters": 100,
+          "maxJsonNestingDepth": 16,
+          "maxSanitizedEvidenceArtifactBytes": 1048576,
+          "maxCompressionRatio": 100,
+          "requiredOuterPublicationFileCount": 3
+        },
+        "replay": {
+          "emptyConsumedIdentitySet": "FIRST_USE_NOT_YET_CONSUMED",
+          "matchingConsumedIdentity": "REJECT_REPLAY",
+          "successfullyConsumedRequest": "MUST_NOT_BE_SILENTLY_REPLAYED",
+          "unknownReplayState": "FAIL_CLOSED_REJECT"
+        },
+        "staleBase": {
+          "policy": "EXACT_BASE_ONLY",
+          "sourceShaRequirement": "MUST_EQUAL_AUTHORIZED_IMMUTABLE_EXECUTION_BASE",
+          "mainDriftDisposition": "REJECT",
+          "automaticRebase": false,
+          "staleArtifactDisposition": "REGENERATE_AND_REAUTHORIZE"
+        },
+        "credentialInvariants": {
+          "claudeRepositoryWriteAuthority": false,
+          "claudeBranchOrPullRequestAuthority": false,
+          "claudeArtifactReadCredential": false,
+          "trustedIntakeRepositoryWriteAuthority": false,
+          "trustedIntakeBranchOrPullRequestWriteAuthority": false,
+          "checkoutPersistCredentials": false,
+          "repositoryTransportSoleAutomatedWriteBoundary": true,
+          "automatedMergeAuthority": false,
+          "productOwnerMergeAuthority": true
+        },
+        "transport": {
+          "handoff": "VALIDATED_INLINE_BYTES",
+          "interface": "001T_INTERFACE_MINIMAL_EXTENSION_REQUIRED",
+          "authoritySource": "TASK_MANIFEST_TRUSTED_GOVERNANCE",
+          "trustedIntakeMayAuthorize": true,
+          "trustedIntakeMayInvoke": false,
+          "trustedIntakeMayWriteRepository": false
+        }
+      }
+    }
+  }
+}
