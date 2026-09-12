@@ -130,6 +130,16 @@
     "automaticRetry": false,
     "attemptsConsumed": 0
   },
+  "repositoryTransportPublication": {
+    "required": true,
+    "baseBinding": "EXACT",
+    "targetBranch": "ai02/vsp-ai02-001ti-a2/trusted-intake-contract-validator",
+    "openPullRequest": true,
+    "approvedFiles": ["tools/orchestrator/artifact-intake-contract.ps1"],
+    "invoked": false,
+    "separateProductOwnerAuthorizationRequired": true,
+    "productOwnerSoleMergeAuthority": true
+  },
   "temporaryValidationHarness": {
     "allowed": true,
     "credentialless": true,

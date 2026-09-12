@@ -187,9 +187,14 @@ function Test-A2ExecutableAuthorization {
         throw "Manifest validation failed: executable A2 developer or authority boundary mismatch."
     }
     if ($Manifest.repositoryTransport.required -ne $true -or
+        $Manifest.repositoryTransport.baseBinding -ne "EXACT" -or
+        $Manifest.repositoryTransport.openPullRequest -ne $true -or
+        $Manifest.repositoryTransport.targetBranch -ne "ai02/vsp-ai02-001ti-a2/trusted-intake-contract-validator" -or
+        $Manifest.repositoryTransport.targetBranch -eq "main" -or
         @($Manifest.repositoryTransport.approvedFiles).Count -ne 1 -or
         $Manifest.repositoryTransport.approvedFiles[0] -ne $ownedPath -or
-        $Manifest.repositoryTransport.invokedDuringA2Execution -ne $false) {
+        $Manifest.repositoryTransport.invokedDuringA2Execution -ne $false -or
+        $Manifest.repositoryTransport.separateProductOwnerAuthorizationRequired -ne $true) {
         throw "Manifest validation failed: executable A2 Repository Transport contract mismatch."
     }
     if ($Manifest.phasedChild.enabled -ne $true -or $Manifest.phasedChild.phase -ne "A2" -or
