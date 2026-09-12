@@ -1,0 +1,168 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A1D-VALIDATEF",
+  "title": "Deterministic A1 Replacement Validation Fixture",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "c8329062a73aba181df0120f1378cceb5107eab4",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A1D-VALIDATEF",
+    "scope": "Create only the deterministic A1 replacement validation governance fixture; do not execute generation, artifact admission, or publication."
+  },
+  "approvedScope": [
+    "Freeze the deterministic generator, normative policy inputs, exact four-output set and expected SHA-256 values.",
+    "Freeze the A1 GENESIS descriptor and aggregate-admission validation sequence, artifact-review gate, attempt semantics, and credential boundaries.",
+    "Create the minimum VALIDATEF manifest/state and exact task-manifest bootstrap registration."
+  ],
+  "outOfScope": [
+    "Generating or committing production A1 contracts; aggregate admission; policy, policy-schema, generator, P2, workflow, Repository Transport, A2/A3, publication, later AI02, C1/C2, or Local AI changes."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL deterministic validation and aggregate-admission fixture requires mandatory Claude Security Cross Review before merge."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before fixture implementation.",
+    "Any changed file lies outside the exact VALIDATEF allowlist.",
+    "Any production A1 contract is generated or committed, or aggregate admission or Repository Transport begins.",
+    "Any expected output hash, normative input, generator identity, P2 mapping, attempt rule, or credential boundary differs from Product Owner authorization.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-12T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/c8329062a73aba181df0120f1378cceb5107eab4",
+    "approvalSummary": "Product Owner authorized only the CRITICAL deterministic A1 replacement validation fixture under an exact task-specific Codex bootstrap exception."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "approvedFiles": [
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A1D-VALIDATE.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A1D-VALIDATE.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "normativeAuthority": {
+    "policy": "NORMATIVE",
+    "policySchema": "NORMATIVE_VALIDATION_CONTRACT",
+    "generator": "DETERMINISTIC_TRANSLATOR",
+    "generatedContracts": "DERIVED",
+    "modelOutput": "NON_NORMATIVE"
+  },
+  "normativeInputs": {
+    "policyPath": "AI/Orchestrator/Policy/artifact-intake-policy.json",
+    "policySchemaPath": "AI/Orchestrator/Policy/artifact-intake-policy.schema.json",
+    "generatorPath": "tools/orchestrator/generate-artifact-intake-contract.ps1",
+    "generatorTestPath": "tools/orchestrator/test-generate-artifact-intake-contract.ps1"
+  },
+  "derivedOutputs": [
+    {
+      "path": "AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+      "sha256": "f1b4b8d8f6cc434a2d1900161ee191fea61be77ab60a85fa1cb83cbb267f4e95"
+    },
+    {
+      "path": "AI/Orchestrator/Templates/artifact-intake-request.template.json",
+      "sha256": "48b167ecece4381a87fcc010c615581b06188f57c137843232068b3f3ff87db0"
+    },
+    {
+      "path": "AI/Orchestrator/Templates/artifact-intake-decision.schema.json",
+      "sha256": "c21dd6856a20ca39df707ce28181e09056e272ed603962562c5a24dd554aa01b"
+    },
+    {
+      "path": "AI/Orchestrator/Templates/artifact-intake-decision.template.json",
+      "sha256": "fc04cabe343326c87b68ed121165687f0eb528a51ab380db056ac72bebdc3558"
+    }
+  ],
+  "p2Admission": {
+    "phase": "A1",
+    "sequence": 1,
+    "predecessors": [],
+    "parentLineage": "GENESIS",
+    "descriptorValidationBeforeAndAfterSerialization": true,
+    "aggregateStateDigestRequired": true
+  },
+  "validationSequence": [
+    "VERIFY_EXECUTION_BASE_SHA",
+    "VERIFY_NORMATIVE_INPUT_IDENTITIES",
+    "RUN_COMPLETE_GENERATOR_FOCUSED_SUITE",
+    "GENERATE_EXACT_FOUR_OUTPUTS_IN_CREDENTIALLESS_TEMP_WORKSPACE",
+    "GENERATE_SECOND_TIME_INDEPENDENTLY",
+    "REQUIRE_BYTE_FOR_BYTE_EQUALITY",
+    "REQUIRE_EXACT_FOUR_SHA256_VALUES",
+    "PARSE_ALL_FOUR_JSON_FILES",
+    "VALIDATE_GENERATED_SCHEMAS_AS_DRAFT_2020_12",
+    "VALIDATE_TEMPLATES_AGAINST_GENERATED_SCHEMAS",
+    "RUN_PATH_SECURITY_REGRESSION_MATRIX",
+    "RUN_HISTORICAL_NON_PATH_REGRESSION_MATRIX",
+    "VALIDATE_CLOSED_DECISION_STATE_COMBINATIONS",
+    "VALIDATE_EVERY_NORMATIVE_VALUE_AGAINST_POLICY",
+    "VERIFY_NO_NORMATIVE_OR_GENERATOR_MUTATION",
+    "CREATE_EXACT_FOUR_FILE_CHILD_PACKAGE",
+    "CREATE_P2_PREDECESSOR_DESCRIPTOR",
+    "VALIDATE_DESCRIPTOR_BEFORE_AND_AFTER_SERIALIZATION",
+    "APPEND_DESCRIPTOR_TO_GENESIS_AGGREGATE",
+    "COMPUTE_AGGREGATE_STATE_DIGEST",
+    "PERFORM_SEPARATE_CODEX_INDEPENDENT_ARTIFACT_REVIEW",
+    "REQUIRE_ZERO_UNRESOLVED_FINDINGS",
+    "STOP_BEFORE_REPOSITORY_PUBLICATION"
+  ],
+  "aggregateAdmission": {
+    "failClosed": true,
+    "allValidationRequirementsMandatory": true,
+    "automaticRepositoryPublication": false
+  },
+  "attemptSemantics": {
+    "semanticExecutionBudget": 1,
+    "automaticRetry": false,
+    "semanticFailureRetryable": false,
+    "semanticFailureDisposition": "ARCHITECTURAL_REVIEW",
+    "preSemanticRerunRequiresProductOwnerAuthorization": true,
+    "preSemanticRerunRequiresIdenticalSourceAndInputs": true,
+    "preSemanticRerunRequiresNoAdmittedOutput": true
+  },
+  "credentialBoundaries": {
+    "repositoryWriteCredentialAvailable": false,
+    "repositoryTransportTokenAvailable": false,
+    "claudeOauthRequired": false,
+    "artifactReadCredentialAvailable": false,
+    "persistedCheckoutCredentials": false,
+    "branchPrPushAuthority": false,
+    "productOwnerSoleMergeAndPublicationAuthority": true
+  },
+  "lifecycle": {
+    "architecture": "A1D-POLICY -> A1D-GEN -> A1D-VALIDATE",
+    "current": "A1D-VALIDATEF",
+    "futureExecution": "A1D-VALIDATE",
+    "futureExecutionStarted": false,
+    "publicationSeparatelyAuthorized": false
+  }
+}
