@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A-P2-PM1",
+  "title": "Authoritative Repository-Merge Predecessor Materialization",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "2110f7ca4c851b183c6d07c3391c962ef33a5e98",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A-P2-PM1",
+    "scope": "Implement only closed predecessor source discrimination, authoritative repository-merge verification and credentialless materialization, workflow routing, tests, documentation, and this governance fixture."
+  },
+  "approvedScope": [
+    "Support exactly ACTIONS_ARTIFACT and AUTHORITATIVE_REPOSITORY_MERGE predecessor bindings.",
+    "Preserve existing Actions artifact acquisition and credential routing without weakening validation.",
+    "Verify the exact A1 production merge, ordered parents, canonical evidence, immutable Git objects, production blobs, sizes, modes, hashes, ancestry, and child tree.",
+    "Materialize verified repository-merge predecessor bytes without credentials and bind a deterministic immutable baseline.",
+    "Consume the merged AGV2 checkpoint operations for future A2 schema 2.0 checkpoint creation without changing the aggregate-state schema."
+  ],
+  "outOfScope": [
+    "Aggregate-state schema changes, A2 implementation or dispatch, A2-EF, Repository Transport, A1 production contracts, PR 79, A3, later AI02, and Local AI."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL predecessor provenance, credential routing, and materialization require mandatory Claude Security Cross Review before merge."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before implementation.",
+    "Any changed file lies outside the exact eight-file PM1 allowlist.",
+    "A predecessor source is ambiguous, missing Git evidence is fetched, credentials reach repository-merge acquisition or Claude, or predecessor immutability can be bypassed.",
+    "The AGV2 aggregate-state schema changes or A2, A2-EF, Repository Transport, PR 79, A3, later AI02, or Local AI work begins.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-12T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/2110f7ca4c851b183c6d07c3391c962ef33a5e98",
+    "approvalSummary": "Product Owner authorized PM1 under an exact task-specific CRITICAL Codex bootstrap exception after AGV2 completion."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "approvedFiles": [
+    ".github/workflows/ai02-claude-artifact-developer.yml",
+    "tools/orchestrator/ai02-artifact-chain.ps1",
+    "tools/orchestrator/test-ai02-artifact-chain.ps1",
+    "AI/Orchestrator/Templates/ai02-predecessor-binding.schema.json",
+    "AI/Orchestrator/PHASED_ARTIFACT_CHAINING.md",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A-P2-PM1.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A-P2-PM1.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "predecessorSourceContract": {
+    "sourceTypes": ["ACTIONS_ARTIFACT", "AUTHORITATIVE_REPOSITORY_MERGE"],
+    "unknownOrAmbiguousDisposition": "REJECT",
+    "repositoryMergeAutomaticFetch": false,
+    "repositoryMergeArtifactReadCredential": false,
+    "repositoryMergeRepositoryWriteCredential": false,
+    "claudeCredentialExposure": false
+  },
+  "attemptAccounting": {
+    "pm1ImplementationAttemptConsumedBeforeAgv2": false,
+    "a2InitialSemanticAttemptConsumed": false,
+    "a2RemediationConsumed": false,
+    "claudeA2ExecutionExists": false
+  }
+}

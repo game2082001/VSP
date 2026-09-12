@@ -89,12 +89,11 @@ jobs:
           }
           "task_id=$($validation.taskId)" >> $env:GITHUB_OUTPUT
 
-      - name: Materialize validated predecessor artifacts
-        id: materialize
+      - name: Classify phased predecessor source
+        id: predecessor_route
         if: inputs.phased_child
         shell: pwsh
         env:
-          AI02_ARTIFACT_READ_TOKEN: ${{ github.token }}
           AI02_PREDECESSOR_BINDINGS: ${{ inputs.predecessor_bindings_json }}
           AI02_CHILD_PHASE: ${{ inputs.child_phase }}
           AI02_CHILD_SEQUENCE: ${{ inputs.child_sequence }}
@@ -109,22 +108,70 @@ jobs:
           }
           if ($env:AI02_CHILD_PHASE -eq "A1") {
             if ($env:AI02_PREDECESSOR_BINDINGS -ne "[]") { throw "A1 must bind no predecessors." }
-            ./tools/orchestrator/ai02-artifact-chain.ps1 `
-              -Mode InitializeWorkspace `
-              -RecoveryRepositorySha $env:AI02_EXPECTED_BASE_SHA `
-              -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
-              -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json"
+            "route=GENESIS" >> $env:GITHUB_OUTPUT
           }
           else {
-            ./tools/orchestrator/ai02-artifact-chain.ps1 `
-              -Mode AcquireAndMaterialize `
-              -Repository "${{ github.repository }}" `
-              -RecoveryRepositorySha $env:AI02_EXPECTED_BASE_SHA `
-              -WorkspacePath "${{ github.workspace }}" `
-              -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
-              -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json" `
-              -BindingsJson $env:AI02_PREDECESSOR_BINDINGS
+            $routeJson = ./tools/orchestrator/ai02-artifact-chain.ps1 -Mode ClassifyBindings -Repository "${{ github.repository }}" -BindingsJson $env:AI02_PREDECESSOR_BINDINGS
+            $route = $routeJson | ConvertFrom-Json
+            if ($route.route -notin @("ACTIONS_ARTIFACT", "AUTHORITATIVE_REPOSITORY_MERGE")) { throw "Unsupported predecessor source combination." }
+            "route=$($route.route)" >> $env:GITHUB_OUTPUT
           }
+
+      - name: Initialize GENESIS predecessor state
+        if: inputs.phased_child && steps.predecessor_route.outputs.route == 'GENESIS'
+        shell: pwsh
+        run: |
+          ./tools/orchestrator/ai02-artifact-chain.ps1 `
+            -Mode InitializeWorkspace `
+            -RecoveryRepositorySha "${{ inputs.expected_base_sha }}" `
+            -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
+            -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json"
+
+      - name: Acquire Actions artifact predecessors
+        if: inputs.phased_child && steps.predecessor_route.outputs.route == 'ACTIONS_ARTIFACT'
+        shell: pwsh
+        env:
+          AI02_ARTIFACT_READ_TOKEN: ${{ github.token }}
+          AI02_PREDECESSOR_BINDINGS: ${{ inputs.predecessor_bindings_json }}
+        run: |
+          ./tools/orchestrator/ai02-artifact-chain.ps1 `
+            -Mode AcquireAndMaterialize `
+            -Repository "${{ github.repository }}" `
+            -RecoveryRepositorySha "${{ inputs.expected_base_sha }}" `
+            -WorkspacePath "${{ github.workspace }}" `
+            -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
+            -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json" `
+            -BindingsJson $env:AI02_PREDECESSOR_BINDINGS
+          Remove-Item Env:AI02_ARTIFACT_READ_TOKEN -ErrorAction SilentlyContinue
+
+      - name: Materialize authoritative repository predecessors
+        if: inputs.phased_child && steps.predecessor_route.outputs.route == 'AUTHORITATIVE_REPOSITORY_MERGE'
+        shell: pwsh
+        env:
+          AI02_PREDECESSOR_BINDINGS: ${{ inputs.predecessor_bindings_json }}
+        run: |
+          if (-not [string]::IsNullOrEmpty($env:AI02_ARTIFACT_READ_TOKEN) -or -not [string]::IsNullOrEmpty($env:GH_TOKEN) -or -not [string]::IsNullOrEmpty($env:GITHUB_TOKEN)) { throw "Repository-merge route received a credential." }
+          ./tools/orchestrator/ai02-artifact-chain.ps1 `
+            -Mode AcquireAndMaterialize `
+            -Repository "${{ github.repository }}" `
+            -RecoveryRepositorySha "${{ inputs.expected_base_sha }}" `
+            -WorkspacePath "${{ github.workspace }}" `
+            -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
+            -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json" `
+            -EvidenceDirectory "${{ runner.temp }}/ai02-predecessor-evidence" `
+            -BindingsJson $env:AI02_PREDECESSOR_BINDINGS
+
+      - name: Validate phased child authorization
+        id: materialize
+        if: inputs.phased_child
+        shell: pwsh
+        env:
+          AI02_CHILD_PHASE: ${{ inputs.child_phase }}
+          AI02_CHILD_SEQUENCE: ${{ inputs.child_sequence }}
+          AI02_CHILD_TASK_ID: ${{ inputs.task_id }}
+          AI02_EXPECTED_BASE_SHA: ${{ inputs.expected_base_sha }}
+          AI02_MANIFEST_PATH: ${{ inputs.manifest_path }}
+        run: |
           ./tools/orchestrator/ai02-artifact-chain.ps1 `
             -Mode ValidateChildAuthorization `
             -ChildTaskId $env:AI02_CHILD_TASK_ID `
@@ -135,7 +182,6 @@ jobs:
             -BaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json"
           "baseline_sha256=$((Get-FileHash -LiteralPath '${{ runner.temp }}/ai02-predecessor-baseline.json' -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
           "aggregate_state_sha256=$((Get-FileHash -LiteralPath '${{ runner.temp }}/ai02-aggregate-state.json' -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-          Remove-Item Env:AI02_ARTIFACT_READ_TOKEN -ErrorAction SilentlyContinue
 
       - name: Verify Claude receives no artifact or repository credential
         if: inputs.phased_child
@@ -265,6 +311,7 @@ jobs:
           AI02_PACKAGE_ARTIFACT_ID: ${{ steps.publication_package.outputs.artifact-id }}
           AI02_PACKAGE_ARTIFACT_DIGEST: ${{ steps.publication_package.outputs.artifact-digest }}
           AI02_PACKAGE_ARTIFACT_NAME: ai02-claude-publication-package-${{ inputs.task_id }}-${{ github.run_id }}
+          AI02_PREDECESSOR_ROUTE: ${{ steps.predecessor_route.outputs.route }}
         run: |
           $ErrorActionPreference = "Stop"
           ./tools/orchestrator/ai02-artifact-chain.ps1 `
@@ -280,11 +327,30 @@ jobs:
             -ArtifactId $env:AI02_PACKAGE_ARTIFACT_ID `
             -ArtifactName $env:AI02_PACKAGE_ARTIFACT_NAME `
             -GitHubArtifactDigest $env:AI02_PACKAGE_ARTIFACT_DIGEST
-          ./tools/orchestrator/ai02-artifact-chain.ps1 `
-            -Mode AppendDescriptor `
-            -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
-            -DescriptorPath "${{ runner.temp }}/ai02-publication-package/predecessor-descriptor.json"
-          if ($env:AI02_CHILD_PHASE -eq "A3") {
+          if ($env:AI02_PREDECESSOR_ROUTE -eq "AUTHORITATIVE_REPOSITORY_MERGE") {
+            $checkpointEvidence = @(Get-ChildItem -LiteralPath "${{ runner.temp }}/ai02-predecessor-evidence" -Filter "*-checkpoint.json" | Sort-Object Name | ForEach-Object FullName)
+            $descriptorEvidence = @(Get-ChildItem -LiteralPath "${{ runner.temp }}/ai02-predecessor-evidence" -Filter "*-descriptor.json" | Sort-Object Name | ForEach-Object FullName)
+            $resultEvidence = @(Get-ChildItem -LiteralPath "${{ runner.temp }}/ai02-predecessor-evidence" -Filter "*-result.json" | Sort-Object Name | ForEach-Object FullName)
+            $publicationEvidence = @(Get-ChildItem -LiteralPath "${{ runner.temp }}/ai02-predecessor-evidence" -Filter "*-publication.json" | Sort-Object Name | ForEach-Object FullName)
+            ./tools/orchestrator/ai02-artifact-chain.ps1 `
+              -Mode NewCheckpointV2 `
+              -Repository "${{ github.repository }}" `
+              -WorkspacePath "${{ github.workspace }}" `
+              -CheckpointEvidencePaths $checkpointEvidence `
+              -DescriptorEvidencePaths $descriptorEvidence `
+              -PackageResultEvidencePaths $resultEvidence `
+              -PublicationEvidencePaths $publicationEvidence `
+              -ChildDescriptorPath "${{ runner.temp }}/ai02-publication-package/predecessor-descriptor.json" `
+              -ChildPackageResultPath "${{ runner.temp }}/ai02-publication-package/publication-package.result.json" `
+              -CheckpointPath "${{ runner.temp }}/ai02-aggregate-state.json"
+          }
+          else {
+            ./tools/orchestrator/ai02-artifact-chain.ps1 `
+              -Mode AppendDescriptor `
+              -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
+              -DescriptorPath "${{ runner.temp }}/ai02-publication-package/predecessor-descriptor.json"
+          }
+          if ($env:AI02_CHILD_PHASE -eq "A3" -and $env:AI02_PREDECESSOR_ROUTE -ne "AUTHORITATIVE_REPOSITORY_MERGE") {
             ./tools/orchestrator/ai02-artifact-chain.ps1 `
               -Mode ValidateFinalAggregate `
               -WorkspacePath "${{ github.workspace }}" `
@@ -297,6 +363,15 @@ jobs:
         with:
           name: ai02-predecessor-descriptor-${{ inputs.task_id }}-${{ github.run_id }}
           path: ${{ runner.temp }}/ai02-publication-package/predecessor-descriptor.json
+          if-no-files-found: error
+          overwrite: false
+
+      - name: Upload phased-child aggregate checkpoint
+        if: always() && steps.publication_package.outcome == 'success' && inputs.phased_child && steps.predecessor_route.outputs.route == 'AUTHORITATIVE_REPOSITORY_MERGE'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai02-aggregate-checkpoint-${{ inputs.task_id }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/ai02-aggregate-state.json
           if-no-files-found: error
           overwrite: false
 

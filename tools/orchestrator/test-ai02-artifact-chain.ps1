@@ -120,6 +120,32 @@ function New-LegacyA1Evidence {
     [pscustomobject]@{AggregatePath=$aggregatePath;DescriptorPath=$descriptorPath;ResultPath=$resultPath;PublicationPath=$publicationPath;Descriptor=$descriptor;Publication=$publication}
 }
 
+function New-RepositoryMergeBinding {
+    param([Parameter(Mandatory = $true)]$Legacy)
+    return [ordered]@{
+        sourceType="AUTHORITATIVE_REPOSITORY_MERGE"
+        repository="game2082001/VSP"
+        mergeCommit=[string]$Legacy.Publication.mergeCommit
+        orderedMergeParents=@($Legacy.Publication.orderedMergeParents)
+        publishedProductionHead=[string]$Legacy.Publication.publishedProductionHead
+        predecessorTaskId=[string]$Legacy.Descriptor.childTaskId
+        phase=[string]$Legacy.Descriptor.phase
+        sequence=[int]$Legacy.Descriptor.sequence
+        executionRepositorySha=[string]$Legacy.Descriptor.recoveryRepositorySha
+        checkpointSchemaVersion="1.0"
+        descriptorSha256=(Get-Hash $Legacy.DescriptorPath)
+        aggregateStateDigest="sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1"
+        aggregateFileSha256=(Get-Hash $Legacy.AggregatePath)
+        packageSha256=[string]$Legacy.Descriptor.packageSha256
+        manifestSha256=[string]$Legacy.Descriptor.manifestSha256
+        resultSha256=(Get-Hash $Legacy.ResultPath)
+        checkpointEvidenceBase64=[Convert]::ToBase64String([IO.File]::ReadAllBytes($Legacy.AggregatePath))
+        descriptorEvidenceBase64=[Convert]::ToBase64String([IO.File]::ReadAllBytes($Legacy.DescriptorPath))
+        packageResultEvidenceBase64=[Convert]::ToBase64String([IO.File]::ReadAllBytes($Legacy.ResultPath))
+        productionFiles=@($Legacy.Publication.productionFiles)
+    }
+}
+
 function New-PublicationEvidence {
     param([string]$Path,[string]$CheckpointPath,[string]$DescriptorPath,[string]$MergeCommit,[string[]]$Parents,[string]$PublishedHead,[string]$BlobSeed="b")
     $checkpoint=Get-Content $CheckpointPath -Raw|ConvertFrom-Json
@@ -354,6 +380,75 @@ try {
     Expect-Pass "exact A1 v1 checkpoint imports without rewriting bytes" { Invoke-Chain @{Mode="ValidateLegacyCheckpoint";CheckpointPath=$legacy.AggregatePath;DescriptorPath=$legacy.DescriptorPath;ChildPackageResultPath=$legacy.ResultPath} }
     Expect-Pass "legacy v1 checkpoint still validates against aggregate schema" { if(-not(Get-Content $legacy.AggregatePath -Raw|Test-Json -SchemaFile "AI/Orchestrator/Templates/ai02-aggregate-state.schema.json")){throw "legacy schema rejected"} }
 
+    $repositoryBinding=New-RepositoryMergeBinding $legacy
+    $repositoryBindingJson=@($repositoryBinding)|ConvertTo-Json -Compress -Depth 30
+    $actionsBinding=[ordered]@{sourceType="ACTIONS_ARTIFACT";descriptorArtifactId="1";descriptorArtifactName="descriptor";descriptorArtifactDigest="sha256:"+("a"*64);packageArtifactId="2";packageArtifactName="package";packageArtifactDigest="sha256:"+("b"*64);runId="3";runAttempt=1;recoveryRepositorySha=("c"*40)}
+    Expect-Pass "explicit Actions artifact binding validates against strict source schema" { if(-not(($actionsBinding|ConvertTo-Json -Compress -Depth 30)|Test-Json -SchemaFile "AI/Orchestrator/Templates/ai02-predecessor-binding.schema.json")){throw "Actions binding schema rejected"} }
+    Expect-Pass "explicit authoritative repository merge binding validates against strict source schema" { if(-not(($repositoryBinding|ConvertTo-Json -Compress -Depth 30)|Test-Json -SchemaFile "AI/Orchestrator/Templates/ai02-predecessor-binding.schema.json")){throw "repository binding schema rejected"} }
+    Expect-Fail "missing predecessor source discriminator rejects" { $bad=$actionsBinding.Clone();$bad.Remove("sourceType");Invoke-Chain @{Mode="ClassifyBindings";Repository="game2082001/VSP";BindingsJson=($bad|ConvertTo-Json -Compress -Depth 30)} }
+    Expect-Fail "unknown predecessor source discriminator rejects" { $bad=$actionsBinding.Clone();$bad.sourceType="UNKNOWN";Invoke-Chain @{Mode="ClassifyBindings";Repository="game2082001/VSP";BindingsJson=($bad|ConvertTo-Json -Compress -Depth 30)} }
+    Expect-Fail "mixed source-type fields reject" { $bad=$actionsBinding.Clone();$bad.mergeCommit="0"*40;Invoke-Chain @{Mode="ClassifyBindings";Repository="game2082001/VSP";BindingsJson=($bad|ConvertTo-Json -Compress -Depth 30)} }
+    Expect-Pass "binding classifier preserves explicit Actions acquisition route" { $route=Invoke-Chain @{Mode="ClassifyBindings";Repository="game2082001/VSP";BindingsJson=(@($actionsBinding)|ConvertTo-Json -Compress -Depth 30)};if(($route|ConvertFrom-Json).route-ne"ACTIONS_ARTIFACT"-or-not($route|ConvertFrom-Json).requiresArtifactReadCredential){throw "Actions route changed"} }
+    Expect-Pass "binding classifier selects credentialless repository merge route" { $route=Invoke-Chain @{Mode="ClassifyBindings";Repository="game2082001/VSP";BindingsJson=$repositoryBindingJson};if(($route|ConvertFrom-Json).route-ne"AUTHORITATIVE_REPOSITORY_MERGE"-or($route|ConvertFrom-Json).requiresArtifactReadCredential){throw "repository route changed"} }
+
+    $pm1RecoverySha="2110f7ca4c851b183c6d07c3391c962ef33a5e98"
+    $pm1Workspace=Join-Path $root "pm1-workspace"
+    & git clone --quiet --shared --no-checkout (Get-Location).Path $pm1Workspace
+    if($LASTEXITCODE-ne 0){throw "PM1 workspace clone failed"}
+    & git -C $pm1Workspace checkout --quiet --detach $pm1RecoverySha
+    if($LASTEXITCODE-ne 0){throw "PM1 recovery checkout failed"}
+    $pm1State=Join-Path $root "pm1-checkpoint.json";$pm1Baseline=Join-Path $root "pm1-baseline.json";$pm1Evidence=Join-Path $root "pm1-evidence"
+    $savedArtifactToken=$env:AI02_ARTIFACT_READ_TOKEN;$savedGhToken=$env:GH_TOKEN;$savedGithubToken=$env:GITHUB_TOKEN
+    Remove-Item Env:AI02_ARTIFACT_READ_TOKEN,Env:GH_TOKEN,Env:GITHUB_TOKEN -ErrorAction SilentlyContinue
+    try {
+        Expect-Pass "real A1 repository merge materializes from immutable local Git and bound evidence" { $result=Invoke-Chain @{Mode="AcquireAndMaterialize";Repository="game2082001/VSP";RecoveryRepositorySha=$pm1RecoverySha;WorkspacePath=$pm1Workspace;AggregateStatePath=$pm1State;BaselinePath=$pm1Baseline;EvidenceDirectory=$pm1Evidence;BindingsJson=$repositoryBindingJson};if(($result|ConvertFrom-Json).sourceType-ne"AUTHORITATIVE_REPOSITORY_MERGE"){throw "wrong acquisition result"} }
+        Expect-Pass "repository merge acquisition preserves exact legacy checkpoint bytes" { if((Get-Hash $pm1State)-ne$repositoryBinding.aggregateFileSha256){throw "checkpoint bytes changed"} }
+        Expect-Pass "repository merge acquisition baseline is deterministic" { $first=Get-Hash $pm1Baseline;Remove-Item $pm1State,$pm1Baseline -Force;Remove-Item $pm1Evidence -Recurse -Force;Invoke-Chain @{Mode="AcquireAndMaterialize";Repository="game2082001/VSP";RecoveryRepositorySha=$pm1RecoverySha;WorkspacePath=$pm1Workspace;AggregateStatePath=$pm1State;BaselinePath=$pm1Baseline;EvidenceDirectory=$pm1Evidence;BindingsJson=$repositoryBindingJson}|Out-Null;if((Get-Hash $pm1Baseline)-ne$first){throw "baseline changed"} }
+        Expect-Pass "repository merge predecessor survives immutable post-Claude verification" { Invoke-Chain @{Mode="ValidatePostClaude";WorkspacePath=$pm1Workspace;BaselinePath=$pm1Baseline;AggregateStatePath=$pm1State;ExpectedBaselineSha256=(Get-Hash $pm1Baseline);ExpectedAggregateStateSha256=(Get-Hash $pm1State)} }
+        $mutationPath=Join-Path $pm1Workspace $phaseFiles.A1[0];$originalBytes=[IO.File]::ReadAllBytes($mutationPath);[IO.File]::AppendAllText($mutationPath,"mutation",[Text.UTF8Encoding]::new($false))
+        Expect-Fail "post-materialization repository predecessor mutation rejects" { Invoke-Chain @{Mode="ValidatePostClaude";WorkspacePath=$pm1Workspace;BaselinePath=$pm1Baseline;AggregateStatePath=$pm1State;ExpectedBaselineSha256=(Get-Hash $pm1Baseline);ExpectedAggregateStateSha256=(Get-Hash $pm1State)} }
+        [IO.File]::WriteAllBytes($mutationPath,$originalBytes)
+        $env:AI02_ARTIFACT_READ_TOKEN="not-a-real-token"
+        Expect-Fail "repository merge acquisition rejects artifact credential presence" { Invoke-Chain @{Mode="AcquireAndMaterialize";Repository="game2082001/VSP";RecoveryRepositorySha=$pm1RecoverySha;WorkspacePath=$pm1Workspace;AggregateStatePath=$pm1State;BaselinePath=$pm1Baseline;EvidenceDirectory=$pm1Evidence;BindingsJson=$repositoryBindingJson} }
+        Remove-Item Env:AI02_ARTIFACT_READ_TOKEN -ErrorAction SilentlyContinue
+    } finally {
+        if($null-ne$savedArtifactToken){$env:AI02_ARTIFACT_READ_TOKEN=$savedArtifactToken}else{Remove-Item Env:AI02_ARTIFACT_READ_TOKEN -ErrorAction SilentlyContinue}
+        if($null-ne$savedGhToken){$env:GH_TOKEN=$savedGhToken}else{Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue}
+        if($null-ne$savedGithubToken){$env:GITHUB_TOKEN=$savedGithubToken}else{Remove-Item Env:GITHUB_TOKEN -ErrorAction SilentlyContinue}
+    }
+
+    foreach($case in @(
+        @{name="wrong repository";mutate={param($v)$v.repository="other/repository"}},
+        @{name="wrong merge commit";mutate={param($v)$v.mergeCommit=$v.orderedMergeParents[0]}},
+        @{name="wrong parent count";mutate={param($v)$v.orderedMergeParents=@($v.orderedMergeParents[0])}},
+        @{name="wrong parent SHA";mutate={param($v)$v.orderedMergeParents[0]="0"*40}},
+        @{name="wrong ordered merge parents";mutate={param($v)$x=$v.orderedMergeParents[0];$v.orderedMergeParents[0]=$v.orderedMergeParents[1];$v.orderedMergeParents[1]=$x}},
+        @{name="wrong published production head";mutate={param($v)$v.publishedProductionHead=$v.orderedMergeParents[0]}},
+        @{name="wrong descriptor digest";mutate={param($v)$v.descriptorSha256="0"*64}},
+        @{name="wrong aggregate digest";mutate={param($v)$v.aggregateStateDigest="sha256:"+("0"*64)}},
+        @{name="wrong aggregate file digest";mutate={param($v)$v.aggregateFileSha256="0"*64}},
+        @{name="wrong package digest";mutate={param($v)$v.packageSha256="0"*64}},
+        @{name="wrong manifest digest";mutate={param($v)$v.manifestSha256="0"*64}},
+        @{name="wrong result digest";mutate={param($v)$v.resultSha256="0"*64}},
+        @{name="missing production file";mutate={param($v)$v.productionFiles=@($v.productionFiles|Select-Object -Skip 1)}},
+        @{name="additional production file";mutate={param($v)$v.productionFiles+=@($v.productionFiles[0])}},
+        @{name="wrong production mode";mutate={param($v)$v.productionFiles[0].mode="100755"}},
+        @{name="wrong production blob";mutate={param($v)$v.productionFiles[0].gitBlobId="0"*40}},
+        @{name="wrong production size";mutate={param($v)$v.productionFiles[0].size=[int64]$v.productionFiles[0].size+1}},
+        @{name="wrong production hash";mutate={param($v)$v.productionFiles[0].sha256="0"*64}}
+    )){
+        $bad=$repositoryBindingJson|ConvertFrom-Json -Depth 30;& $case.mutate $bad
+        Expect-Fail ("repository merge "+$case.name+" rejects") { Invoke-Chain @{Mode="AcquireAndMaterialize";Repository="game2082001/VSP";RecoveryRepositorySha=$pm1RecoverySha;WorkspacePath=$pm1Workspace;AggregateStatePath=(Join-Path $root "bad-state.json");BaselinePath=(Join-Path $root "bad-baseline.json");EvidenceDirectory=(Join-Path $root "bad-evidence");BindingsJson=($bad|ConvertTo-Json -Compress -Depth 30)} }
+    }
+    $missingObject=$repositoryBindingJson|ConvertFrom-Json -Depth 30;$missingObject.mergeCommit="0"*40
+    Expect-Fail "repository merge missing Git object rejects without fetch" { Invoke-Chain @{Mode="AcquireAndMaterialize";Repository="game2082001/VSP";RecoveryRepositorySha=$pm1RecoverySha;WorkspacePath=$pm1Workspace;AggregateStatePath=(Join-Path $root "missing-object-state.json");BaselinePath=(Join-Path $root "missing-object-baseline.json");EvidenceDirectory=(Join-Path $root "missing-object-evidence");BindingsJson=($missingObject|ConvertTo-Json -Compress -Depth 30)} }
+    $notDescendantWorkspace=Join-Path $root "pm1-not-descendant";& git clone --quiet --shared --no-checkout (Get-Location).Path $notDescendantWorkspace;& git -C $notDescendantWorkspace checkout --quiet --detach $repositoryBinding.executionRepositorySha
+    Expect-Fail "repository merge execution base not descendant rejects" { Invoke-Chain @{Mode="AcquireAndMaterialize";Repository="game2082001/VSP";RecoveryRepositorySha=$repositoryBinding.executionRepositorySha;WorkspacePath=$notDescendantWorkspace;AggregateStatePath=(Join-Path $root "not-descendant-state.json");BaselinePath=(Join-Path $root "not-descendant-baseline.json");EvidenceDirectory=(Join-Path $root "not-descendant-evidence");BindingsJson=$repositoryBindingJson} }
+    $driftWorkspace=Join-Path $root "pm1-child-drift";& git clone --quiet --shared --no-checkout (Get-Location).Path $driftWorkspace;& git -C $driftWorkspace config user.name "Synthetic PM1 Test";& git -C $driftWorkspace config user.email "pm1@example.invalid";& git -C $driftWorkspace checkout --quiet --detach $repositoryBinding.mergeCommit
+    $driftPath=Join-Path $driftWorkspace $phaseFiles.A1[0];[IO.File]::AppendAllText($driftPath,"drift",[Text.UTF8Encoding]::new($false));& git -C $driftWorkspace add -- $phaseFiles.A1[0];& git -C $driftWorkspace commit --quiet -m "synthetic predecessor drift";$driftSha=(& git -C $driftWorkspace rev-parse HEAD).Trim()
+    Expect-Fail "repository merge child execution tree predecessor drift rejects" { Invoke-Chain @{Mode="AcquireAndMaterialize";Repository="game2082001/VSP";RecoveryRepositorySha=$driftSha;WorkspacePath=$driftWorkspace;AggregateStatePath=(Join-Path $root "drift-state.json");BaselinePath=(Join-Path $root "drift-baseline.json");EvidenceDirectory=(Join-Path $root "drift-evidence");BindingsJson=$repositoryBindingJson} }
+    Expect-Pass "repository merge acquisition source contains no automatic fetch" { if((Get-Content $tool -Raw)-match'git\s+fetch|Invoke-CheckpointGit\s+@\("fetch"'){throw "automatic fetch found"} }
+
     $a2ExecutionSha="5c98c704a3a09aeebe58b46648dd203245e730cf"
     $crossBaseA2=New-Package (Join-Path $root "cross-base-a2") A2 "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1" "VSP-AI02-001TI-A2" @{} @() $a2ExecutionSha
     $a2ResultPath=Join-Path $crossBaseA2.Root "publication-package.result.json"
@@ -483,6 +578,11 @@ try {
     Expect-Pass "aggregate schema parses as a strict v1/v2 union" { $schema=Get-Content "AI/Orchestrator/Templates/ai02-aggregate-state.schema.json" -Raw|ConvertFrom-Json;if(@($schema.oneOf).Count-ne 2-or$schema.'$defs'.legacyV1.additionalProperties-ne$false-or$schema.'$defs'.checkpointV2.additionalProperties-ne$false){throw "aggregate schema union is not strict"} }
     $workflow = Get-Content ".github/workflows/ai02-claude-artifact-developer.yml" -Raw
     Expect-Pass "artifact credential is scoped outside Claude and explicitly checked absent" { if($workflow -notmatch 'AI02_ARTIFACT_READ_TOKEN' -or $workflow -notmatch 'Verify Claude receives no artifact or repository credential'){throw "credential lifecycle guard missing"} }
+    Expect-Pass "workflow routes Actions artifact credential only to Actions acquisition" { if(([regex]::Matches($workflow,'AI02_ARTIFACT_READ_TOKEN:\s*\$\{\{ github\.token \}\}')).Count-ne 1-or$workflow-notmatch"steps\.predecessor_route\.outputs\.route == 'ACTIONS_ARTIFACT'"){throw "Actions credential route changed"} }
+    Expect-Pass "workflow repository merge acquisition step declares no token" { $match=[regex]::Match($workflow,'(?s)- name: Materialize authoritative repository predecessors(?<body>.*?)(?=\r?\n\s+- name:)');if(-not$match.Success-or$match.Groups['body'].Value-match'github\.token|APP_TOKEN'){throw "repository route credential exposure"} }
+    Expect-Pass "workflow repository merge route consumes AGV2 checkpoint construction" { if($workflow-notmatch'AI02_PREDECESSOR_ROUTE -eq "AUTHORITATIVE_REPOSITORY_MERGE"'-or$workflow-notmatch'-Mode NewCheckpointV2'){throw "AGV2 integration missing"} }
+    Expect-Pass "workflow retains minimum Claude file tools exactly" { if($workflow-notmatch'--allowedTools "Read,Write,Edit"'){throw "Claude allowed tools changed"} }
+    Expect-Pass "closed predecessor binding schema exposes exactly two source branches" { $schema=Get-Content "AI/Orchestrator/Templates/ai02-predecessor-binding.schema.json" -Raw|ConvertFrom-Json -Depth 30;if(@($schema.oneOf).Count-ne2-or$schema.'$defs'.actionsArtifact.additionalProperties-ne$false-or$schema.'$defs'.authoritativeRepositoryMerge.additionalProperties-ne$false){throw "binding schema is not closed"} }
     Expect-Pass "materializer and Claude retain no repository-write authority" { if($workflow -notmatch 'contents: read' -or $workflow -match 'contents: write'){throw "repository credential boundary changed"} }
     Expect-Pass "P2 does not invoke or alter Repository Transport" { if((Get-Content $tool -Raw) -match 'repository-transport' -or $workflow -match 'repository-transport'){throw "Repository Transport referenced"} }
     Expect-Pass "P2 performs no publication side effect" { if((Get-Content $tool -Raw) -match 'git push|gh pr|Repository Transport'){throw "publication side effect found"} }
