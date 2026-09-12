@@ -2,22 +2,23 @@
   "schemaVersion": "1.0",
   "recordKind": "POINT_IN_TIME_GOVERNANCE_SNAPSHOT",
   "asOfUtc": "2026-09-12T00:00:00Z",
-  "sourceSha": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
-  "taskId": "VSP-AI02-001TI-A2F",
+  "sourceSha": "b222ef7cb391f8f3eb7f4cd98b45dda2a01e9fe3",
+  "taskId": "VSP-AI02-001TI-A2",
   "taskManifestPath": "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2.manifest.json",
   "taskManifestStatus": "VALID",
   "classification": "CRITICAL",
   "classificationConsistencyStatus": "VALID",
-  "authorizationStatus": "AUTHORIZED_FIXTURE_ONLY",
+  "authorizationStatus": "EXECUTABLE_AUTHORIZATION_PENDING_IMMUTABLE_EXECUTION_BASE",
   "repository": "game2082001/VSP",
   "baseBranch": "main",
-  "headBranch": "ai02/vsp-ai02-001ti-a2f/authorization-fixture",
-  "currentStage": "IMPLEMENTATION",
-  "fixtureDeveloperRole": "Codex Development Agent",
-  "fixtureDeveloperAdapter": "codex",
-  "bootstrapException": true,
-  "futureA2PrimaryDeveloperRole": "Claude Code Primary Developer",
-  "futureA2ExecutionPlane": "AI02 Claude Artifact Developer",
+  "headBranch": "ai02/vsp-ai02-001ti-a2-ef/executable-fixture",
+  "currentStage": "EXECUTION_BASE_AUTHORIZATION_REQUIRED",
+  "primaryDeveloperRole": "Claude Code Primary Developer",
+  "primaryDeveloperAdapter": "claude",
+  "assignedImplementationRole": "Claude Code Primary Developer",
+  "implementationContextId": "",
+  "implementationRunId": "",
+  "executionPlane": "AI02 Claude Artifact Developer",
   "independentReviewerRole": "Separate Codex Independent Reviewer",
   "independentReviewerContextId": "",
   "developerEqualsReviewer": false,
@@ -26,10 +27,44 @@
   "ciStatus": "UNKNOWN",
   "independentReviewStatus": "NOT_REQUESTED",
   "findings": [],
+  "historicalFixture": {
+    "taskId": "VSP-AI02-001TI-A2F",
+    "status": "COMPLETE",
+    "sourceSha": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
+    "developerRole": "Codex Development Agent",
+    "authoritativeForExecutableTaskIdentity": false
+  },
+  "productOwnerAuthorizationEvidence": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-12T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/b222ef7cb391f8f3eb7f4cd98b45dda2a01e9fe3",
+    "approvalSummary": "Product Owner authorized the executable CRITICAL A2 contract for one future Claude Artifact Developer execution after separate immutable execution-base authorization."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": false,
+    "pushFeatureBranch": false,
+    "openOrUpdatePr": false,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": false
+  },
+  "executionReadiness": {
+    "fixtureBaseValidateOnlyStatus": "PASS",
+    "readyToInvokeClaude": true,
+    "repositoryWriteCredentialAvailableToDeveloper": false,
+    "actualA2DispatchAuthorized": false,
+    "postMergeExecutionBaseAuthorizationRequired": true
+  },
   "a2": {
     "taskId": "VSP-AI02-001TI-A2",
     "purpose": "Trusted Intake Contract Validator",
-    "implementationStatus": "NOT_STARTED_NOT_AUTHORIZED",
+    "implementationStatus": "NOT_STARTED_EXECUTION_BASE_AUTHORIZATION_REQUIRED",
     "productionOwnership": ["tools/orchestrator/artifact-intake-contract.ps1"],
     "phase": "A2",
     "sequence": 2,
@@ -43,7 +78,8 @@
     "predecessors": [],
     "parentLineage": "GENESIS",
     "productionMergeCommit": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
-    "productionParent": "8a0a441c532295405b8133d96142844026ee4a93",
+    "repository": "game2082001/VSP",
+    "orderedMergeParents": ["8a0a441c532295405b8133d96142844026ee4a93", "cb7dbf0cfbcb0f715001588cdd6da97264e19d06"],
     "publishedProductionHead": "cb7dbf0cfbcb0f715001588cdd6da97264e19d06",
     "packageSha256": "64fa19736ce6a2d15211fb8646ae1bafabda8918a7510b13dece18b414736fef",
     "manifestSha256": "4b2e05f25c45461a9cc754a7fc2bc0480da347379f5bd6070b51d387af94fd85",
@@ -52,7 +88,20 @@
     "aggregateStateDigest": "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1",
     "aggregateFileSha256": "750334cd06ecf529303b14ba0431f5ca492c714e606baca6767aef5961106ddc",
     "fileCount": 4,
-    "allFileModes": "100644"
+    "allFileModes": "100644",
+    "files": [
+      {"path":"AI/Orchestrator/Templates/artifact-intake-request.schema.json","mode":"100644","gitBlobId":"7378d130eda351b85c17ff3564de1fa45e701af1","size":7237,"sha256":"f1b4b8d8f6cc434a2d1900161ee191fea61be77ab60a85fa1cb83cbb267f4e95"},
+      {"path":"AI/Orchestrator/Templates/artifact-intake-request.template.json","mode":"100644","gitBlobId":"ef68b6df094c7f117a33658a031cc93bc747aaac","size":3733,"sha256":"48b167ecece4381a87fcc010c615581b06188f57c137843232068b3f3ff87db0"},
+      {"path":"AI/Orchestrator/Templates/artifact-intake-decision.schema.json","mode":"100644","gitBlobId":"407a195e093f7a8a6136983fb2bf946d7eac64ef","size":8618,"sha256":"c21dd6856a20ca39df707ce28181e09056e272ed603962562c5a24dd554aa01b"},
+      {"path":"AI/Orchestrator/Templates/artifact-intake-decision.template.json","mode":"100644","gitBlobId":"cc9ac0c9e490a75a7643ea7394a09fe338084f35","size":3450,"sha256":"fc04cabe343326c87b68ed121165687f0eb528a51ab380db056ac72bebdc3558"}
+    ]
+  },
+  "predecessorSource": {
+    "sourceType": "AUTHORITATIVE_REPOSITORY_MERGE",
+    "artifactRunIdentityRequired": false,
+    "artifactReadCredentialRequired": false,
+    "pm1RouteStatus": "AUTHORIZED",
+    "agv2CheckpointSchemaVersion": "2.0"
   },
   "trustedContextContract": {
     "repositoryGovernanceAuthoritative": true,
@@ -81,6 +130,16 @@
     "automaticRetry": false,
     "attemptsConsumed": 0
   },
+  "repositoryTransportPublication": {
+    "required": true,
+    "baseBinding": "EXACT",
+    "targetBranch": "ai02/vsp-ai02-001ti-a2/trusted-intake-contract-validator",
+    "openPullRequest": true,
+    "approvedFiles": ["tools/orchestrator/artifact-intake-contract.ps1"],
+    "invoked": false,
+    "separateProductOwnerAuthorizationRequired": true,
+    "productOwnerSoleMergeAuthority": true
+  },
   "temporaryValidationHarness": {
     "allowed": true,
     "credentialless": true,
@@ -91,10 +150,13 @@
   },
   "credentialBoundaries": {
     "claudeRepositoryWriteAuthority": false,
+    "claudeRepositoryPushAuthority": false,
     "claudeArtifactReadCredential": false,
     "claudeBranchOrPullRequestAuthority": false,
+    "claudeDirectMergeAuthority": false,
     "a2NetworkAuthority": false,
     "repositoryTransportAuthority": false,
+    "repositoryTransportRequiredAfterValidatedChild": true,
     "localAiAuthority": false,
     "persistedCheckoutCredentials": false,
     "productOwnerSoleMergeAuthority": true
@@ -113,7 +175,7 @@
     "a3Started": false,
     "localAiCalled": false
   },
-  "remainingRequirement": "After A2F merge, Product Owner must authorize the new immutable main SHA for exactly one phased Claude A2 dispatch.",
+  "remainingRequirement": "After A2-EF merge, Product Owner must authorize the new immutable main SHA for exactly one phased Claude A2 dispatch.",
   "scopeDrift": "NONE",
   "readyForMerge": false
 }
