@@ -169,6 +169,106 @@ function Get-AllowedFiles {
     })
 }
 
+function ConvertTo-DeterministicPromptJson {
+    param([Parameter(Mandatory = $true)] $Value)
+    return ($Value | ConvertTo-Json -Depth 30)
+}
+
+function Get-A2RemediationPromptExtension {
+    param(
+        [Parameter(Mandatory = $true)] $Manifest,
+        [Parameter(Mandatory = $true)] $State
+    )
+
+    if ($Manifest.taskId -ne "VSP-AI02-001TI-A2-R1") {
+        return ""
+    }
+
+    $contract = $Manifest.remediationInfrastructure
+    $outputPath = "tools/orchestrator/artifact-intake-contract.ps1"
+    if ($null -eq $contract -or
+        $contract.architecture -ne "A2_RECOVERY_OPTION_C_MECHANICAL_SKELETON_PLUS_CLAUDE" -or
+        $contract.outputPath -cne $outputPath -or
+        $contract.sentinel -cne "NOT_IMPLEMENTED" -or
+        (@($contract.claudeAllowedTools) -join ',') -cne "Read,Write,Edit" -or
+        [int]$contract.harness.minimumSemanticCaseCount -lt 52) {
+        Stop-Developer "A2-R1 remediation infrastructure contract is missing or invalid."
+    }
+    if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
+        Stop-Developer "A2-R1 deterministic skeleton must exist before prompt preparation."
+    }
+
+    $requiredContracts = @(
+        "trustedContext",
+        "pathResponsibility",
+        "failureMapping",
+        "replayAndStaleBase",
+        "decisionStateMachine",
+        "evidenceContract"
+    )
+    foreach ($name in $requiredContracts) {
+        if ($null -eq $Manifest.$name) {
+            Stop-Developer "A2-R1 prompt contract requires manifest field $name."
+        }
+    }
+
+    $skeletonHash = Get-FileSha256 -Path $outputPath
+    $skeletonSize = (Get-Item -LiteralPath $outputPath).Length
+    $trustedContextJson = ConvertTo-DeterministicPromptJson -Value $Manifest.trustedContext
+    $pathPolicyJson = ConvertTo-DeterministicPromptJson -Value $Manifest.pathResponsibility
+    $failureMappingJson = ConvertTo-DeterministicPromptJson -Value $Manifest.failureMapping
+    $replayJson = ConvertTo-DeterministicPromptJson -Value $Manifest.replayAndStaleBase
+    $stateMachineJson = ConvertTo-DeterministicPromptJson -Value $Manifest.decisionStateMachine
+    $evidenceJson = ConvertTo-DeterministicPromptJson -Value $Manifest.evidenceContract
+    $interfaceJson = ConvertTo-DeterministicPromptJson -Value $contract.validatorInvocationInterface
+    $guardJson = ConvertTo-DeterministicPromptJson -Value $contract.completionGuard
+
+    return @"
+A2 FINAL REMEDIATION EXECUTION CONTRACT:
+- The authorized output path already contains a deterministic, non-normative, deliberately nonfunctional skeleton.
+- Skeleton path: $outputPath
+- Skeleton byte size: $skeletonSize
+- Skeleton SHA-256: $skeletonHash
+- Replace the skeleton with a substantive implementation. A comment-only, analysis-only, or placeholder-only delta is invalid.
+- Remove every NOT_IMPLEMENTED or TODO sentinel before completion.
+- Inspect the immutable policy and schema inputs before implementing, form an internal implementation plan, and make an early Edit or Write to the authorized output file.
+- Read, Write, and Edit are the only allowed repository-local tools. Do not use Bash, process, network, GitHub, credential, or Repository Transport capabilities.
+- A trusted workflow will run the credentialless harness after your action; you are not required or permitted to execute it.
+
+VALIDATOR SCRIPT INVOCATION INTERFACE:
+$interfaceJson
+
+TRUSTED-CONTEXT AUTHORITY MODEL (producer claims are non-authoritative):
+$trustedContextJson
+
+PATH-POLICY RESPONSIBILITY:
+$pathPolicyJson
+
+CANONICAL FAILURE MAPPING:
+$failureMappingJson
+
+REPLAY AND EXACT-BASE-ONLY CONTRACT:
+$replayJson
+
+DECISION STATE MACHINE:
+$stateMachineJson
+
+SANITIZED DETERMINISTIC EVIDENCE CONTRACT:
+$evidenceJson
+
+POST-CLAUDE COMPLETION GUARD:
+$guardJson
+
+FINAL REMEDIATION COMPLETION CHECKLIST:
+- The one authorized output file contains the complete request and decision validator.
+- Trusted context overrides producer-controlled claims wherever authority differs.
+- Exact approved-file equality, provenance/hash bindings, replay behavior, path policy, and EXACT_BASE_ONLY behavior are implemented fail closed.
+- Internal exceptions produce deterministic sanitized rejection evidence without raw exception text.
+- No network, credential lookup, repository write, branch, PR, merge, process-launch, or Repository Transport behavior is present.
+- The final file differs from the recorded skeleton SHA, parses as PowerShell, contains no sentinel, and is ready for the automatic 52-case-or-greater semantic guard.
+"@
+}
+
 function Write-DeveloperPrompt {
     param(
         [Parameter(Mandatory = $true)] $Manifest,
@@ -186,6 +286,7 @@ function Write-DeveloperPrompt {
         $expectedMarkers = @($Manifest.smokeFixture.expectedContentMarkers | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     }
     $expectedMarkerText = if ($expectedMarkers.Count -gt 0) { $expectedMarkers -join "`n- " } else { "No additional content markers supplied by the validated manifest." }
+    $a2RemediationPromptExtension = Get-A2RemediationPromptExtension -Manifest $Manifest -State $State
 
     $text = @"
 You are Claude Code acting as the AI02 Primary Developer.
@@ -203,6 +304,8 @@ Out of Scope:
 
 Stop Conditions:
 - $stopConditions
+
+$a2RemediationPromptExtension
 
 TASK:
 - Create or modify exactly the files authorized by the validated publication allowlist.

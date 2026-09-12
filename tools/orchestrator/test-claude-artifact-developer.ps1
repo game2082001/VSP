@@ -621,6 +621,85 @@ try {
         throw "Package artifacts were not created for exact required file only case."
     }
 
+    foreach ($requiredWorkflowText in @(
+        "Prepare deterministic A2-R1 skeleton and credentialless harness",
+        "inputs.task_id == 'VSP-AI02-001TI-A2-R1'",
+        "-Mode Prepare",
+        "-Mode ValidateCompletion",
+        "A2-R1 completion guard did not pass"
+    )) {
+        if (-not $workflowText.Contains($requiredWorkflowText)) {
+            throw "Workflow is missing gated A2-R1 infrastructure text: $requiredWorkflowText"
+        }
+    }
+
+    $a2Root = Join-Path ([IO.Path]::GetTempPath()) ("ai02-a2-r1-prompt-test-" + [Guid]::NewGuid().ToString("N"))
+    try {
+        New-Item -ItemType Directory -Force -Path (Join-RepoPath $a2Root @("tools", "orchestrator")) | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-RepoPath $a2Root @("AI", "Orchestrator", "Manifests")) | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-RepoPath $a2Root @("AI", "Orchestrator", "State")) | Out-Null
+        Copy-Item -LiteralPath $scriptUnderTest -Destination (Join-RepoPath $a2Root @("tools", "orchestrator", "claude-artifact-developer.ps1"))
+        $a2Manifest = [ordered]@{
+            taskId = "VSP-AI02-001TI-A2-R1"; classification = "CRITICAL"; repository = "game2082001/VSP"; approvedScope = @("Implement the final A2 remediation."); outOfScope = @("Everything outside A2."); stopConditions = @("Stop on scope drift.")
+            primaryDeveloper = [ordered]@{ role="Claude Code Primary Developer"; adapter="claude" }
+            independentReviewer = [ordered]@{ required=$true; adapter="codex" }
+            claudeCrossReview = [ordered]@{ required=$true }
+            productOwnerAuthorization = [ordered]@{ authorized=$true }
+            executionAuthorization = [ordered]@{ implementation=$true; pushFeatureBranch=$false; openOrUpdatePr=$false }
+            repositoryTransport = [ordered]@{ required=$true; approvedFiles=@("tools/orchestrator/artifact-intake-contract.ps1") }
+            remediationInfrastructure = [ordered]@{
+                architecture="A2_RECOVERY_OPTION_C_MECHANICAL_SKELETON_PLUS_CLAUDE"; outputPath="tools/orchestrator/artifact-intake-contract.ps1"; sentinel="NOT_IMPLEMENTED"; claudeAllowedTools=@("Read","Write","Edit")
+                harness=[ordered]@{minimumSemanticCaseCount=52}
+                validatorInvocationInterface=[ordered]@{parameters=@("PolicyPath","PolicySchemaPath","RequestSchemaPath","DecisionSchemaPath","TrustedContextFixtureRoot","OutputEvidencePath")}
+                completionGuard=@("FINAL_SHA_DIFFERS_FROM_SKELETON","SEMANTIC_MATRIX_PASS")
+            }
+            trustedContext=[ordered]@{producerClaimsAuthoritative=$false;repositoryGovernanceAuthority=@("repository","taskId","sourceSha")}
+            pathResponsibility=[ordered]@{a2=@("DOT_DOT_SEGMENT","BACKSLASH","COLON")}
+            failureMapping=@([ordered]@{findingCode="REQUEST_REPLAY_DETECTED";canonicalCategory="REPLAY_DETECTED"})
+            replayAndStaleBase=[ordered]@{emptyConsumedIdentities="FIRST_USE_NOT_YET_CONSUMED";matchingConsumedIdentity="REJECT_REPLAY";staleBasePolicy="EXACT_BASE_ONLY"}
+            decisionStateMachine=[ordered]@{transportInvokedGlobally=$false;acceptedForTransport=[ordered]@{transportAuthorized=$true;transportInvoked=$false}}
+            evidenceContract=[ordered]@{resultValues=@("PASS","REJECT");excluded=@("credentials","rawExceptionText")}
+        }
+        $a2State = [ordered]@{
+            taskId="VSP-AI02-001TI-A2-R1"; taskManifestStatus="VALID"; classification="CRITICAL"; classificationConsistencyStatus="VALID"; repository="game2082001/VSP"
+            primaryDeveloperRole="Claude Code Primary Developer"; primaryDeveloperAdapter="claude"; developerEqualsReviewer=$false; claudeCrossReviewRequired=$true
+            productOwnerAuthorizationEvidence=[ordered]@{authorized=$true}
+        }
+        $a2ManifestPath = Join-RepoPath $a2Root @("AI","Orchestrator","Manifests","VSP-AI02-001TI-A2-R1.manifest.json")
+        $a2StatePath = Join-RepoPath $a2Root @("AI","Orchestrator","State","VSP-AI02-001TI-A2-R1.state.json")
+        $a2Manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $a2ManifestPath -Encoding utf8NoBOM
+        $a2State | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $a2StatePath -Encoding utf8NoBOM
+        Push-Location $a2Root
+        try {
+            git init | Out-Null; git config user.email "ai02-test@example.invalid"; git config user.name "AI02 Test"; git add .; git commit -m baseline | Out-Null
+            $a2Base = (git rev-parse HEAD).Trim()
+            $skeletonPath = Join-RepoPath $a2Root @("tools","orchestrator","artifact-intake-contract.ps1")
+            Set-Content -LiteralPath $skeletonPath -Value "Set-StrictMode -Version Latest`nthrow 'NOT_IMPLEMENTED'" -Encoding utf8NoBOM
+            $a2Output = Join-Path $a2Root "prompt-output"
+            $a2PromptJson = & pwsh -NoProfile -File "tools/orchestrator/claude-artifact-developer.ps1" -ManifestPath "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2-R1.manifest.json" -StatePath "AI/Orchestrator/State/VSP-AI02-001TI-A2-R1.state.json" -ExpectedBaseSha $a2Base -OutputDirectory $a2Output -PreparePrompt
+            if ($LASTEXITCODE -ne 0) { throw "A2-R1 prompt preparation failed." }
+            $a2PromptPath = ($a2PromptJson | ConvertFrom-Json).promptPath
+            $a2PromptText = Get-Content -LiteralPath $a2PromptPath -Raw
+            foreach ($requiredA2PromptText in @(
+                "A2 FINAL REMEDIATION EXECUTION CONTRACT:", "Skeleton SHA-256:", "Replace the skeleton with a substantive implementation", "VALIDATOR SCRIPT INVOCATION INTERFACE:",
+                "TRUSTED-CONTEXT AUTHORITY MODEL", "PATH-POLICY RESPONSIBILITY:", "CANONICAL FAILURE MAPPING:", "REPLAY AND EXACT-BASE-ONLY CONTRACT:",
+                "DECISION STATE MACHINE:", "SANITIZED DETERMINISTIC EVIDENCE CONTRACT:", "POST-CLAUDE COMPLETION GUARD:", "Read, Write, and Edit are the only allowed", "52-case-or-greater"
+            )) {
+                if (-not $a2PromptText.Contains($requiredA2PromptText)) { throw "A2-R1 prompt missing: $requiredA2PromptText" }
+            }
+            $privateKeyMarkerMatches = [regex]::Matches($a2PromptText, [regex]::Escape("VSP_AI_APP_PRIVATE_KEY"))
+            if ($privateKeyMarkerMatches.Count -ne 1 -or
+                -not $a2PromptText.Contains("Do not access VSP_AI_APP_PRIVATE_KEY, App installation tokens, PATs, or reusable GitHub credentials.")) {
+                throw "A2-R1 prompt must mention the private-key marker exactly once and only as an explicit access prohibition."
+            }
+            foreach ($forbiddenA2PromptText in @("ghp_", "C:\\Users\\")) {
+                if ($a2PromptText.Contains($forbiddenA2PromptText)) { throw "A2-R1 prompt leaked prohibited text." }
+            }
+        } finally { Pop-Location }
+    } finally {
+        if (Test-Path -LiteralPath $a2Root) { Remove-Item -LiteralPath $a2Root -Recurse -Force }
+    }
+
     [pscustomobject]@{
         status = "PASS"
         promptContract = "PASS"
@@ -646,6 +725,9 @@ try {
         exactRequiredFileOnly = "PASS"
         repositoryWriteCredentialBoundary = "UNCHANGED"
         artifactPipeline = "UNCHANGED"
+        a2R1WorkflowGating = "PASS"
+        a2R1SemanticPromptRendering = "PASS"
+        a2R1ClaudeAllowedTools = "Read,Write,Edit"
     } | ConvertTo-Json -Depth 4
 } finally {
     if (Test-Path -LiteralPath $tempRoot) {

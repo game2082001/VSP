@@ -194,6 +194,27 @@ jobs:
             throw "A repository or artifact credential reached the Claude execution environment."
           }
 
+      - name: Prepare deterministic A2-R1 skeleton and credentialless harness
+        if: inputs.phased_child && inputs.task_id == 'VSP-AI02-001TI-A2-R1'
+        shell: pwsh
+        env:
+          AI02_MANIFEST_PATH: ${{ inputs.manifest_path }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $resultJson = ./tools/orchestrator/a2-remediation-bootstrap.ps1 `
+            -Mode Prepare `
+            -ManifestPath $env:AI02_MANIFEST_PATH `
+            -WorkspacePath "${{ github.workspace }}" `
+            -RuntimeDirectory "${{ runner.temp }}/ai02-a2-r1-runtime" `
+            -PredecessorBaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json"
+          $resultJson
+          $result = $resultJson | ConvertFrom-Json
+          if ($result.taskId -ne "VSP-AI02-001TI-A2-R1" -or
+              $result.a2AttemptConsumed -ne $false -or
+              [int]$result.semanticCaseCount -lt 52) {
+            throw "A2-R1 deterministic bootstrap did not satisfy the pre-Claude contract."
+          }
+
       - name: Prepare Claude prompt from validated task state
         id: prompt
         shell: pwsh
@@ -276,6 +297,25 @@ jobs:
             -AggregateStatePath "${{ runner.temp }}/ai02-aggregate-state.json" `
             -ExpectedBaselineSha256 $env:AI02_BASELINE_SHA256 `
             -ExpectedAggregateStateSha256 $env:AI02_AGGREGATE_STATE_SHA256
+          if ("${{ inputs.task_id }}" -eq "VSP-AI02-001TI-A2-R1") {
+            if (-not [string]::IsNullOrEmpty($env:AI02_ARTIFACT_READ_TOKEN) -or
+                -not [string]::IsNullOrEmpty($env:GH_TOKEN) -or
+                -not [string]::IsNullOrEmpty($env:GITHUB_TOKEN)) {
+              throw "A credential reached the A2-R1 focused harness environment."
+            }
+            $completionJson = ./tools/orchestrator/a2-remediation-bootstrap.ps1 `
+              -Mode ValidateCompletion `
+              -ManifestPath $env:AI02_MANIFEST_PATH `
+              -WorkspacePath "${{ github.workspace }}" `
+              -RuntimeDirectory "${{ runner.temp }}/ai02-a2-r1-runtime" `
+              -PredecessorBaselinePath "${{ runner.temp }}/ai02-predecessor-baseline.json" `
+              -ExpectedBaselineSha256 $env:AI02_BASELINE_SHA256
+            $completionJson
+            $completion = $completionJson | ConvertFrom-Json
+            if ($completion.result -ne "PASS" -or [int]$completion.semanticCaseCount -lt 52) {
+              throw "A2-R1 completion guard did not pass."
+            }
+          }
           ./tools/orchestrator/ai02-artifact-chain.ps1 `
             -Mode PackageChild `
             -WorkspacePath "${{ github.workspace }}" `

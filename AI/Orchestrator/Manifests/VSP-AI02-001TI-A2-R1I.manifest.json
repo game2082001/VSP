@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A2-R1I",
+  "title": "Final Remediation Bootstrap and Completion-Guard Infrastructure",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "0a57293238c0430bda75aedfbbd2ab05b1098b44",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A2-R1I",
+    "scope": "Implement only the deterministic nonfunctional A2-R1 skeleton bootstrap, credentialless temporary harness, prompt expansion, and post-Claude completion guard."
+  },
+  "approvedScope": [
+    "Gate A2-R1 to a deterministic fail-closed skeleton and exact pre-Claude one-file changed set.",
+    "Generate and hash-lock a credentialless temporary harness with the approved minimum 52-case semantic matrix.",
+    "Render the approved A2 semantic contract into the A2-R1 prompt and reject incomplete or prohibited output before PackageChild."
+  ],
+  "outOfScope": [
+    "A2 production implementation or dispatch, A2 executable manifest/state, A2-R1F, P2, PM1, PM1-R1, AGV2, schemas, A1 production, Repository Transport, PR 79, A3, later AI02, and Local AI."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL changes to the trusted Claude execution boundary require mandatory Claude Security Cross Review."
+  },
+  "stopConditions": [
+    "GitHub main differs from the authorized source SHA before implementation.",
+    "Any changed file lies outside the exact eight-file R1I allowlist.",
+    "The skeleton contains substantive validator semantics or an invented function interface.",
+    "The harness requires credentials, network, repository writes, or Claude Bash/process authority.",
+    "A2 production, A2 executable manifest/state, P2, PM1, AGV2, schemas, Transport, PR 79, A3, or Local AI boundaries change.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-12T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/0a57293238c0430bda75aedfbbd2ab05b1098b44",
+    "approvalSummary": "Product Owner approved A2 recovery Option C and the exact CRITICAL eight-file R1I infrastructure implementation."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "approvedFiles": [
+    ".github/workflows/ai02-claude-artifact-developer.yml",
+    "tools/orchestrator/claude-artifact-developer.ps1",
+    "tools/orchestrator/test-claude-artifact-developer.ps1",
+    "tools/orchestrator/a2-remediation-bootstrap.ps1",
+    "tools/orchestrator/test-a2-remediation-bootstrap.ps1",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2-R1I.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A2-R1I.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "recoveryArchitecture": {
+    "selectedOption": "A2_RECOVERY_OPTION_C_MECHANICAL_SKELETON_PLUS_CLAUDE",
+    "activationTaskId": "VSP-AI02-001TI-A2-R1",
+    "unrelatedArtifactDeveloperBehaviorChanged": false,
+    "claudeSubstantivePrimaryDeveloperPreserved": true,
+    "r1iConsumesA2SemanticAttempt": false
+  },
+  "mechanicalSkeleton": {
+    "outputPath": "tools/orchestrator/artifact-intake-contract.ps1",
+    "encoding": "UTF-8_NO_BOM",
+    "lineEndings": "LF",
+    "sentinel": "NOT_IMPLEMENTED",
+    "strictMode": "Latest",
+    "containsFunctionSignatures": false,
+    "containsPolicyConstants": false,
+    "containsValidatorSemantics": false,
+    "containsEnvironmentDerivedText": false,
+    "containsRandomOrTimeValues": false,
+    "terminalDisposition": "FAIL_CLOSED_NOT_IMPLEMENTED"
+  },
+  "temporaryHarness": {
+    "location": "RUNNER_TEMP_OUTSIDE_REPOSITORY_OWNERSHIP",
+    "committed": false,
+    "normative": false,
+    "credentialless": true,
+    "networkRequired": false,
+    "repositoryWriteAuthority": false,
+    "hashLockedBeforeClaude": true,
+    "rehashRequiredAfterClaude": true,
+    "minimumSemanticCaseCount": 52,
+    "repeatedExecutionCount": 2,
+    "invocationInterface": [
+      "ValidatorPath",
+      "PolicyPath",
+      "PolicySchemaPath",
+      "RequestSchemaPath",
+      "DecisionSchemaPath",
+      "TrustedContextFixtureRoot",
+      "OutputEvidencePath"
+    ]
+  },
+  "completionGuard": {
+    "requiredBeforePackageChild": true,
+    "checks": [
+      "OUTPUT_EXISTS_AND_NONEMPTY",
+      "FINAL_SHA_DIFFERS_FROM_SKELETON",
+      "POWERSHELL_PARSE_PASS",
+      "NO_SENTINEL_OR_TODO",
+      "EXACT_ONE_FILE_CHANGED_SET",
+      "PREDECESSOR_BASELINE_UNCHANGED",
+      "HARNESS_SHA_UNCHANGED",
+      "TEST_VECTOR_SHA_SET_UNCHANGED",
+      "NO_PROHIBITED_NETWORK_OR_PROCESS_API",
+      "NO_GIT_OR_GITHUB_WRITE",
+      "NO_BRANCH_PR_OR_MERGE",
+      "NO_REPOSITORY_TRANSPORT",
+      "NO_CREDENTIAL_ACCESS",
+      "FOCUSED_SEMANTIC_MATRIX_PASS",
+      "DETERMINISTIC_REPEAT_PASS"
+    ],
+    "staticAnalysisIsSoleSecurityProof": false
+  },
+  "promptRendering": {
+    "gatedTaskId": "VSP-AI02-001TI-A2-R1",
+    "rendersApprovedManifestSemantics": true,
+    "includesSkeletonHashAndSize": true,
+    "includesSubstantiveDeltaRequirement": true,
+    "includesNoTextualSubstitute": true,
+    "includesTrustedContext": true,
+    "includesPathPolicy": true,
+    "includesReplayAndExactBase": true,
+    "includesFailureMapping": true,
+    "includesDecisionStateMachine": true,
+    "includesSanitizedEvidence": true,
+    "includesCompletionChecklist": true,
+    "hardCodesNewPolicySemantics": false
+  },
+  "claudeBoundary": {
+    "allowedTools": ["Read", "Write", "Edit"],
+    "bashAuthority": false,
+    "processAuthority": false,
+    "networkAuthority": false,
+    "repositoryWriteCredential": false,
+    "branchOrPullRequestAuthority": false,
+    "repositoryTransportAuthority": false
+  },
+  "attemptConsumption": {
+    "initialSemanticAttemptsConsumed": 1,
+    "causeSpecificRemediationsConsumed": 0,
+    "remainingCauseSpecificRemediations": 1,
+    "r1iConsumesA2SemanticAttempt": false,
+    "consumptionPoint": "Run Claude Code Primary Developer for A2-R1 actually begins",
+    "preClaudeFailureConsumesAttempt": false,
+    "automaticRetry": false,
+    "thirdAttemptAuthorized": false
+  },
+  "permanentA2AttemptLedger": {
+    "runId": "34699028049",
+    "sourceSha": "11375031aa3d4d98497bb48b60c39e37031983bb",
+    "claudeSessionId": "59f378db-aa23-4124-8d54-d18a3dfba2da",
+    "disposition": "CLAUDE_ACTION_SUCCESS / REQUIRED_A2_OUTPUT_NOT_CREATED / ZERO_WORKING_TREE_CHANGES / ROOT_CAUSE_UNRESOLVED",
+    "rootCauseResolved": false
+  },
+  "focusedValidation": {
+    "minimumSemanticCaseCount": 52,
+    "r1iFocusedTestCount": 47,
+    "artifactDeveloperRegressionStatus": "PASS",
+    "p2Pm1Agv2RegressionTestCount": 172,
+    "requiredInfrastructureAreas": ["SKELETON", "COMPLETION_GUARD", "HARNESS", "PROMPT_RENDERING", "REGRESSION"],
+    "recordExactCountsBeforePullRequest": true,
+    "status": "PASS"
+  },
+  "repositoryTransport": {
+    "required": false,
+    "requestPath": "",
+    "approvedFiles": [],
+    "invoked": false
+  }
+}
