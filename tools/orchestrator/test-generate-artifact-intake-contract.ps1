@@ -92,6 +92,17 @@ function Test-Valid($Value, [hashtable]$Schema) {
     try { Assert-SchemaValue -Value $Value -Rule $Schema -Root $Schema; return $true } catch { return $false }
 }
 
+function Assert-StandardsSchemaAndInstance([string]$SchemaPath, [string]$InstancePath, [string]$Name) {
+    $schemaText = [IO.File]::ReadAllText($SchemaPath, [Text.UTF8Encoding]::new($false, $true))
+    $instanceText = [IO.File]::ReadAllText($InstancePath, [Text.UTF8Encoding]::new($false, $true))
+    $schemaNode = [Text.Json.Nodes.JsonNode]::Parse($schemaText)
+    $metaResult = [Json.Schema.MetaSchemas]::Draft202012.Evaluate($schemaNode)
+    Assert-True $metaResult.IsValid "$Name schema passes Draft 2020-12 meta-schema"
+    $compiled = [Json.Schema.JsonSchema]::FromText($schemaText)
+    $result = $compiled.Evaluate([Text.Json.Nodes.JsonNode]::Parse($instanceText))
+    Assert-True $result.IsValid "$Name template passes standards-compliant schema evaluation"
+}
+
 function Invoke-ExpectedPolicyFailure([string]$Name, [scriptblock]$Mutation, [bool]$MutateSchema = $false) {
     $case = Join-Path $temporaryRoot ('invalid-' + $Name.Replace(' ', '-'))
     [System.IO.Directory]::CreateDirectory($case) | Out-Null
@@ -136,6 +147,8 @@ try {
     $decision = Read-Json (Join-Path $run1 $names[3])
     Assert-True ($requestSchema['$schema'] -ceq 'https://json-schema.org/draft/2020-12/schema') 'request schema declares Draft 2020-12'
     Assert-True ($decisionSchema['$schema'] -ceq 'https://json-schema.org/draft/2020-12/schema') 'decision schema declares Draft 2020-12'
+    Assert-StandardsSchemaAndInstance (Join-Path $run1 $names[0]) (Join-Path $run1 $names[1]) 'request'
+    Assert-StandardsSchemaAndInstance (Join-Path $run1 $names[2]) (Join-Path $run1 $names[3]) 'decision'
     Assert-True (Test-Valid $request $requestSchema) 'request template validates against request schema'
     Assert-True (Test-Valid $decision $decisionSchema) 'decision template validates against decision schema'
     Assert-True (Json-Equal $request.policy ([ordered]@{repositoryPath=$policy.repositoryPath;limits=$policy.limits;replay=$policy.replay;staleBase=$policy.staleBase;credentialInvariants=$policy.credentialInvariants;transport=$policy.transport})) 'request normative policy snapshot structurally equals canonical policy'
@@ -182,6 +195,7 @@ try {
     Invoke-ExpectedPolicyFailure 'unsupported policy version' { param($p) $p.identity.policyVersion = 'vsp-ai02-intake-v2' }
     Invoke-ExpectedPolicyFailure 'unsupported schema dialect' { param($s) $s['$schema'] = 'https://json-schema.org/draft/2019-09/schema' } $true
     Invoke-ExpectedPolicyFailure 'unsupported schema identifier' { param($s) $s['$id'] = 'https://example.invalid/policy.schema.json' } $true
+    Invoke-ExpectedPolicyFailure 'adversarial valid schema keyword' { param($s) $s['not'] = @{} } $true
 
     $duplicateCase = Join-Path $temporaryRoot 'duplicate-policy.json'
     [IO.File]::WriteAllText($duplicateCase, '{"schemaVersion":"1.0","schemaVersion":"1.0"}', [Text.UTF8Encoding]::new($false))

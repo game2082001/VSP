@@ -59,6 +59,31 @@ function ConvertTo-CompactJson {
     return ($Value | ConvertTo-Json -Depth 100 -Compress)
 }
 
+function Assert-Draft202012Schema {
+    param([Parameter(Mandatory = $true)][string]$SchemaJson, [Parameter(Mandatory = $true)][string]$Name)
+
+    $schemaNode = [System.Text.Json.Nodes.JsonNode]::Parse($SchemaJson)
+    $metaResult = [Json.Schema.MetaSchemas]::Draft202012.Evaluate($schemaNode)
+    if (-not $metaResult.IsValid) {
+        throw "$Name is not a valid JSON Schema Draft 2020-12 schema."
+    }
+    return [Json.Schema.JsonSchema]::FromText($SchemaJson)
+}
+
+function Assert-JsonSchemaInstance {
+    param(
+        [Parameter(Mandatory = $true)][Json.Schema.JsonSchema]$Schema,
+        [Parameter(Mandatory = $true)][string]$InstanceJson,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    $instanceNode = [System.Text.Json.Nodes.JsonNode]::Parse($InstanceJson)
+    $result = $Schema.Evaluate($instanceNode)
+    if (-not $result.IsValid) {
+        throw "$Name does not validate against its Draft 2020-12 schema."
+    }
+}
+
 function Assert-PolicyMatchesClosedSchema {
     param([hashtable]$Policy, [hashtable]$Schema)
 
@@ -102,6 +127,10 @@ function Write-CanonicalJson {
 
 $policy = Read-StrictJson -LiteralPath $PolicyPath
 $policySchema = Read-StrictJson -LiteralPath $PolicySchemaPath
+$policySchemaJson = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $PolicySchemaPath).Path, [System.Text.UTF8Encoding]::new($false, $true))
+$policyJson = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $PolicyPath).Path, [System.Text.UTF8Encoding]::new($false, $true))
+$compiledPolicySchema = Assert-Draft202012Schema -SchemaJson $policySchemaJson -Name 'Policy schema'
+Assert-JsonSchemaInstance -Schema $compiledPolicySchema -InstanceJson $policyJson -Name 'Policy'
 Assert-PolicyMatchesClosedSchema -Policy $policy -Schema $policySchema
 
 $identity = $policy.identity
@@ -303,6 +332,11 @@ $outputs = [ordered]@{
     'artifact-intake-decision.schema.json' = $decisionSchema
     'artifact-intake-decision.template.json' = $decisionTemplate
 }
+
+$compiledRequestSchema = Assert-Draft202012Schema -SchemaJson ($requestSchema | ConvertTo-Json -Depth 100) -Name 'Generated request schema'
+$compiledDecisionSchema = Assert-Draft202012Schema -SchemaJson ($decisionSchema | ConvertTo-Json -Depth 100) -Name 'Generated decision schema'
+Assert-JsonSchemaInstance -Schema $compiledRequestSchema -InstanceJson ($requestTemplate | ConvertTo-Json -Depth 100) -Name 'Generated request template'
+Assert-JsonSchemaInstance -Schema $compiledDecisionSchema -InstanceJson ($decisionTemplate | ConvertTo-Json -Depth 100) -Name 'Generated decision template'
 
 $resolvedOutput = [System.IO.Path]::GetFullPath($OutputDirectory)
 [System.IO.Directory]::CreateDirectory($resolvedOutput) | Out-Null
