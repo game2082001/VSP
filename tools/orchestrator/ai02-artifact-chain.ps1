@@ -117,7 +117,7 @@ function Assert-AllowedProperties {
 }
 
 function Assert-ExactSet {
-    param([Parameter(Mandatory = $true)][string[]] $Actual, [Parameter(Mandatory = $true)][string[]] $Expected, [Parameter(Mandatory = $true)][string] $Name)
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]] $Actual, [Parameter(Mandatory = $true)][string[]] $Expected, [Parameter(Mandatory = $true)][string] $Name)
     if ($Actual.Count -ne $Expected.Count) { Stop-Chain "$Name does not exactly match the approved set." }
     $actualSet = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach ($value in $Actual) { if (-not $actualSet.Add([string]$value)) { Stop-Chain "$Name contains a duplicate." } }

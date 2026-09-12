@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A-P2-PM1-R1",
+  "title": "Empty-Actual Failure-Path Contract Remediation",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "11375031aa3d4d98497bb48b60c39e37031983bb",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A-P2-PM1-R1",
+    "scope": "Remediate only the phased PackageChild empty-actual failure-path contract, add focused regression coverage, and record this exact governance fixture."
+  },
+  "approvedScope": [
+    "Permit an empty actual changed-file collection to reach deterministic exact-set validation.",
+    "Reject zero, missing, extra, unauthorized, and wrong-path child outputs without creating package, descriptor, or checkpoint output.",
+    "Preserve exact-one successful packaging and all P2, PM1, AGV2, predecessor, credential, and publication semantics."
+  ],
+  "outOfScope": [
+    "A2 implementation or dispatch, A2 manifest or state, workflow, schemas, Repository Transport, PR 79, A3, later AI02 phases, and Local AI."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL trusted packaging failure-path semantics require mandatory Claude Security Cross Review before merge."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before implementation.",
+    "Any changed file lies outside the exact five-file PM1-R1 allowlist.",
+    "Empty actual output passes, produces packaging artifacts, or reports a raw PowerShell binding exception instead of deterministic exact-set mismatch.",
+    "Successful packaging, P2, PM1, AGV2, predecessor, credential, workflow, schema, A2, Repository Transport, PR 79, A3, or Local AI boundaries change.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-12T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/11375031aa3d4d98497bb48b60c39e37031983bb",
+    "approvalSummary": "Product Owner authorized only the CRITICAL PM1-R1 empty-actual failure-path infrastructure remediation."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "approvedFiles": [
+    "tools/orchestrator/ai02-artifact-chain.ps1",
+    "tools/orchestrator/test-ai02-artifact-chain.ps1",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A-P2-PM1-R1.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A-P2-PM1-R1.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "failurePathContract": {
+    "function": "Assert-ExactSet",
+    "script": "tools/orchestrator/ai02-artifact-chain.ps1",
+    "allowEmptyActualCollection": true,
+    "emptyActualExpectedDisposition": "CHANGED_FILE_SET_MISMATCH_REJECT",
+    "emptyActualMayPass": false,
+    "packageCreatedOnMismatch": false,
+    "descriptorCreatedOnMismatch": false,
+    "checkpointCreatedOnMismatch": false,
+    "successfulPackagingSemanticsChanged": false,
+    "rawPowerShellExceptionNormative": false
+  },
+  "focusedValidation": {
+    "preR1TestCount": 165,
+    "newR1RegressionCount": 7,
+    "expectedFinalTestCount": 172,
+    "requiredCases": ["ZERO_ACTUAL", "EXACT_ONE", "MISSING", "UNAUTHORIZED_ONLY", "EXPECTED_PLUS_EXTRA", "WRONG_PATH_ONLY", "DUPLICATE_OBSERVATION_NORMALIZATION", "WRONG_MODE", "PREDECESSOR_IMMUTABILITY", "ACTIONS_ARTIFACT", "AUTHORITATIVE_REPOSITORY_MERGE", "AGV2", "LEGACY_V1"]
+  },
+  "permanentA2AttemptLedger": {
+    "runId": "34699028049",
+    "sourceSha": "11375031aa3d4d98497bb48b60c39e37031983bb",
+    "claudeSessionId": "59f378db-aa23-4124-8d54-d18a3dfba2da",
+    "disposition": "CLAUDE_ACTION_SUCCESS / REQUIRED_A2_OUTPUT_NOT_CREATED / ZERO_WORKING_TREE_CHANGES / ROOT_CAUSE_UNRESOLVED",
+    "initialSemanticAttemptsConsumed": 1,
+    "causeSpecificRemediationsConsumed": 0,
+    "remainingCauseSpecificRemediations": 1,
+    "automaticRetry": false,
+    "thirdAttemptAuthorized": false,
+    "pm1R1ConsumesA2SemanticAttempt": false,
+    "a2Readiness": "A2_R1_NOT_READY_ROOT_CAUSE_UNRESOLVED"
+  },
+  "credentialAndAuthorityBoundaries": {
+    "claudeRepositoryWriteCredential": false,
+    "repositoryMergeArtifactReadCredential": false,
+    "persistedCheckoutCredentials": false,
+    "directBranchAuthority": false,
+    "directPullRequestAuthority": false,
+    "mergeAuthority": false,
+    "repositoryTransportSoleAutomatedProductionWriteBoundary": true,
+    "productOwnerSoleMergeAuthority": true
+  }
+}
