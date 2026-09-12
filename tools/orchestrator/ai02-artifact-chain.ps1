@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("ValidateDescriptor", "InitializeWorkspace", "ValidateChildAuthorization", "MaterializeLocal", "BuildAggregateState", "AppendDescriptor", "AcquireAndMaterialize", "ValidatePostClaude", "PackageChild", "NewDescriptor", "ValidateFinalAggregate")]
+    [ValidateSet("ValidateDescriptor", "InitializeWorkspace", "ValidateChildAuthorization", "MaterializeLocal", "BuildAggregateState", "AppendDescriptor", "AcquireAndMaterialize", "ValidatePostClaude", "PackageChild", "NewDescriptor", "ValidateFinalAggregate", "ValidateLegacyCheckpoint", "NewCheckpointV2", "ValidateCheckpointV2")]
     [string] $Mode,
 
     [string] $Repository = "game2082001/VSP",
@@ -28,6 +28,13 @@ param(
     ,[string[]] $ArtifactDirectories = @()
     ,[string] $ExpectedBaselineSha256 = ""
     ,[string] $ExpectedAggregateStateSha256 = ""
+    ,[string] $CheckpointPath = ""
+    ,[string[]] $CheckpointEvidencePaths = @()
+    ,[string[]] $DescriptorEvidencePaths = @()
+    ,[string[]] $PackageResultEvidencePaths = @()
+    ,[string[]] $PublicationEvidencePaths = @()
+    ,[string] $ChildDescriptorPath = ""
+    ,[string] $ChildPackageResultPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,6 +51,11 @@ $Script:MaxPathSegmentCharacters = 100
 $Script:MaxJsonNestingDepth = 16
 $Script:MaxCompressionRatio = 100
 $Script:RequiredOuterPublicationFileCount = 3
+$Script:LegacyA1AggregateFileSha256 = "750334cd06ecf529303b14ba0431f5ca492c714e606baca6767aef5961106ddc"
+$Script:LegacyA1AggregateDigest = "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1"
+$Script:LegacyA1DescriptorSha256 = "c1595130a63ffb3eaba0facbb4c0f1e73c5dbf17db098ea5052ca23ff021a253"
+$Script:LegacyA1ExecutionSha = "8a0a441c532295405b8133d96142844026ee4a93"
+$Script:LegacyA1TaskId = "VSP-AI02-001TI-A1D-VALIDATE"
 
 $Script:PhaseFiles = [ordered]@{
     A1 = @(
@@ -672,6 +684,396 @@ function Assert-FocusedSuiteEvidence {
     return $evidence
 }
 
+function Stop-Checkpoint {
+    param([Parameter(Mandatory = $true)][string] $Code)
+    Stop-Chain "checkpoint validation rejected [$Code]."
+}
+
+function Get-CanonicalJsonBytes {
+    param([Parameter(Mandatory = $true)] $Value)
+    return [Text.UTF8Encoding]::new($false).GetBytes(($Value | ConvertTo-Json -Compress -Depth 30))
+}
+
+function Test-ByteArrayEqual {
+    param([Parameter(Mandatory = $true)][byte[]] $Left, [Parameter(Mandatory = $true)][byte[]] $Right)
+    if ($Left.Length -ne $Right.Length) { return $false }
+    for ($index = 0; $index -lt $Left.Length; $index++) {
+        if ($Left[$index] -ne $Right[$index]) { return $false }
+    }
+    return $true
+}
+
+function Read-CanonicalJsonEvidence {
+    param([Parameter(Mandatory = $true)][string] $Path, [Parameter(Mandatory = $true)][string] $FailureCode)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Stop-Checkpoint $FailureCode }
+    $bytes = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Path).Path)
+    if ($bytes.Length -eq 0 -or $bytes.Length -gt $Script:MaxPerFileUncompressedBytes) { Stop-Checkpoint $FailureCode }
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
+    try {
+        $text = [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+        $value = $text | ConvertFrom-Json -Depth 30
+    } catch { Stop-Checkpoint $FailureCode }
+    $canonical = Get-CanonicalJsonBytes $value
+    if (-not (Test-ByteArrayEqual $bytes $canonical)) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
+    return [pscustomobject]@{ value=$value; bytes=$bytes; sha256=(Get-BytesSha256 $bytes) }
+}
+
+function Read-PackageResultEvidence {
+    param([Parameter(Mandatory = $true)][string] $Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Stop-Checkpoint "CHILD_PACKAGE_BINDING_MISMATCH" }
+    $bytes = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Path).Path)
+    if ($bytes.Length -eq 0 -or $bytes.Length -gt $Script:MaxResultJsonBytes) { Stop-Checkpoint "CHILD_PACKAGE_BINDING_MISMATCH" }
+    try {
+        $text = [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+        $value = $text | ConvertFrom-Json -Depth 30
+    } catch { Stop-Checkpoint "CHILD_PACKAGE_BINDING_MISMATCH" }
+    $canonical = Get-CanonicalJsonBytes $value
+    $legacyLf = [byte[]]::new($canonical.Length + 1)
+    [Array]::Copy($canonical, $legacyLf, $canonical.Length)
+    $legacyLf[$legacyLf.Length - 1] = 0x0A
+    $isCanonical = Test-ByteArrayEqual $bytes $canonical
+    $isExactLegacyLf = Test-ByteArrayEqual $bytes $legacyLf
+    if (-not $isCanonical -and -not $isExactLegacyLf) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
+    return [pscustomobject]@{ value=$value; bytes=$bytes; sha256=(Get-BytesSha256 $bytes); exactLegacyLf=$isExactLegacyLf }
+}
+
+function ConvertTo-CanonicalCheckpointFile {
+    param([Parameter(Mandatory = $true)] $File)
+    return [ordered]@{ path=[string]$File.path; mode=[string]$File.mode; gitBlobId=[string]$File.gitBlobId; size=[int64]$File.size; sha256=[string]$File.sha256 }
+}
+
+function ConvertTo-CanonicalCheckpointChildFile {
+    param([Parameter(Mandatory = $true)] $File)
+    return [ordered]@{ path=[string]$File.path; mode=[string]$File.mode; size=[int64]$File.size; sha256=[string]$File.sha256 }
+}
+
+function ConvertTo-CanonicalPackageResult {
+    param([Parameter(Mandatory = $true)] $Result)
+    $files = @(Sort-OrdinalByPath @($Result.changedFiles) | ForEach-Object { ConvertTo-CanonicalCheckpointChildFile $_ })
+    return [ordered]@{
+        taskId=[string]$Result.taskId; approvedBaseSha=[string]$Result.approvedBaseSha
+        parentAggregateStateDigest=[string]$Result.parentAggregateStateDigest; changedFiles=$files
+        packageSha256=[string]$Result.packageSha256; manifestSha256=[string]$Result.manifestSha256
+        repositoryWriteCredentialAvailableToDeveloper=[bool]$Result.repositoryWriteCredentialAvailableToDeveloper
+        productOwnerManualTransport=[bool]$Result.productOwnerManualTransport
+    }
+}
+
+function ConvertTo-CanonicalParentCheckpoint {
+    param([Parameter(Mandatory = $true)] $Parent)
+    return [ordered]@{
+        schemaVersion=[string]$Parent.schemaVersion
+        aggregateStateDigest=[string]$Parent.aggregateStateDigest
+        aggregateFileSha256=[string]$Parent.aggregateFileSha256
+        terminalDescriptorSha256=[string]$Parent.terminalDescriptorSha256
+        terminalTaskId=[string]$Parent.terminalTaskId
+        terminalPhase=[string]$Parent.terminalPhase
+        terminalSequence=[int]$Parent.terminalSequence
+        terminalExecutionRepositorySha=[string]$Parent.terminalExecutionRepositorySha
+        terminalPackageSha256=[string]$Parent.terminalPackageSha256
+        terminalPackageManifestSha256=[string]$Parent.terminalPackageManifestSha256
+        terminalPackageResultSha256=[string]$Parent.terminalPackageResultSha256
+    }
+}
+
+function ConvertTo-CanonicalParentPublication {
+    param([Parameter(Mandatory = $true)] $Publication)
+    $files = @(Sort-OrdinalByPath @($Publication.productionFiles) | ForEach-Object { ConvertTo-CanonicalCheckpointFile $_ })
+    return [ordered]@{
+        sourceType=[string]$Publication.sourceType
+        repository=[string]$Publication.repository
+        mergeCommit=[string]$Publication.mergeCommit
+        orderedMergeParents=@($Publication.orderedMergeParents | ForEach-Object { [string]$_ })
+        publishedProductionHead=[string]$Publication.publishedProductionHead
+        checkpointAggregateStateDigest=[string]$Publication.checkpointAggregateStateDigest
+        checkpointAggregateFileSha256=[string]$Publication.checkpointAggregateFileSha256
+        productionFiles=$files
+    }
+}
+
+function ConvertTo-CanonicalCheckpointChild {
+    param([Parameter(Mandatory = $true)] $Child)
+    $files = @(Sort-OrdinalByPath @($Child.ownedFiles) | ForEach-Object { ConvertTo-CanonicalCheckpointChildFile $_ })
+    return [ordered]@{
+        taskId=[string]$Child.taskId
+        phase=[string]$Child.phase
+        sequence=[int]$Child.sequence
+        executionRepositorySha=[string]$Child.executionRepositorySha
+        descriptorSha256=[string]$Child.descriptorSha256
+        packageSha256=[string]$Child.packageSha256
+        packageManifestSha256=[string]$Child.packageManifestSha256
+        packageResultSha256=[string]$Child.packageResultSha256
+        ownedFiles=$files
+    }
+}
+
+function ConvertTo-CanonicalCheckpointV2 {
+    param([Parameter(Mandatory = $true)] $Checkpoint, [switch] $ExcludeDigest)
+    $canonical = [ordered]@{
+        schemaVersion="2.0"
+        checkpointType="PHASED_CHILD_CHECKPOINT"
+        checkpointPolicyVersion="vsp-ai02-checkpoint-chain-v2"
+        parentCheckpoint=(ConvertTo-CanonicalParentCheckpoint $Checkpoint.parentCheckpoint)
+        parentPublication=(ConvertTo-CanonicalParentPublication $Checkpoint.parentPublication)
+        child=(ConvertTo-CanonicalCheckpointChild $Checkpoint.child)
+    }
+    if (-not $ExcludeDigest) { $canonical.aggregateStateDigest=[string]$Checkpoint.aggregateStateDigest }
+    return $canonical
+}
+
+function Assert-CheckpointOwnedFiles {
+    param([Parameter(Mandatory = $true)][object[]] $Files, [Parameter(Mandatory = $true)][string] $Phase, [switch] $RequireGitBlob)
+    $properties = if ($RequireGitBlob) { @("path","mode","gitBlobId","size","sha256") } else { @("path","mode","size","sha256") }
+    Assert-ExactSet @($Files.path) (Get-PhaseFiles $Phase) "checkpoint files"
+    Assert-UniquePaths @($Files.path) "checkpoint files"
+    $sorted = @(Sort-OrdinalByPath $Files)
+    for ($index=0; $index -lt $Files.Count; $index++) {
+        if ([string]$Files[$index].path -cne [string]$sorted[$index].path) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
+    }
+    foreach ($file in $Files) {
+        Assert-ExactProperties $file $properties "checkpoint file"
+        Assert-RepoPath ([string]$file.path) "checkpoint file path" | Out-Null
+        if ($file.mode -ne "100644") { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        if ($RequireGitBlob) { Assert-Matches $file.gitBlobId '^[0-9a-f]{40}$' "gitBlobId" }
+        if ([int64]$file.size -le 0 -or [int64]$file.size -gt $Script:MaxPerFileUncompressedBytes) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        Assert-Matches $file.sha256 '^[0-9a-f]{64}$' "sha256"
+    }
+}
+
+function Test-PackageResultEvidence {
+    param([Parameter(Mandatory = $true)] $Descriptor, [Parameter(Mandatory = $true)][string] $ResultPath)
+    $evidence = Read-PackageResultEvidence $ResultPath
+    $result = $evidence.value
+    Assert-ExactProperties $result @("taskId","approvedBaseSha","parentAggregateStateDigest","changedFiles","packageSha256","manifestSha256","repositoryWriteCredentialAvailableToDeveloper","productOwnerManualTransport") "package result"
+    $canonicalBytes = Get-CanonicalJsonBytes (ConvertTo-CanonicalPackageResult $result)
+    $expectedBytes = if ($evidence.exactLegacyLf) { $withLf=[byte[]]::new($canonicalBytes.Length+1);[Array]::Copy($canonicalBytes,$withLf,$canonicalBytes.Length);$withLf[-1]=0x0A;$withLf } else { $canonicalBytes }
+    if (-not (Test-ByteArrayEqual $evidence.bytes $expectedBytes)) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
+    if ($result.taskId -ne $Descriptor.childTaskId -or $result.approvedBaseSha -ne $Descriptor.recoveryRepositorySha -or $result.parentAggregateStateDigest -ne $Descriptor.parentAggregateStateDigest -or $result.packageSha256 -ne $Descriptor.packageSha256 -or $result.manifestSha256 -ne $Descriptor.manifestSha256 -or $result.repositoryWriteCredentialAvailableToDeveloper -ne $false -or $result.productOwnerManualTransport -ne $false) { Stop-Checkpoint "CHILD_PACKAGE_BINDING_MISMATCH" }
+    Assert-ExactSet @($result.changedFiles.path) @($Descriptor.ownedFiles.path) "package result files"
+    foreach ($file in @($Descriptor.ownedFiles)) {
+        $candidate = @($result.changedFiles | Where-Object { $_.path -ceq $file.path })
+        if ($candidate.Count -ne 1 -or $candidate[0].mode -ne $file.mode -or [int64]$candidate[0].size -ne [int64]$file.size -or $candidate[0].sha256 -ne $file.sha256) { Stop-Checkpoint "CHILD_PACKAGE_BINDING_MISMATCH" }
+    }
+    return $evidence.sha256
+}
+
+function Test-LegacyCheckpointEvidence {
+    param([Parameter(Mandatory = $true)][string] $LegacyPath, [Parameter(Mandatory = $true)][string] $TerminalDescriptorPath, [Parameter(Mandatory = $true)][string] $ResultPath)
+    $legacyEvidence = Read-CanonicalJsonEvidence $LegacyPath "LEGACY_IMPORT_MISMATCH"
+    $legacy = $legacyEvidence.value
+    Assert-ExactProperties $legacy @("schemaVersion","recoveryRepositorySha","predecessors","fileOwnership","aggregateStateDigest") "legacy aggregate"
+    if ($legacy.schemaVersion -ne "1.0" -or @($legacy.predecessors).Count -lt 1) { Stop-Checkpoint "LEGACY_IMPORT_MISMATCH" }
+    if ($legacyEvidence.sha256 -ne $Script:LegacyA1AggregateFileSha256 -or $legacy.aggregateStateDigest -ne $Script:LegacyA1AggregateDigest -or $legacy.recoveryRepositorySha -ne $Script:LegacyA1ExecutionSha) { Stop-Checkpoint "LEGACY_IMPORT_MISMATCH" }
+    $recomputed = New-AggregateState ([string]$legacy.recoveryRepositorySha) @($legacy.predecessors)
+    if ((Get-BytesSha256 (Get-CanonicalJsonBytes $recomputed)) -ne $legacyEvidence.sha256 -or $recomputed.aggregateStateDigest -ne $legacy.aggregateStateDigest) { Stop-Checkpoint "LEGACY_IMPORT_MISMATCH" }
+    $descriptorEvidence = Read-CanonicalJsonEvidence $TerminalDescriptorPath "PARENT_TERMINAL_DESCRIPTOR_MISMATCH"
+    $descriptor = $descriptorEvidence.value
+    Assert-Descriptor $descriptor
+    if ($descriptorEvidence.sha256 -ne $Script:LegacyA1DescriptorSha256 -or $descriptor.childTaskId -ne $Script:LegacyA1TaskId -or $descriptor.phase -ne "A1" -or [int]$descriptor.sequence -ne 1 -or $descriptor.recoveryRepositorySha -ne $Script:LegacyA1ExecutionSha -or $descriptor.parentAggregateStateDigest -ne "GENESIS") { Stop-Checkpoint "LEGACY_IMPORT_MISMATCH" }
+    $terminal = @($legacy.predecessors)[-1]
+    if (-not (Test-ByteArrayEqual (Get-CanonicalJsonBytes (ConvertTo-CanonicalDescriptor $terminal)) $descriptorEvidence.bytes)) { Stop-Checkpoint "PARENT_TERMINAL_DESCRIPTOR_MISMATCH" }
+    $resultHash = Test-PackageResultEvidence $descriptor $ResultPath
+    return [pscustomobject]@{
+        checkpoint=$legacy; checkpointBytes=$legacyEvidence.bytes; checkpointFileSha256=$legacyEvidence.sha256
+        descriptor=$descriptor; descriptorSha256=$descriptorEvidence.sha256; packageResultSha256=$resultHash
+        terminalTaskId=[string]$descriptor.childTaskId; terminalPhase=[string]$descriptor.phase; terminalSequence=[int]$descriptor.sequence
+        terminalExecutionRepositorySha=[string]$descriptor.recoveryRepositorySha; aggregateStateDigest=[string]$legacy.aggregateStateDigest
+        packageSha256=[string]$descriptor.packageSha256; packageManifestSha256=[string]$descriptor.manifestSha256
+    }
+}
+
+function Assert-ParentPublication {
+    param([Parameter(Mandatory = $true)] $Publication, [Parameter(Mandatory = $true)] $ParentSummary)
+    Assert-ExactProperties $Publication @("sourceType","repository","mergeCommit","orderedMergeParents","publishedProductionHead","checkpointAggregateStateDigest","checkpointAggregateFileSha256","productionFiles") "parent publication"
+    if ($Publication.sourceType -ne "AUTHORITATIVE_REPOSITORY_MERGE" -or $Publication.repository -ne $Repository) { Stop-Checkpoint "PUBLICATION_MERGE_MISMATCH" }
+    Assert-Matches $Publication.mergeCommit '^[0-9a-f]{40}$' "mergeCommit"
+    if (@($Publication.orderedMergeParents).Count -ne 2) { Stop-Checkpoint "PUBLICATION_PARENT_MISMATCH" }
+    foreach ($parent in @($Publication.orderedMergeParents)) { Assert-Matches $parent '^[0-9a-f]{40}$' "orderedMergeParent" }
+    Assert-Matches $Publication.publishedProductionHead '^[0-9a-f]{40}$' "publishedProductionHead"
+    if ([string]$Publication.orderedMergeParents[1] -ne [string]$Publication.publishedProductionHead) { Stop-Checkpoint "PUBLICATION_PARENT_MISMATCH" }
+    if ([string]$Publication.orderedMergeParents[0] -ne [string]$ParentSummary.terminalExecutionRepositorySha) { Stop-Checkpoint "PUBLICATION_PARENT_MISMATCH" }
+    if ($Publication.checkpointAggregateStateDigest -ne $ParentSummary.aggregateStateDigest -or $Publication.checkpointAggregateFileSha256 -ne $ParentSummary.checkpointFileSha256) { Stop-Checkpoint "PUBLICATION_MERGE_MISMATCH" }
+    $files = @($Publication.productionFiles)
+    Assert-CheckpointOwnedFiles $files $ParentSummary.terminalPhase -RequireGitBlob
+    Assert-ExactSet @($files.path) @($ParentSummary.descriptor.ownedFiles.path) "publication descriptor files"
+    foreach ($owned in @($ParentSummary.descriptor.ownedFiles)) {
+        $file = @($files | Where-Object { $_.path -ceq $owned.path })
+        if ($file.Count -ne 1 -or $file[0].mode -ne $owned.mode -or [int64]$file[0].size -ne [int64]$owned.size -or $file[0].sha256 -ne $owned.sha256) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+    }
+    return (ConvertTo-CanonicalParentPublication $Publication)
+}
+
+function Invoke-CheckpointGit {
+    param([Parameter(Mandatory = $true)][string[]] $Arguments, [Parameter(Mandatory = $true)][string] $FailureCode)
+    if ([string]::IsNullOrWhiteSpace($WorkspacePath) -or -not (Test-Path -LiteralPath $WorkspacePath -PathType Container)) { Stop-Checkpoint $FailureCode }
+    $output = @(& git -C $WorkspacePath @Arguments 2>$null | ForEach-Object { [string]$_ })
+    if ($LASTEXITCODE -ne 0) { Stop-Checkpoint $FailureCode }
+    return $output
+}
+
+function Get-CheckpointGitBlobSha256 {
+    param([Parameter(Mandatory = $true)][string] $BlobId)
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = "git"
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    foreach ($argument in @("-C",$WorkspacePath,"cat-file","blob",$BlobId)) { $start.ArgumentList.Add($argument) }
+    try {
+        $process = [Diagnostics.Process]::Start($start)
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try { $hash = $sha.ComputeHash($process.StandardOutput.BaseStream) } finally { $sha.Dispose() }
+        $errorText = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0 -or -not [string]::IsNullOrWhiteSpace($errorText)) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        return (($hash | ForEach-Object { $_.ToString("x2") }) -join "")
+    } catch {
+        if ($_.Exception.Message -like "AI02 artifact chain validation failed:*") { throw }
+        Stop-Checkpoint "INTERNAL_VALIDATION_ERROR"
+    }
+}
+
+function Test-ParentPublicationGitBinding {
+    param([Parameter(Mandatory = $true)] $Publication, [Parameter(Mandatory = $true)] $ParentSummary, [Parameter(Mandatory = $true)][string] $ChildExecutionSha)
+    Assert-Matches $ChildExecutionSha '^[0-9a-f]{40}$' "child execution SHA"
+    $mergeType = @(Invoke-CheckpointGit @("cat-file","-t",[string]$Publication.mergeCommit) "PUBLICATION_MERGE_MISMATCH")
+    if ($mergeType.Count -ne 1 -or $mergeType[0] -ne "commit") { Stop-Checkpoint "PUBLICATION_MERGE_MISMATCH" }
+    $childType = @(Invoke-CheckpointGit @("cat-file","-t",$ChildExecutionSha) "CHILD_EXECUTION_BASE_MISMATCH")
+    if ($childType.Count -ne 1 -or $childType[0] -ne "commit") { Stop-Checkpoint "CHILD_EXECUTION_BASE_MISMATCH" }
+    $parentLines = @(Invoke-CheckpointGit @("show","-s","--format=%P",[string]$Publication.mergeCommit) "PUBLICATION_PARENT_MISMATCH")
+    if ($parentLines.Count -ne 1) { Stop-Checkpoint "PUBLICATION_PARENT_MISMATCH" }
+    $parents = @(([string]$parentLines[0]).Split(' ',[StringSplitOptions]::RemoveEmptyEntries))
+    if ($parents.Count -ne 2 -or $parents[0] -ne [string]$Publication.orderedMergeParents[0] -or $parents[1] -ne [string]$Publication.orderedMergeParents[1]) { Stop-Checkpoint "PUBLICATION_PARENT_MISMATCH" }
+    & git -C $WorkspacePath merge-base --is-ancestor ([string]$Publication.mergeCommit) $ChildExecutionSha 2>$null
+    if ($LASTEXITCODE -ne 0) { Stop-Checkpoint "EXECUTION_BASE_ANCESTRY_FAILURE" }
+    $changed = @(Invoke-CheckpointGit @("diff","--name-only",$parents[0],[string]$Publication.mergeCommit,"--") "PUBLICATION_CONTENT_MISMATCH")
+    Assert-ExactSet $changed @($Publication.productionFiles.path) "publication merge changed files"
+    foreach ($file in @($Publication.productionFiles)) {
+        $mergeTree = @(Invoke-CheckpointGit @("ls-tree",[string]$Publication.mergeCommit,"--",[string]$file.path) "PUBLICATION_CONTENT_MISMATCH")
+        $publishedTree = @(Invoke-CheckpointGit @("ls-tree",[string]$Publication.publishedProductionHead,"--",[string]$file.path) "PUBLICATION_CONTENT_MISMATCH")
+        $childTree = @(Invoke-CheckpointGit @("ls-tree",$ChildExecutionSha,"--",[string]$file.path) "PUBLICATION_CONTENT_MISMATCH")
+        if ($mergeTree.Count -ne 1 -or $publishedTree.Count -ne 1 -or $childTree.Count -ne 1 -or $mergeTree[0] -cnotmatch '^([0-9]{6}) blob ([0-9a-f]{40})\t(.+)$') { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        $mode=$Matches[1];$blob=$Matches[2];$path=$Matches[3]
+        if ($mode -ne $file.mode -or $blob -ne $file.gitBlobId -or $path -cne $file.path) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        if ($publishedTree[0] -cnotmatch '^([0-9]{6}) blob ([0-9a-f]{40})\t(.+)$' -or $Matches[1] -ne $file.mode -or $Matches[2] -ne $file.gitBlobId -or $Matches[3] -cne $file.path) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        if ($childTree[0] -cnotmatch '^([0-9]{6}) blob ([0-9a-f]{40})\t(.+)$' -or $Matches[1] -ne $file.mode -or $Matches[2] -ne $file.gitBlobId -or $Matches[3] -cne $file.path) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        $sizeLines = @(Invoke-CheckpointGit @("cat-file","-s",$blob) "PUBLICATION_CONTENT_MISMATCH")
+        if ($sizeLines.Count -ne 1) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+        $size = [int64]$sizeLines[0]
+        if ($size -ne [int64]$file.size -or (Get-CheckpointGitBlobSha256 $blob) -ne $file.sha256) { Stop-Checkpoint "PUBLICATION_CONTENT_MISMATCH" }
+    }
+}
+
+function Get-CheckpointChildFromEvidence {
+    param([Parameter(Mandatory = $true)] $DescriptorEvidence, [Parameter(Mandatory = $true)][string] $ResultPath)
+    $descriptor = $DescriptorEvidence.value
+    Assert-Descriptor $descriptor
+    if (-not (Test-ByteArrayEqual $DescriptorEvidence.bytes (Get-CanonicalJsonBytes (ConvertTo-CanonicalDescriptor $descriptor)))) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
+    $expectedTask = @{ A2="VSP-AI02-001TI-A2"; A3="VSP-AI02-001TI-A3" }[[string]$descriptor.phase]
+    if ([string]::IsNullOrWhiteSpace($expectedTask) -or $descriptor.childTaskId -ne $expectedTask) { Stop-Checkpoint "CHILD_DESCRIPTOR_MISMATCH" }
+    $resultHash = Test-PackageResultEvidence $descriptor $ResultPath
+    return [ordered]@{
+        taskId=[string]$descriptor.childTaskId; phase=[string]$descriptor.phase; sequence=[int]$descriptor.sequence
+        executionRepositorySha=[string]$descriptor.recoveryRepositorySha; descriptorSha256=[string]$DescriptorEvidence.sha256
+        packageSha256=[string]$descriptor.packageSha256; packageManifestSha256=[string]$descriptor.manifestSha256
+        packageResultSha256=$resultHash; ownedFiles=@(Sort-OrdinalByPath @($descriptor.ownedFiles) | ForEach-Object { ConvertTo-CanonicalCheckpointChildFile $_ })
+    }
+}
+
+function Test-CheckpointV2Evidence {
+    param(
+        [Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)] $ParentSummary,
+        [Parameter(Mandatory = $true)][string] $PublicationPath,
+        [Parameter(Mandatory = $true)][string] $TerminalDescriptorPath,
+        [Parameter(Mandatory = $true)][string] $ResultPath
+    )
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Stop-Checkpoint "PARENT_CHECKPOINT_MISSING" }
+    $evidence = Read-CanonicalJsonEvidence $Path "CHECKPOINT_CANONICALIZATION_MISMATCH"
+    $checkpoint = $evidence.value
+    Assert-ExactProperties $checkpoint @("schemaVersion","checkpointType","checkpointPolicyVersion","parentCheckpoint","parentPublication","child","aggregateStateDigest") "v2 checkpoint"
+    if ($checkpoint.schemaVersion -ne "2.0") { Stop-Checkpoint "CHECKPOINT_VERSION_UNSUPPORTED" }
+    if ($checkpoint.checkpointType -ne "PHASED_CHILD_CHECKPOINT" -or $checkpoint.checkpointPolicyVersion -ne "vsp-ai02-checkpoint-chain-v2") { Stop-Checkpoint "CHECKPOINT_TYPE_UNSUPPORTED" }
+    if (-not (Test-ByteArrayEqual $evidence.bytes (Get-CanonicalJsonBytes (ConvertTo-CanonicalCheckpointV2 $checkpoint)))) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
+    $parent = $checkpoint.parentCheckpoint
+    Assert-ExactProperties $parent @("schemaVersion","aggregateStateDigest","aggregateFileSha256","terminalDescriptorSha256","terminalTaskId","terminalPhase","terminalSequence","terminalExecutionRepositorySha","terminalPackageSha256","terminalPackageManifestSha256","terminalPackageResultSha256") "parent checkpoint"
+    if ($parent.schemaVersion -ne [string]$ParentSummary.checkpoint.schemaVersion) { Stop-Checkpoint "CHECKPOINT_MODEL_AMBIGUOUS" }
+    if ($parent.aggregateStateDigest -ne $ParentSummary.aggregateStateDigest) { Stop-Checkpoint "PARENT_CHECKPOINT_DIGEST_MISMATCH" }
+    if ($parent.aggregateFileSha256 -ne $ParentSummary.checkpointFileSha256) { Stop-Checkpoint "PARENT_CHECKPOINT_FILE_HASH_MISMATCH" }
+    if ($parent.terminalDescriptorSha256 -ne $ParentSummary.descriptorSha256) { Stop-Checkpoint "PARENT_TERMINAL_DESCRIPTOR_MISMATCH" }
+    if ($parent.terminalTaskId -ne $ParentSummary.terminalTaskId) { Stop-Checkpoint "PARENT_TERMINAL_TASK_MISMATCH" }
+    if ([int]$parent.terminalSequence -ne [int]$ParentSummary.terminalSequence -or $parent.terminalPhase -ne $ParentSummary.terminalPhase) { Stop-Checkpoint "PARENT_TERMINAL_SEQUENCE_MISMATCH" }
+    if ($parent.terminalExecutionRepositorySha -ne $ParentSummary.terminalExecutionRepositorySha) { Stop-Checkpoint "PARENT_EXECUTION_BASE_MISMATCH" }
+    if ($parent.terminalPackageSha256 -ne $ParentSummary.packageSha256 -or $parent.terminalPackageManifestSha256 -ne $ParentSummary.packageManifestSha256 -or $parent.terminalPackageResultSha256 -ne $ParentSummary.packageResultSha256) { Stop-Checkpoint "CHILD_PACKAGE_BINDING_MISMATCH" }
+    $publicationEvidence = Read-CanonicalJsonEvidence $PublicationPath "PUBLICATION_MERGE_MISMATCH"
+    $canonicalPublication = Assert-ParentPublication $publicationEvidence.value $ParentSummary
+    if (-not (Test-ByteArrayEqual $publicationEvidence.bytes (Get-CanonicalJsonBytes $canonicalPublication))) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
+    if (-not (Test-ByteArrayEqual (Get-CanonicalJsonBytes $canonicalPublication) (Get-CanonicalJsonBytes $checkpoint.parentPublication))) { Stop-Checkpoint "PUBLICATION_MERGE_MISMATCH" }
+    $descriptorEvidence = Read-CanonicalJsonEvidence $TerminalDescriptorPath "CHILD_DESCRIPTOR_MISMATCH"
+    $child = Get-CheckpointChildFromEvidence $descriptorEvidence $ResultPath
+    Test-ParentPublicationGitBinding $checkpoint.parentPublication $ParentSummary ([string]$child.executionRepositorySha)
+    Assert-ExactProperties $checkpoint.child @("taskId","phase","sequence","executionRepositorySha","descriptorSha256","packageSha256","packageManifestSha256","packageResultSha256","ownedFiles") "checkpoint child"
+    Assert-CheckpointOwnedFiles @($checkpoint.child.ownedFiles) ([string]$checkpoint.child.phase)
+    if (-not (Test-ByteArrayEqual (Get-CanonicalJsonBytes $child) (Get-CanonicalJsonBytes (ConvertTo-CanonicalCheckpointChild $checkpoint.child)))) { Stop-Checkpoint "CHILD_DESCRIPTOR_MISMATCH" }
+    if ([int]$checkpoint.child.sequence -ne ([int]$ParentSummary.terminalSequence + 1)) { Stop-Checkpoint "CHILD_SEQUENCE_MISMATCH" }
+    $expectedPhase = @{2="A2";3="A3"}[[int]$checkpoint.child.sequence]
+    if ([string]::IsNullOrWhiteSpace($expectedPhase) -or $checkpoint.child.phase -ne $expectedPhase) { Stop-Checkpoint "LINEAGE_SEQUENCE_GAP" }
+    $digest = "sha256:" + (Get-BytesSha256 (Get-CanonicalJsonBytes (ConvertTo-CanonicalCheckpointV2 $checkpoint -ExcludeDigest)))
+    if ($checkpoint.aggregateStateDigest -ne $digest) { Stop-Checkpoint "CHECKPOINT_DIGEST_MISMATCH" }
+    return [pscustomobject]@{
+        checkpoint=$checkpoint; checkpointBytes=$evidence.bytes; checkpointFileSha256=$evidence.sha256
+        descriptor=$descriptorEvidence.value; descriptorSha256=$descriptorEvidence.sha256; packageResultSha256=[string]$checkpoint.child.packageResultSha256
+        terminalTaskId=[string]$checkpoint.child.taskId; terminalPhase=[string]$checkpoint.child.phase; terminalSequence=[int]$checkpoint.child.sequence
+        terminalExecutionRepositorySha=[string]$checkpoint.child.executionRepositorySha; aggregateStateDigest=[string]$checkpoint.aggregateStateDigest
+        packageSha256=[string]$checkpoint.child.packageSha256; packageManifestSha256=[string]$checkpoint.child.packageManifestSha256
+    }
+}
+
+function Test-CheckpointEvidenceBundle {
+    param([switch] $ForExtension)
+    if ($CheckpointEvidencePaths.Count -lt 1 -or $CheckpointEvidencePaths.Count -gt 3 -or $DescriptorEvidencePaths.Count -ne $CheckpointEvidencePaths.Count -or $PackageResultEvidencePaths.Count -ne $CheckpointEvidencePaths.Count) { Stop-Checkpoint "LINEAGE_EVIDENCE_INCOMPLETE" }
+    $requiredPublications = if ($ForExtension) { $CheckpointEvidencePaths.Count } else { $CheckpointEvidencePaths.Count - 1 }
+    if ($PublicationEvidencePaths.Count -ne $requiredPublications) { Stop-Checkpoint "LINEAGE_EVIDENCE_INCOMPLETE" }
+    $summary = Test-LegacyCheckpointEvidence $CheckpointEvidencePaths[0] $DescriptorEvidencePaths[0] $PackageResultEvidencePaths[0]
+    for ($index=1; $index -lt $CheckpointEvidencePaths.Count; $index++) {
+        $summary = Test-CheckpointV2Evidence $CheckpointEvidencePaths[$index] $summary $PublicationEvidencePaths[$index-1] $DescriptorEvidencePaths[$index] $PackageResultEvidencePaths[$index]
+    }
+    return $summary
+}
+
+function New-CheckpointV2FromEvidence {
+    $parentSummary = Test-CheckpointEvidenceBundle -ForExtension
+    $publicationEvidence = Read-CanonicalJsonEvidence $PublicationEvidencePaths[-1] "PUBLICATION_MERGE_MISMATCH"
+    $publication = Assert-ParentPublication $publicationEvidence.value $parentSummary
+    if (-not (Test-ByteArrayEqual $publicationEvidence.bytes (Get-CanonicalJsonBytes $publication))) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
+    $descriptorEvidence = Read-CanonicalJsonEvidence $ChildDescriptorPath "CHILD_DESCRIPTOR_MISMATCH"
+    $child = Get-CheckpointChildFromEvidence $descriptorEvidence $ChildPackageResultPath
+    Test-ParentPublicationGitBinding $publication $parentSummary ([string]$child.executionRepositorySha)
+    if ([int]$child.sequence -ne ([int]$parentSummary.terminalSequence + 1)) { Stop-Checkpoint "CHILD_SEQUENCE_MISMATCH" }
+    if ($child.phase -ne @{2="A2";3="A3"}[[int]$child.sequence]) { Stop-Checkpoint "LINEAGE_SEQUENCE_GAP" }
+    if ($descriptorEvidence.value.parentAggregateStateDigest -ne $parentSummary.aggregateStateDigest) { Stop-Checkpoint "PARENT_CHECKPOINT_DIGEST_MISMATCH" }
+    $parent = [ordered]@{
+        schemaVersion=[string]$parentSummary.checkpoint.schemaVersion; aggregateStateDigest=[string]$parentSummary.aggregateStateDigest
+        aggregateFileSha256=[string]$parentSummary.checkpointFileSha256; terminalDescriptorSha256=[string]$parentSummary.descriptorSha256
+        terminalTaskId=[string]$parentSummary.terminalTaskId; terminalPhase=[string]$parentSummary.terminalPhase; terminalSequence=[int]$parentSummary.terminalSequence
+        terminalExecutionRepositorySha=[string]$parentSummary.terminalExecutionRepositorySha; terminalPackageSha256=[string]$parentSummary.packageSha256
+        terminalPackageManifestSha256=[string]$parentSummary.packageManifestSha256; terminalPackageResultSha256=[string]$parentSummary.packageResultSha256
+    }
+    $checkpoint = [ordered]@{ schemaVersion="2.0"; checkpointType="PHASED_CHILD_CHECKPOINT"; checkpointPolicyVersion="vsp-ai02-checkpoint-chain-v2"; parentCheckpoint=$parent; parentPublication=$publication; child=$child }
+    $checkpoint.aggregateStateDigest = "sha256:" + (Get-BytesSha256 (Get-CanonicalJsonBytes $checkpoint))
+    Write-Utf8CanonicalJson $checkpoint $CheckpointPath
+    return Test-CheckpointV2Evidence $CheckpointPath $parentSummary $PublicationEvidencePaths[-1] $ChildDescriptorPath $ChildPackageResultPath
+}
+
+function Invoke-SanitizedCheckpointOperation {
+    param([Parameter(Mandatory = $true)][scriptblock] $Operation)
+    try { return & $Operation }
+    catch {
+        if ($_.Exception.Message.StartsWith("AI02 artifact chain validation failed: checkpoint validation rejected [", [StringComparison]::Ordinal)) { throw }
+        Stop-Checkpoint "INTERNAL_VALIDATION_ERROR"
+    }
+}
+
 function Test-FinalAggregate {
     $state = Read-JsonBounded $AggregateStatePath
     $expectedProperties = @("schemaVersion", "recoveryRepositorySha", "predecessors", "fileOwnership", "aggregateStateDigest")
@@ -727,4 +1129,17 @@ switch ($Mode) {
     "PackageChild" { New-ChildPackage $WorkspacePath $BaselinePath $ManifestPath $OutputDirectory | ConvertTo-Json -Depth 10 }
     "NewDescriptor" { New-PredecessorDescriptor | ConvertTo-Json -Depth 10 }
     "ValidateFinalAggregate" { Test-FinalAggregate | ConvertTo-Json -Depth 5 }
+    "ValidateLegacyCheckpoint" {
+        $summary = Invoke-SanitizedCheckpointOperation { Test-LegacyCheckpointEvidence $CheckpointPath $DescriptorPath $ChildPackageResultPath }
+        [pscustomobject]@{ status="LEGACY_V1_IMMUTABLE_CHECKPOINT"; aggregateStateDigest=$summary.aggregateStateDigest; aggregateFileSha256=$summary.checkpointFileSha256; terminalDescriptorSha256=$summary.descriptorSha256; terminalTaskId=$summary.terminalTaskId; terminalSequence=$summary.terminalSequence } | ConvertTo-Json -Depth 5
+    }
+    "NewCheckpointV2" {
+        $summary = Invoke-SanitizedCheckpointOperation { New-CheckpointV2FromEvidence }
+        [pscustomobject]@{ status="PASS"; schemaVersion="2.0"; checkpointType="PHASED_CHILD_CHECKPOINT"; aggregateStateDigest=$summary.aggregateStateDigest; aggregateFileSha256=$summary.checkpointFileSha256; terminalTaskId=$summary.terminalTaskId; terminalSequence=$summary.terminalSequence } | ConvertTo-Json -Depth 5
+    }
+    "ValidateCheckpointV2" {
+        $summary = Invoke-SanitizedCheckpointOperation { Test-CheckpointEvidenceBundle }
+        if ($summary.checkpoint.schemaVersion -ne "2.0") { Stop-Checkpoint "LINEAGE_DOWNGRADE_REJECTED" }
+        [pscustomobject]@{ status="PASS"; schemaVersion="2.0"; aggregateStateDigest=$summary.aggregateStateDigest; aggregateFileSha256=$summary.checkpointFileSha256; terminalTaskId=$summary.terminalTaskId; terminalSequence=$summary.terminalSequence; completeLineageEvidence=$true } | ConvertTo-Json -Depth 5
+    }
 }

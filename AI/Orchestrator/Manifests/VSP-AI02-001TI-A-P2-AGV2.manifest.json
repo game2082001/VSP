@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A-P2-AGV2",
+  "title": "Aggregate-State v2 Cross-Base Checkpoint Implementation",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "5c98c704a3a09aeebe58b46648dd203245e730cf",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A-P2-AGV2",
+    "scope": "Implement only Aggregate-State schema 2.0 and its incremental immutable cross-base checkpoint validation, tests, documentation, and governance fixture."
+  },
+  "approvedScope": [
+    "Implement a closed schema 2.0 checkpoint separating parent checkpoint, parent publication, and child execution provenance.",
+    "Pin and import the immutable historical A1 schema 1.0 checkpoint without rewriting its bytes.",
+    "Validate deterministic D1 plus M1 to D2 and D2 plus M2 to D3 transitions using immutable local Git objects.",
+    "Preserve all existing P2 behavior and add the authorized failure and threat regression matrix."
+  ],
+  "outOfScope": [
+    "Workflow, predecessor-binding schema, PM1, Repository Transport, A2 manifest/state or implementation, A1 production contracts, A2-EF, A3, later AI02, Local AI, and PR 79 changes."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL aggregate checkpoint and repository-provenance validation requires mandatory Claude Security Cross Review before merge."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before implementation.",
+    "Any changed file lies outside the exact seven-file AGV2 allowlist.",
+    "Legacy A1 bytes or hashes are rewritten, provenance authorities are collapsed, lineage evidence can be omitted, or validation fetches missing Git objects.",
+    "Workflow, predecessor-binding schema, PM1, Repository Transport, A2 implementation, A1 contracts, A3, later AI02, Local AI, or PR 79 changes begin.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-12T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/5c98c704a3a09aeebe58b46648dd203245e730cf",
+    "approvalSummary": "Product Owner authorized Aggregate-State v2 under an exact task-specific CRITICAL Codex bootstrap exception."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "approvedFiles": [
+    "AI/Orchestrator/Templates/ai02-aggregate-state.schema.json",
+    "tools/orchestrator/ai02-artifact-chain.ps1",
+    "tools/orchestrator/test-ai02-artifact-chain.ps1",
+    "AI/Orchestrator/PHASED_ARTIFACT_CHAINING.md",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A-P2-AGV2.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A-P2-AGV2.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "checkpointContract": {
+    "schemaVersion": "2.0",
+    "checkpointType": "PHASED_CHILD_CHECKPOINT",
+    "checkpointPolicyVersion": "vsp-ai02-checkpoint-chain-v2",
+    "legacyA1Immutable": true,
+    "incrementalTransitions": ["D1+M1->D2", "D2+M2->D3"],
+    "missingEvidenceDisposition": "FAIL_CLOSED",
+    "automaticFetch": false,
+    "publicationPerformed": false,
+    "repositoryWriteAuthority": false
+  },
+  "attemptAccounting": {
+    "a2InitialSemanticAttemptConsumed": false,
+    "a2RemediationConsumed": false,
+    "claudeA2ExecutionExists": false
+  }
+}

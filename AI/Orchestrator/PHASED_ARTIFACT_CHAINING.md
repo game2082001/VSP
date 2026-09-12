@@ -35,6 +35,26 @@ The persisted aggregate state appends `aggregateStateDigest` as the final proper
 
 A1 must bind `GENESIS`. A2 must bind the verified A1 aggregate digest. A3 must bind the verified A1+A2 aggregate digest. A changed predecessor digest makes every descendant bound to the earlier lineage stale.
 
+## Incremental immutable checkpoint chain (schema 2.0)
+
+Every newly authorized child after AGV2 uses one schema 2.0 checkpoint for one transition. A checkpoint contains three deliberately separate authorities: `parentCheckpoint` identifies the exact preceding checkpoint and its terminal child; `parentPublication` identifies the authoritative repository merge that published that terminal child's files; and `child` identifies the next child's actual immutable execution commit and package evidence. These repository identities are cross-validated and are never collapsed into a single recovery SHA.
+
+The historical A1 schema 1.0 aggregate is an immutable import checkpoint. Its original bytes, file SHA-256, internal digest, terminal descriptor bytes, GENESIS lineage, execution commit, package hashes, and production merge are pinned. It is neither rewritten nor silently migrated. Existing authorized schema 1.0 same-base operations remain available, but schema 2.0 cannot be converted back to schema 1.0.
+
+Checkpoint construction is incremental:
+
+`D1 + M1 -> D2`
+
+`D2 + M2 -> D3`
+
+Publication evidence is therefore an input to the next transition; an existing checkpoint is never mutated to add a later publication. Full-lineage validation requires the ordered canonical bytes for every checkpoint, terminal descriptor, package result, and intervening publication. Missing, truncated, duplicated, skipped, or downgraded evidence fails closed.
+
+For schema 2.0, `aggregateStateDigest` is `sha256:` plus the lowercase SHA-256 of the canonical checkpoint bytes excluding only that final property. Canonical bytes use fixed property order, compressed JSON, UTF-8 without BOM or trailing newline, ordinal file ordering, unchanged ordered merge parents, canonical integers, and no timestamps, randomness, environment values, or local paths. Semantically equivalent but noncanonical authoritative bytes are rejected.
+
+Publication verification uses only immutable local Git objects. It requires a two-parent merge whose first parent is the terminal child's execution commit and whose second parent is the published production head, an exact merge diff equal to the terminal ownership set, exact `100644` blobs/sizes/SHA-256 values at both the merge and next child execution trees, and ancestry from the publication merge to the next child execution commit. A missing object fails; validation never fetches a replacement.
+
+The schema 2.0 operations create or validate checkpoint evidence only. They do not acquire artifacts, materialize repository-merge predecessors, publish files, invoke Repository Transport, or change the Artifact Developer workflow. Those acquisition and workflow responsibilities remain with the separately authorized PM1 lifecycle.
+
 ## Materialization and child changes
 
 The trusted phase runner performs these steps:
