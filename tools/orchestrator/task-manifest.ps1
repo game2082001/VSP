@@ -418,6 +418,164 @@ function Test-A2R1InfrastructureAuthorization {
     }
 }
 
+function Test-A2R1FinalAuthorization {
+    param([Parameter(Mandatory = $true)] $Manifest)
+    if ($Manifest.taskId -ne "VSP-AI02-001TI-A2-R1") { return }
+
+    $sourceSha = "122284717b64259ffcaee934aed1537a84c0bc34"
+    $ownedPath = "tools/orchestrator/artifact-intake-contract.ps1"
+    $fixtureFiles = @(
+        "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2-R1.manifest.json",
+        "AI/Orchestrator/State/VSP-AI02-001TI-A2-R1.state.json",
+        "tools/orchestrator/task-manifest.ps1"
+    )
+    if ($Manifest.authorizedSourceSha -ne $sourceSha -or
+        @($Manifest.approvedFiles).Count -ne 1 -or $Manifest.approvedFiles[0] -cne $ownedPath -or
+        $Manifest.authorizationFixture.taskId -ne "VSP-AI02-001TI-A2-R1F" -or
+        $Manifest.authorizationFixture.classification -ne "CRITICAL" -or
+        $Manifest.authorizationFixture.developerRole -ne "Codex Development Agent" -or
+        $Manifest.authorizationFixture.bootstrapException -ne $true -or
+        $Manifest.authorizationFixture.consumesA2SemanticAttempt -ne $false -or
+        @($Manifest.authorizationFixture.approvedFiles).Count -ne $fixtureFiles.Count) {
+        throw "Manifest validation failed: A2-R1 identity, production ownership, or R1F fixture scope mismatch."
+    }
+    foreach ($path in $fixtureFiles) {
+        if (@($Manifest.authorizationFixture.approvedFiles) -cnotcontains $path) {
+            throw "Manifest validation failed: A2-R1F exact three-file fixture allowlist mismatch."
+        }
+    }
+
+    if ($Manifest.primaryDeveloper.role -ne "Claude Code Primary Developer" -or
+        $Manifest.primaryDeveloper.adapter -ne "claude" -or
+        $Manifest.executionPlane -ne "AI02 Claude Artifact Developer" -or
+        $Manifest.executionAuthorization.implementation -ne $true -or
+        $Manifest.executionAuthorization.pushFeatureBranch -ne $false -or
+        $Manifest.executionAuthorization.openOrUpdatePr -ne $false) {
+        throw "Manifest validation failed: A2-R1 developer or direct repository authority mismatch."
+    }
+    $executable = $Manifest.executableA2
+    if ($executable.taskId -ne "VSP-AI02-001TI-A2-R1" -or $executable.finalRemediation -ne $true -or
+        $executable.primaryDeveloper -ne "Claude Code Primary Developer" -or
+        $executable.executionPlane -ne "AI02 Claude Artifact Developer" -or
+        @($executable.productionOwnership).Count -ne 1 -or $executable.productionOwnership[0] -cne $ownedPath -or
+        $executable.networkAuthority -ne $false -or $executable.repositoryWriteAuthority -ne $false -or
+        $executable.artifactReadCredentialAvailableToClaude -ne $false -or
+        $executable.branchOrPullRequestAuthority -ne $false -or $executable.repositoryTransportAuthority -ne $false -or
+        $executable.directMergeAuthority -ne $false -or $executable.persistedCheckoutCredentials -ne $false -or
+        $executable.localAiAuthority -ne $false -or $executable.productOwnerSoleMergeAuthority -ne $true) {
+        throw "Manifest validation failed: A2-R1 executable or credential boundary mismatch."
+    }
+
+    if ($Manifest.phasedChild.enabled -ne $true -or $Manifest.phasedChild.phase -ne "A2" -or
+        [int]$Manifest.phasedChild.sequence -ne 2 -or [int]$Manifest.phasedChild.predecessorCount -ne 1 -or
+        $Manifest.phasedChild.predecessorSourceType -ne "AUTHORITATIVE_REPOSITORY_MERGE" -or
+        $Manifest.phasedChild.checkpointSchemaVersion -ne "2.0" -or
+        $Manifest.phasedChild.parentAggregateStateDigest -ne "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1") {
+        throw "Manifest validation failed: A2-R1 phased-child contract mismatch."
+    }
+
+    $attempt = $Manifest.attemptBudget
+    if ([int]$attempt.initialAttempts -ne 1 -or $attempt.initialAttemptStatus -ne "CONSUMED" -or
+        [int]$attempt.initialSemanticAttemptsConsumed -ne 1 -or [int]$attempt.maximumCauseSpecificRemediations -ne 1 -or
+        [int]$attempt.causeSpecificRemediationsConsumed -ne 0 -or [int]$attempt.remainingCauseSpecificRemediations -ne 1 -or
+        [int]$attempt.maximumTotalAttempts -ne 2 -or [int]$attempt.nextAttempt -ne 2 -or $attempt.finalAttempt -ne $true -or
+        $attempt.automaticRetry -ne $false -or $attempt.thirdAttemptAuthorized -ne $false -or
+        $attempt.consumptionPoint -ne "Run Claude Code Primary Developer for VSP-AI02-001TI-A2-R1 actually begins" -or
+        $attempt.preClaudeFailureConsumesAttempt -ne $false) {
+        throw "Manifest validation failed: A2-R1 final remediation attempt accounting mismatch."
+    }
+
+    $executionBase = $Manifest.executionBaseHandling
+    if ($executionBase.fixtureImplementationBaseSha -ne $sourceSha -or $executionBase.actualExecutionSha -ne $sourceSha -or
+        $executionBase.fixtureSourceIsHistoricalAfterMerge -ne $true -or $executionBase.shaChasingFixtureRequired -ne $false -or
+        $executionBase.actualExecutionShaSource -ne "PRODUCT_OWNER_AUTHORIZED_WORKFLOW_INPUT" -or
+        $executionBase.postMergeExecutionBaseAuthorizationRequired -ne $true) {
+        throw "Manifest validation failed: A2-R1 execution-base handling mismatch."
+    }
+
+    $dependency = $Manifest.r1iDependency
+    if ($dependency.required -ne $true -or $dependency.status -ne "COMPLETE" -or
+        $dependency.mergeCommit -ne $sourceSha -or $dependency.reviewedHead -ne "8a7c11f514375db7a905d450d70f39d6dbbcd1b7" -or
+        [int]$dependency.pullRequest -ne 86 -or $dependency.windowsCiRunId -ne "34704493531" -or
+        $dependency.claudeSecurityCrossReviewRunId -ne "34704494013" -or
+        $dependency.independentReviewerContext -ne "/root/publishf_independent_review" -or
+        [int]$dependency.unresolvedFindings -ne 0 -or [int]$dependency.unresolvedReviewThreads -ne 0 -or
+        $dependency.scopeDrift -ne "NONE") {
+        throw "Manifest validation failed: A2-R1 merged R1I dependency mismatch."
+    }
+
+    $infrastructure = $Manifest.remediationInfrastructure
+    $expectedInterface = @("ValidatorPath","PolicyPath","PolicySchemaPath","RequestSchemaPath","DecisionSchemaPath","TrustedContextFixtureRoot","OutputEvidencePath")
+    if ($infrastructure.architecture -ne "A2_RECOVERY_OPTION_C_MECHANICAL_SKELETON_PLUS_CLAUDE" -or
+        $infrastructure.r1iRequired -ne $true -or $infrastructure.r1iTaskId -ne "VSP-AI02-001TI-A2-R1I" -or
+        $infrastructure.r1iMergeCommit -ne $sourceSha -or $infrastructure.outputPath -cne $ownedPath -or
+        $infrastructure.sentinel -ne "NOT_IMPLEMENTED" -or (@($infrastructure.claudeAllowedTools) -join ',') -cne "Read,Write,Edit" -or
+        (@($infrastructure.validatorInvocationInterface.parameters) -join ',') -cne ($expectedInterface -join ',') -or
+        $infrastructure.packageChildOnlyAfterGuardPass -ne $true) {
+        throw "Manifest validation failed: A2-R1 Option C or invocation-interface binding mismatch."
+    }
+    $skeleton = $infrastructure.skeleton
+    if ($skeleton.deterministic -ne $true -or $skeleton.encoding -ne "UTF-8_NO_BOM" -or $skeleton.lineEndings -ne "LF" -or
+        $skeleton.nonfunctional -ne $true -or $skeleton.containsSubstantiveSemantics -ne $false -or
+        $skeleton.recordByteSize -ne $true -or $skeleton.recordSha256 -ne $true -or
+        $skeleton.finalShaMustDiffer -ne $true -or [int]$skeleton.finalSentinelCount -ne 0) {
+        throw "Manifest validation failed: A2-R1 skeleton contract mismatch."
+    }
+    $harness = $infrastructure.harness
+    if ($harness.location -ne "RUNNER_TEMP_OUTSIDE_REPOSITORY_OWNERSHIP" -or $harness.committed -ne $false -or
+        $harness.normative -ne $false -or $harness.credentialless -ne $true -or $harness.hashLocked -ne $true -or
+        [int]$harness.minimumSemanticCaseCount -ne 52 -or [int]$harness.repeatedExecutionCount -ne 2 -or
+        $harness.expectedOutcomeOracleExposed -ne $false -or $harness.isolatedValidatorExecution -ne $true) {
+        throw "Manifest validation failed: A2-R1 temporary harness contract mismatch."
+    }
+    $requiredChecks = @("OUTPUT_EXISTS_AND_NONEMPTY","FINAL_SHA_DIFFERS_FROM_SKELETON","POWERSHELL_PARSE_PASS","NO_SENTINEL_OR_TODO","EXACT_ONE_FILE_CHANGED_SET","PREDECESSOR_BASELINE_UNCHANGED","HARNESS_SHA_UNCHANGED","TEST_VECTOR_SHA_SET_UNCHANGED","NO_PROHIBITED_NETWORK_OR_PROCESS_API","NO_GIT_OR_GITHUB_WRITE","NO_BRANCH_PR_OR_MERGE","NO_REPOSITORY_TRANSPORT","NO_CREDENTIAL_ACCESS","FOCUSED_SEMANTIC_MATRIX_PASS","DETERMINISTIC_REPEAT_PASS")
+    if (@($infrastructure.completionGuard).Count -ne $requiredChecks.Count) { throw "Manifest validation failed: A2-R1 completion-guard count mismatch." }
+    foreach ($check in $requiredChecks) {
+        if (@($infrastructure.completionGuard) -cnotcontains $check) { throw "Manifest validation failed: A2-R1 completion guard missing $check." }
+    }
+
+    foreach ($contractName in @("trustedContext","pathResponsibility","failureMapping","replayAndStaleBase","decisionStateMachine","evidenceContract")) {
+        if ($null -eq $Manifest.$contractName) { throw "Manifest validation failed: A2-R1 prompt contract missing $contractName." }
+    }
+    if ($Manifest.trustedContext.producerClaimsAuthoritative -ne $false -or
+        $Manifest.replayAndStaleBase.staleBasePolicy -ne "EXACT_BASE_ONLY" -or
+        $Manifest.replayAndStaleBase.emptyConsumedIdentities -ne "FIRST_USE_NOT_YET_CONSUMED" -or
+        $Manifest.replayAndStaleBase.matchingConsumedIdentity -ne "REJECT_REPLAY" -or
+        $Manifest.decisionStateMachine.transportInvokedGlobally -ne $false) {
+        throw "Manifest validation failed: A2-R1 rendered semantic contract mismatch."
+    }
+
+    $ledger = $Manifest.permanentA2AttemptLedger
+    if ($ledger.runId -ne "34699028049" -or $ledger.sourceSha -ne "11375031aa3d4d98497bb48b60c39e37031983bb" -or
+        $ledger.claudeSessionId -ne "59f378db-aa23-4124-8d54-d18a3dfba2da" -or
+        $ledger.disposition -ne "CLAUDE_ACTION_SUCCESS / REQUIRED_A2_OUTPUT_NOT_CREATED / ZERO_WORKING_TREE_CHANGES / ROOT_CAUSE_UNRESOLVED" -or
+        $ledger.rootCauseResolved -ne $false -or $ledger.pm1R1Role -ne "SECONDARY_PACKAGER_FAILURE_PATH_REMEDIATION_ONLY") {
+        throw "Manifest validation failed: A2-R1 permanent historical ledger mismatch."
+    }
+
+    $bindings = @($Manifest.predecessorBindings)
+    if ($bindings.Count -ne 1) { throw "Manifest validation failed: A2-R1 requires exactly one predecessor binding." }
+    $binding = $bindings[0]
+    if ($binding.sourceType -ne "AUTHORITATIVE_REPOSITORY_MERGE" -or $binding.repository -ne "game2082001/VSP" -or
+        $binding.mergeCommit -ne "aa53c00d5e4125a53f8f835220bf6d6b2e911b14" -or
+        $binding.predecessorTaskId -ne "VSP-AI02-001TI-A1D-VALIDATE" -or $binding.phase -ne "A1" -or [int]$binding.sequence -ne 1 -or
+        $binding.checkpointSchemaVersion -ne "1.0" -or
+        $binding.aggregateStateDigest -ne "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1" -or
+        $binding.descriptorSha256 -ne "c1595130a63ffb3eaba0facbb4c0f1e73c5dbf17db098ea5052ca23ff021a253" -or
+        $binding.aggregateFileSha256 -ne "750334cd06ecf529303b14ba0431f5ca492c714e606baca6767aef5961106ddc" -or
+        $binding.packageSha256 -ne "64fa19736ce6a2d15211fb8646ae1bafabda8918a7510b13dece18b414736fef" -or
+        $binding.manifestSha256 -ne "4b2e05f25c45461a9cc754a7fc2bc0480da347379f5bd6070b51d387af94fd85" -or
+        $binding.resultSha256 -ne "fc78ce57a27bed3cf757074cf1c7769ae4d6d2e75c5354ac0c9abd3eac85c67e") {
+        throw "Manifest validation failed: A2-R1 A1 predecessor or PM1 binding mismatch."
+    }
+    if ($Manifest.repositoryTransport.required -ne $true -or $Manifest.repositoryTransport.status -ne "REQUIRED_LATER_NOT_AUTHORIZED_NOW" -or
+        @($Manifest.repositoryTransport.approvedFiles).Count -ne 1 -or $Manifest.repositoryTransport.approvedFiles[0] -cne $ownedPath -or
+        $Manifest.repositoryTransport.invokedDuringA2Execution -ne $false -or
+        $Manifest.repositoryTransport.separateProductOwnerAuthorizationRequired -ne $true) {
+        throw "Manifest validation failed: A2-R1 later Repository Transport boundary mismatch."
+    }
+}
+
 function Test-TaskManifest {
     param([Parameter(Mandatory = $true)] $Manifest)
 
@@ -490,6 +648,7 @@ function Test-TaskManifest {
     Test-A2ExecutableAuthorization -Manifest $Manifest
     Test-Pm1R1Authorization -Manifest $Manifest
     Test-A2R1InfrastructureAuthorization -Manifest $Manifest
+    Test-A2R1FinalAuthorization -Manifest $Manifest
 }
 
 function New-OrchestratorStateFromManifest {
