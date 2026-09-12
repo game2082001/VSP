@@ -1,43 +1,203 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/game2082001/VSP/AI/Orchestrator/Templates/ai02-aggregate-state.schema.json",
-  "title": "AI02 deterministic aggregate lineage state",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schemaVersion",
-    "recoveryRepositorySha",
-    "predecessors",
-    "fileOwnership",
-    "aggregateStateDigest"
+  "title": "AI02 deterministic aggregate lineage checkpoint",
+  "oneOf": [
+    { "$ref": "#/$defs/legacyV1" },
+    { "$ref": "#/$defs/checkpointV2" }
   ],
-  "properties": {
-    "schemaVersion": { "const": "1.0" },
-    "recoveryRepositorySha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-    "predecessors": {
-      "type": "array",
-      "minItems": 0,
-      "maxItems": 3,
-      "items": { "$ref": "ai02-predecessor-descriptor.schema.json" }
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "commitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "taskId": { "type": "string", "pattern": "^VSP-AI02-[A-Za-z0-9-]+$", "maxLength": 100 },
+    "phase": { "enum": ["A1", "A2", "A3"] },
+    "ownedFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "mode", "size", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^[\\x20-\\x7E]+$" },
+        "mode": { "const": "100644" },
+        "size": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
     },
-    "fileOwnership": {
-      "type": "array",
-      "minItems": 0,
-      "maxItems": 7,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["path", "ownerTaskId", "phase", "mode", "size", "sha256"],
-        "properties": {
-          "path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^[\\x20-\\x7E]+$" },
-          "ownerTaskId": { "type": "string", "pattern": "^VSP-AI02-[A-Za-z0-9-]+$", "maxLength": 100 },
-          "phase": { "enum": ["A1", "A2", "A3"] },
-          "mode": { "const": "100644" },
-          "size": { "type": "integer", "minimum": 1, "maximum": 10485760 },
-          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    "publishedFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "mode", "gitBlobId", "size", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^[\\x20-\\x7E]+$" },
+        "mode": { "const": "100644" },
+        "gitBlobId": { "$ref": "#/$defs/commitSha" },
+        "size": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "legacyDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion", "childTaskId", "phase", "sequence", "recoveryRepositorySha",
+        "workflowId", "runId", "runAttempt", "artifactId", "artifactName",
+        "githubArtifactDigest", "packageSha256", "manifestSha256", "ownedFiles",
+        "validationResult", "parentAggregateStateDigest"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "childTaskId": { "$ref": "#/$defs/taskId" },
+        "phase": { "$ref": "#/$defs/phase" },
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "recoveryRepositorySha": { "$ref": "#/$defs/commitSha" },
+        "workflowId": { "type": "string", "pattern": "^[1-9][0-9]{0,19}$" },
+        "runId": { "type": "string", "pattern": "^[1-9][0-9]{0,19}$" },
+        "runAttempt": { "type": "integer", "minimum": 1, "maximum": 2 },
+        "artifactId": { "type": "string", "pattern": "^[1-9][0-9]{0,19}$" },
+        "artifactName": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 200 },
+        "githubArtifactDigest": { "$ref": "#/$defs/digest" },
+        "packageSha256": { "$ref": "#/$defs/sha256" },
+        "manifestSha256": { "$ref": "#/$defs/sha256" },
+        "ownedFiles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/ownedFile" }
+        },
+        "validationResult": { "const": "PASS" },
+        "parentAggregateStateDigest": {
+          "oneOf": [
+            { "const": "GENESIS" },
+            { "$ref": "#/$defs/digest" }
+          ]
         }
       }
     },
-    "aggregateStateDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+    "legacyV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "recoveryRepositorySha", "predecessors", "fileOwnership", "aggregateStateDigest"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "recoveryRepositorySha": { "$ref": "#/$defs/commitSha" },
+        "predecessors": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/legacyDescriptor" }
+        },
+        "fileOwnership": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "ownerTaskId", "phase", "mode", "size", "sha256"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^[\\x20-\\x7E]+$" },
+              "ownerTaskId": { "$ref": "#/$defs/taskId" },
+              "phase": { "$ref": "#/$defs/phase" },
+              "mode": { "const": "100644" },
+              "size": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+              "sha256": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        },
+        "aggregateStateDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "parentCheckpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion", "aggregateStateDigest", "aggregateFileSha256", "terminalDescriptorSha256",
+        "terminalTaskId", "terminalPhase", "terminalSequence", "terminalExecutionRepositorySha",
+        "terminalPackageSha256", "terminalPackageManifestSha256", "terminalPackageResultSha256"
+      ],
+      "properties": {
+        "schemaVersion": { "enum": ["1.0", "2.0"] },
+        "aggregateStateDigest": { "$ref": "#/$defs/digest" },
+        "aggregateFileSha256": { "$ref": "#/$defs/sha256" },
+        "terminalDescriptorSha256": { "$ref": "#/$defs/sha256" },
+        "terminalTaskId": { "$ref": "#/$defs/taskId" },
+        "terminalPhase": { "$ref": "#/$defs/phase" },
+        "terminalSequence": { "type": "integer", "minimum": 1, "maximum": 2 },
+        "terminalExecutionRepositorySha": { "$ref": "#/$defs/commitSha" },
+        "terminalPackageSha256": { "$ref": "#/$defs/sha256" },
+        "terminalPackageManifestSha256": { "$ref": "#/$defs/sha256" },
+        "terminalPackageResultSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "parentPublication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceType", "repository", "mergeCommit", "orderedMergeParents", "publishedProductionHead",
+        "checkpointAggregateStateDigest", "checkpointAggregateFileSha256", "productionFiles"
+      ],
+      "properties": {
+        "sourceType": { "const": "AUTHORITATIVE_REPOSITORY_MERGE" },
+        "repository": { "const": "game2082001/VSP" },
+        "mergeCommit": { "$ref": "#/$defs/commitSha" },
+        "orderedMergeParents": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            { "$ref": "#/$defs/commitSha" },
+            { "$ref": "#/$defs/commitSha" }
+          ],
+          "items": false
+        },
+        "publishedProductionHead": { "$ref": "#/$defs/commitSha" },
+        "checkpointAggregateStateDigest": { "$ref": "#/$defs/digest" },
+        "checkpointAggregateFileSha256": { "$ref": "#/$defs/sha256" },
+        "productionFiles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/publishedFile" }
+        }
+      }
+    },
+    "checkpointChild": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "taskId", "phase", "sequence", "executionRepositorySha", "descriptorSha256",
+        "packageSha256", "packageManifestSha256", "packageResultSha256", "ownedFiles"
+      ],
+      "properties": {
+        "taskId": { "$ref": "#/$defs/taskId" },
+        "phase": { "enum": ["A2", "A3"] },
+        "sequence": { "type": "integer", "minimum": 2, "maximum": 3 },
+        "executionRepositorySha": { "$ref": "#/$defs/commitSha" },
+        "descriptorSha256": { "$ref": "#/$defs/sha256" },
+        "packageSha256": { "$ref": "#/$defs/sha256" },
+        "packageManifestSha256": { "$ref": "#/$defs/sha256" },
+        "packageResultSha256": { "$ref": "#/$defs/sha256" },
+        "ownedFiles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/ownedFile" }
+        }
+      }
+    },
+    "checkpointV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "checkpointType", "checkpointPolicyVersion", "parentCheckpoint", "parentPublication", "child", "aggregateStateDigest"],
+      "properties": {
+        "schemaVersion": { "const": "2.0" },
+        "checkpointType": { "const": "PHASED_CHILD_CHECKPOINT" },
+        "checkpointPolicyVersion": { "const": "vsp-ai02-checkpoint-chain-v2" },
+        "parentCheckpoint": { "$ref": "#/$defs/parentCheckpoint" },
+        "parentPublication": { "$ref": "#/$defs/parentPublication" },
+        "child": { "$ref": "#/$defs/checkpointChild" },
+        "aggregateStateDigest": { "$ref": "#/$defs/digest" }
+      }
+    }
   }
 }
