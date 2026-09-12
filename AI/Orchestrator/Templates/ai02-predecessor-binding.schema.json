@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/game2082001/VSP/AI/Orchestrator/Templates/ai02-predecessor-binding.schema.json",
+  "title": "AI02 predecessor acquisition binding",
+  "oneOf": [
+    { "$ref": "#/$defs/actionsArtifact" },
+    { "$ref": "#/$defs/authoritativeRepositoryMerge" }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "commitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "numericId": { "type": "string", "pattern": "^[1-9][0-9]{0,19}$" },
+    "productionFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "mode", "gitBlobId", "size", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^[\\x20-\\x7E]+$" },
+        "mode": { "const": "100644" },
+        "gitBlobId": { "$ref": "#/$defs/commitSha" },
+        "size": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "actionsArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceType", "descriptorArtifactId", "descriptorArtifactName", "descriptorArtifactDigest",
+        "packageArtifactId", "packageArtifactName", "packageArtifactDigest", "runId", "runAttempt",
+        "recoveryRepositorySha"
+      ],
+      "properties": {
+        "sourceType": { "const": "ACTIONS_ARTIFACT" },
+        "descriptorArtifactId": { "$ref": "#/$defs/numericId" },
+        "descriptorArtifactName": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 200 },
+        "descriptorArtifactDigest": { "$ref": "#/$defs/digest" },
+        "packageArtifactId": { "$ref": "#/$defs/numericId" },
+        "packageArtifactName": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 200 },
+        "packageArtifactDigest": { "$ref": "#/$defs/digest" },
+        "runId": { "$ref": "#/$defs/numericId" },
+        "runAttempt": { "type": "integer", "minimum": 1, "maximum": 2 },
+        "recoveryRepositorySha": { "$ref": "#/$defs/commitSha" }
+      }
+    },
+    "authoritativeRepositoryMerge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceType", "repository", "mergeCommit", "orderedMergeParents", "publishedProductionHead",
+        "predecessorTaskId", "phase", "sequence", "executionRepositorySha", "checkpointSchemaVersion",
+        "descriptorSha256", "aggregateStateDigest", "aggregateFileSha256", "packageSha256",
+        "manifestSha256", "resultSha256", "checkpointEvidenceBase64", "descriptorEvidenceBase64",
+        "packageResultEvidenceBase64", "productionFiles"
+      ],
+      "properties": {
+        "sourceType": { "const": "AUTHORITATIVE_REPOSITORY_MERGE" },
+        "repository": { "const": "game2082001/VSP" },
+        "mergeCommit": { "$ref": "#/$defs/commitSha" },
+        "orderedMergeParents": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [{ "$ref": "#/$defs/commitSha" }, { "$ref": "#/$defs/commitSha" }],
+          "items": false
+        },
+        "publishedProductionHead": { "$ref": "#/$defs/commitSha" },
+        "predecessorTaskId": { "type": "string", "pattern": "^VSP-AI02-[A-Za-z0-9-]+$", "maxLength": 100 },
+        "phase": { "enum": ["A1", "A2"] },
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 2 },
+        "executionRepositorySha": { "$ref": "#/$defs/commitSha" },
+        "checkpointSchemaVersion": { "enum": ["1.0", "2.0"] },
+        "descriptorSha256": { "$ref": "#/$defs/sha256" },
+        "aggregateStateDigest": { "$ref": "#/$defs/digest" },
+        "aggregateFileSha256": { "$ref": "#/$defs/sha256" },
+        "packageSha256": { "$ref": "#/$defs/sha256" },
+        "manifestSha256": { "$ref": "#/$defs/sha256" },
+        "resultSha256": { "$ref": "#/$defs/sha256" },
+        "checkpointEvidenceBase64": { "type": "string", "minLength": 4, "maxLength": 13981016, "pattern": "^[A-Za-z0-9+/]+={0,2}$" },
+        "descriptorEvidenceBase64": { "type": "string", "minLength": 4, "maxLength": 1048576, "pattern": "^[A-Za-z0-9+/]+={0,2}$" },
+        "packageResultEvidenceBase64": { "type": "string", "minLength": 4, "maxLength": 349528, "pattern": "^[A-Za-z0-9+/]+={0,2}$" },
+        "productionFiles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/productionFile" }
+        }
+      }
+    }
+  }
+}

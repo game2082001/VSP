@@ -2,7 +2,7 @@
 
 ## Authority boundary
 
-This contract supports the phased recovery of `VSP-AI02-001TI-A`. It does not authorize a child task, publication, Repository Transport, or repository writes. Claude receives no artifact-read or repository-write credential. A trusted acquisition step may receive narrowly scoped artifact-read authority only while acquiring an explicitly bound predecessor artifact.
+This contract supports the phased recovery of `VSP-AI02-001TI-A`. It does not authorize a child task, publication, Repository Transport, or repository writes. Claude receives no artifact-read or repository-write credential. A trusted acquisition step may receive narrowly scoped artifact-read authority only while acquiring an explicitly bound Actions artifact. An authoritative-repository-merge predecessor is acquired without an artifact-read, GitHub, App, or repository-write credential.
 
 The three child ownership sets are immutable:
 
@@ -17,6 +17,16 @@ Predecessor files are readable inputs, never child output. A later phase must fa
 `ai02-predecessor-descriptor.schema.json` binds a child package to its task, phase, recovery repository SHA, workflow/run/attempt, artifact identity and digest, package and manifest hashes, exact owned files, per-file hashes/sizes/modes, validation result, and parent aggregate-state digest. Mutable branch names are not identities.
 
 Descriptors are accepted only after the GitHub artifact metadata, downloaded outer archive, publication package, publication manifest, and every file agree with the descriptor. Unknown versions and malformed or extra fields fail closed.
+
+## Predecessor source binding
+
+`ai02-predecessor-binding.schema.json` is a closed discriminator with exactly two source types. Missing, unknown, ambiguous, or mixed source fields are rejected.
+
+`ACTIONS_ARTIFACT` preserves the existing acquisition contract: immutable run/attempt and descriptor/package artifact identities and digests, recovery SHA, workflow provenance recovered from the validated descriptor and GitHub run, safe archive extraction, package/manifest agreement, and scoped artifact-read credential use.
+
+`AUTHORITATIVE_REPOSITORY_MERGE` binds the repository, merge commit, exact ordered parents, published production head, predecessor task/phase/sequence and historical execution SHA, checkpoint version and bytes, descriptor/package/manifest/result hashes, and the exact production file set. Each file binds its repository path, `100644` mode, Git blob ID, byte size, and SHA-256. The canonical checkpoint, descriptor, and package-result evidence travels in the binding; its decoded bytes must reproduce the bound hashes exactly.
+
+Repository-merge acquisition uses only immutable objects already present in the credentialless checkout. It verifies the exact two-parent publication merge, both parent positions, the published-head and merge trees, ancestry to the actual child execution commit, and the unchanged child-execution tree. A missing object fails closed and is never fetched. Verified Git blob bytes are then materialized into the workspace so checkout line-ending conversion cannot alter the predecessor evidence.
 
 ## Canonical aggregate state
 
@@ -53,25 +63,26 @@ For schema 2.0, `aggregateStateDigest` is `sha256:` plus the lowercase SHA-256 o
 
 Publication verification uses only immutable local Git objects. It requires a two-parent merge whose first parent is the terminal child's execution commit and whose second parent is the published production head, an exact merge diff equal to the terminal ownership set, exact `100644` blobs/sizes/SHA-256 values at both the merge and next child execution trees, and ancestry from the publication merge to the next child execution commit. A missing object fails; validation never fetches a replacement.
 
-The schema 2.0 operations create or validate checkpoint evidence only. They do not acquire artifacts, materialize repository-merge predecessors, publish files, invoke Repository Transport, or change the Artifact Developer workflow. Those acquisition and workflow responsibilities remain with the separately authorized PM1 lifecycle.
+The schema 2.0 operations create or validate checkpoint evidence only. PM1 routes and materializes predecessor sources, then consumes those AGV2 operations without redefining the checkpoint model. For a repository-merge A2 child, the immutable A1 v1 checkpoint and A1 publication are verified separately; after the child package is built, AGV2 creates the A2 schema 2.0 checkpoint with the actual A2 execution SHA. The A1 checkpoint bytes and historical execution SHA are never rewritten.
 
 ## Materialization and child changes
 
 The trusted phase runner performs these steps:
 
 1. Check out the immutable recovery SHA without persisted credentials.
-2. Acquire each predecessor by immutable run and artifact identity.
-3. Verify metadata and hashes before materializing files.
-4. Reject unsafe, duplicate, colliding, missing, extra, oversized, or invalid-mode archive entries.
-5. Materialize only validated predecessor files in the isolated aggregate workspace.
-6. Write a baseline containing predecessor hashes and the aggregate-state digest.
-7. Export SHA-256 bindings for the baseline and aggregate-state bytes through immutable pre-Claude step outputs.
-8. Remove artifact-read credentials before Claude starts.
-9. Allow Claude to change only the current child ownership set.
-10. Verify the baseline/state byte bindings and predecessor hashes are unchanged after Claude.
-11. Reject links, reparse points, non-regular files, and any actual filesystem or Git mode other than `100644`.
-12. Determine child changes from Git status after subtracting only verified immutable predecessor paths.
-13. Require exact equality with the child allowlist and package only those child files.
+2. Classify the closed predecessor source binding and select exactly one acquisition route.
+3. Acquire Actions predecessors by immutable run/artifact identity with the scoped artifact-read credential, or verify repository-merge predecessors from immutable local Git objects with no credential.
+4. Verify metadata, canonical evidence, Git provenance, modes, sizes, blobs, and hashes before materializing files.
+5. Reject unsafe, duplicate, colliding, missing, extra, oversized, or invalid-mode inputs.
+6. Materialize only validated predecessor files in the isolated aggregate workspace.
+7. Write a deterministic baseline containing predecessor hashes and the aggregate/checkpoint digest.
+8. Export SHA-256 bindings for the baseline and aggregate/checkpoint bytes through immutable pre-Claude step outputs.
+9. Remove artifact-read credentials before Claude starts; repository-merge acquisition never receives one.
+10. Allow Claude to change only the current child ownership set.
+11. Verify the baseline/state byte bindings and predecessor hashes are unchanged after Claude.
+12. Reject links, reparse points, non-regular files, and any actual filesystem or Git mode other than `100644`.
+13. Determine child changes from Git status after subtracting only verified immutable predecessor paths.
+14. Require exact equality with the child allowlist and package only those child files.
 
 Predecessor materialization is not publication and is never represented as a child change.
 

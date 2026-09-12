@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("ValidateDescriptor", "InitializeWorkspace", "ValidateChildAuthorization", "MaterializeLocal", "BuildAggregateState", "AppendDescriptor", "AcquireAndMaterialize", "ValidatePostClaude", "PackageChild", "NewDescriptor", "ValidateFinalAggregate", "ValidateLegacyCheckpoint", "NewCheckpointV2", "ValidateCheckpointV2")]
+    [ValidateSet("ValidateDescriptor", "InitializeWorkspace", "ValidateChildAuthorization", "MaterializeLocal", "BuildAggregateState", "AppendDescriptor", "ClassifyBindings", "AcquireAndMaterialize", "ValidatePostClaude", "PackageChild", "NewDescriptor", "ValidateFinalAggregate", "ValidateLegacyCheckpoint", "NewCheckpointV2", "ValidateCheckpointV2")]
     [string] $Mode,
 
     [string] $Repository = "game2082001/VSP",
@@ -35,6 +35,7 @@ param(
     ,[string[]] $PublicationEvidencePaths = @()
     ,[string] $ChildDescriptorPath = ""
     ,[string] $ChildPackageResultPath = ""
+    ,[string] $EvidenceDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -429,11 +430,15 @@ function Assert-BaselineUnchanged {
         Assert-Matches $ExpectedStateHash '^[0-9a-f]{64}$' "ExpectedAggregateStateSha256"
         if ([string]::IsNullOrWhiteSpace($StatePath) -or (Get-Sha256 $StatePath) -ne $ExpectedStateHash) { Stop-Chain "Pre-Claude aggregate state was modified." }
         $state = Read-JsonBounded $StatePath
-        $recomputed = New-AggregateState ([string]$state.recoveryRepositorySha) @($state.predecessors)
-        if ($recomputed.aggregateStateDigest -ne $state.aggregateStateDigest) { Stop-Chain "Pre-Claude aggregate state digest is invalid." }
-        if (@($state.predecessors).Count -eq 0) {
-            if ($baseline.aggregateStateDigest -ne "GENESIS") { Stop-Chain "Genesis baseline lineage is invalid." }
-        } elseif ($baseline.aggregateStateDigest -ne $state.aggregateStateDigest) { Stop-Chain "Baseline and aggregate lineage disagree." }
+        if ($baseline.sourceType -eq "AUTHORITATIVE_REPOSITORY_MERGE") {
+            if ($state.schemaVersion -ne $baseline.checkpointSchemaVersion -or $state.aggregateStateDigest -ne $baseline.aggregateStateDigest) { Stop-Chain "Repository checkpoint and baseline lineage disagree." }
+        } else {
+            $recomputed = New-AggregateState ([string]$state.recoveryRepositorySha) @($state.predecessors)
+            if ($recomputed.aggregateStateDigest -ne $state.aggregateStateDigest) { Stop-Chain "Pre-Claude aggregate state digest is invalid." }
+            if (@($state.predecessors).Count -eq 0) {
+                if ($baseline.aggregateStateDigest -ne "GENESIS") { Stop-Chain "Genesis baseline lineage is invalid." }
+            } elseif ($baseline.aggregateStateDigest -ne $state.aggregateStateDigest) { Stop-Chain "Baseline and aggregate lineage disagree." }
+        }
     }
     foreach ($file in @($baseline.predecessorFiles)) {
         $fullPath = Join-Path $Workspace ([string]$file.path).Replace('/', [IO.Path]::DirectorySeparatorChar)
@@ -560,21 +565,84 @@ function Receive-Artifact {
     return $zipPath
 }
 
-function Invoke-AcquireAndMaterialize {
-    $token = [string]$env:AI02_ARTIFACT_READ_TOKEN
-    Assert-NonBlank $token "AI02_ARTIFACT_READ_TOKEN"
-    Assert-Matches $RecoveryRepositorySha '^[0-9a-f]{40}$' "RecoveryRepositorySha"
+function Read-PredecessorBindings {
     try { $bindings = @($BindingsJson | ConvertFrom-Json -Depth $Script:MaxJsonNestingDepth) } catch { Stop-Chain "BindingsJson is malformed." }
     if ($bindings.Count -lt 1 -or $bindings.Count -gt 2) { Stop-Chain "A2/A3 requires one or two predecessor bindings." }
+    foreach ($binding in $bindings) {
+        if (-not ($binding.PSObject.Properties.Name -ccontains "sourceType")) { Stop-Chain "Predecessor binding sourceType is required." }
+        if ($binding.sourceType -eq "ACTIONS_ARTIFACT") {
+            Assert-ExactProperties $binding @("sourceType","descriptorArtifactId","descriptorArtifactName","descriptorArtifactDigest","packageArtifactId","packageArtifactName","packageArtifactDigest","runId","runAttempt","recoveryRepositorySha") "artifact binding"
+            foreach ($id in @("descriptorArtifactId","packageArtifactId","runId")) { Assert-Matches $binding.$id '^[1-9][0-9]{0,19}$' "binding.$id" }
+            foreach ($name in @("descriptorArtifactName","packageArtifactName")) { Assert-Matches $binding.$name '^[A-Za-z0-9._-]{1,200}$' "binding.$name" }
+            foreach ($digest in @("descriptorArtifactDigest","packageArtifactDigest")) { Assert-Matches $binding.$digest '^sha256:[0-9a-f]{64}$' "binding.$digest" }
+            if ([int]$binding.runAttempt -lt 1 -or [int]$binding.runAttempt -gt 2) { Stop-Chain "Artifact binding runAttempt is invalid." }
+            Assert-Matches $binding.recoveryRepositorySha '^[0-9a-f]{40}$' "binding.recoveryRepositorySha"
+        } elseif ($binding.sourceType -eq "AUTHORITATIVE_REPOSITORY_MERGE") {
+            $names=@("sourceType","repository","mergeCommit","orderedMergeParents","publishedProductionHead","predecessorTaskId","phase","sequence","executionRepositorySha","checkpointSchemaVersion","descriptorSha256","aggregateStateDigest","aggregateFileSha256","packageSha256","manifestSha256","resultSha256","checkpointEvidenceBase64","descriptorEvidenceBase64","packageResultEvidenceBase64","productionFiles")
+            Assert-ExactProperties $binding $names "repository-merge binding"
+            if ($binding.repository -ne $Repository) { Stop-Chain "Repository-merge binding repository mismatch." }
+            foreach ($sha in @("mergeCommit","publishedProductionHead","executionRepositorySha")) { Assert-Matches $binding.$sha '^[0-9a-f]{40}$' "binding.$sha" }
+            if (@($binding.orderedMergeParents).Count -ne 2) { Stop-Chain "Repository-merge binding parent count is invalid." }
+            foreach ($parent in @($binding.orderedMergeParents)) { Assert-Matches $parent '^[0-9a-f]{40}$' "binding.orderedMergeParent" }
+            Assert-Matches $binding.predecessorTaskId '^VSP-AI02-[A-Za-z0-9-]+$' "binding.predecessorTaskId"
+            $expectedSequence=@{A1=1;A2=2}[[string]$binding.phase]
+            if ([string]::IsNullOrWhiteSpace([string]$expectedSequence) -or [int]$binding.sequence -ne $expectedSequence) { Stop-Chain "Repository-merge binding phase/sequence mismatch." }
+            if ($binding.checkpointSchemaVersion -notin @("1.0","2.0")) { Stop-Chain "Repository-merge checkpoint schema is unsupported." }
+            foreach ($hash in @("descriptorSha256","aggregateFileSha256","packageSha256","manifestSha256","resultSha256")) { Assert-Matches $binding.$hash '^[0-9a-f]{64}$' "binding.$hash" }
+            Assert-Matches $binding.aggregateStateDigest '^sha256:[0-9a-f]{64}$' "binding.aggregateStateDigest"
+            foreach ($evidence in @("checkpointEvidenceBase64","descriptorEvidenceBase64","packageResultEvidenceBase64")) { Assert-Matches $binding.$evidence '^[A-Za-z0-9+/]+={0,2}$' "binding.$evidence" }
+            Assert-CheckpointOwnedFiles @($binding.productionFiles) ([string]$binding.phase) -RequireGitBlob
+        } else { Stop-Chain "Unknown predecessor binding sourceType." }
+    }
+    return $bindings
+}
+
+function Write-ImmutableGitBlob {
+    param([Parameter(Mandatory = $true)][string]$GitWorkspace,[Parameter(Mandatory = $true)][string]$BlobId,[Parameter(Mandatory = $true)][string]$Destination)
+    $start=[Diagnostics.ProcessStartInfo]::new()
+    $start.FileName="git";$start.UseShellExecute=$false;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
+    foreach($argument in @("-C",$GitWorkspace,"cat-file","blob",$BlobId)){$start.ArgumentList.Add($argument)}
+    try{
+        $process=[Diagnostics.Process]::Start($start)
+        $stream=[IO.File]::Open($Destination,[IO.FileMode]::Create,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        try{$process.StandardOutput.BaseStream.CopyTo($stream)}finally{$stream.Dispose()}
+        $errorText=$process.StandardError.ReadToEnd();$process.WaitForExit()
+        if($process.ExitCode-ne 0-or-not[string]::IsNullOrWhiteSpace($errorText)){Stop-Chain "Unable to materialize immutable repository predecessor blob."}
+    }catch{
+        if($_.Exception.Message-like"AI02 artifact chain validation failed:*"){throw}
+        Stop-Chain "Unable to materialize immutable repository predecessor blob."
+    }
+}
+
+function Get-PredecessorBindingRoute {
+    param([Parameter(Mandatory = $true)][object[]] $Bindings)
+    $types=@($Bindings.sourceType|Sort-Object -Unique)
+    if ($types.Count -eq 1) { return [string]$types[0] }
+    return "MIXED"
+}
+
+function Write-BoundEvidence {
+    param([Parameter(Mandatory = $true)][string]$Base64,[Parameter(Mandatory = $true)][string]$Path,[Parameter(Mandatory = $true)][string]$ExpectedSha256)
+    try { $bytes=[Convert]::FromBase64String($Base64) } catch { Stop-Chain "Repository-merge evidence encoding is invalid." }
+    if ($bytes.Length -eq 0 -or $bytes.Length -gt $Script:MaxPerFileUncompressedBytes -or (Get-BytesSha256 $bytes) -ne $ExpectedSha256) { Stop-Chain "Repository-merge evidence digest mismatch." }
+    [IO.File]::WriteAllBytes($Path,$bytes)
+}
+
+function Test-RepositoryBindingSummary {
+    param([Parameter(Mandatory = $true)]$Binding,[Parameter(Mandatory = $true)]$Summary)
+    if ($Binding.checkpointSchemaVersion -ne $Summary.checkpoint.schemaVersion -or $Binding.predecessorTaskId -ne $Summary.terminalTaskId -or $Binding.phase -ne $Summary.terminalPhase -or [int]$Binding.sequence -ne [int]$Summary.terminalSequence -or $Binding.executionRepositorySha -ne $Summary.terminalExecutionRepositorySha -or $Binding.descriptorSha256 -ne $Summary.descriptorSha256 -or $Binding.aggregateStateDigest -ne $Summary.aggregateStateDigest -or $Binding.aggregateFileSha256 -ne $Summary.checkpointFileSha256 -or $Binding.packageSha256 -ne $Summary.packageSha256 -or $Binding.manifestSha256 -ne $Summary.packageManifestSha256 -or $Binding.resultSha256 -ne $Summary.packageResultSha256) { Stop-Chain "Repository-merge checkpoint or package provenance mismatch." }
+}
+
+function Invoke-ActionsArtifactAcquisition {
+    param([Parameter(Mandatory = $true)][object[]]$Bindings,[Parameter(Mandatory = $true)][string]$Token,[Parameter(Mandatory = $true)][string]$WorkRoot)
+    Assert-NonBlank $Token "AI02_ARTIFACT_READ_TOKEN"
     $descriptors = @()
-    $workRoot = Join-Path ([IO.Path]::GetTempPath()) ("ai02-chain-acquire-" + [Guid]::NewGuid().ToString("N"))
-    try {
-        foreach ($binding in $bindings) {
-            Assert-ExactProperties $binding @("descriptorArtifactId", "descriptorArtifactName", "descriptorArtifactDigest", "packageArtifactId", "packageArtifactName", "packageArtifactDigest", "runId", "runAttempt", "recoveryRepositorySha") "artifact binding"
+    foreach ($binding in $Bindings) {
+        if ($binding.sourceType -ne "ACTIONS_ARTIFACT") { continue }
             if ([string]$binding.recoveryRepositorySha -ne $RecoveryRepositorySha) { Stop-Chain "Binding recovery SHA mismatch." }
             $descriptorBinding = [pscustomobject]@{ artifactId=$binding.descriptorArtifactId; artifactName=$binding.descriptorArtifactName; artifactDigest=$binding.descriptorArtifactDigest; runId=$binding.runId; recoveryRepositorySha=$binding.recoveryRepositorySha }
             $packageBinding = [pscustomobject]@{ artifactId=$binding.packageArtifactId; artifactName=$binding.packageArtifactName; artifactDigest=$binding.packageArtifactDigest; runId=$binding.runId; recoveryRepositorySha=$binding.recoveryRepositorySha }
-            $itemRoot = Join-Path $workRoot ([string]$binding.runId)
+            $itemRoot = Join-Path $WorkRoot ([string]$binding.runId)
             $descriptorZip = Receive-Artifact $Repository $descriptorBinding $token (Join-Path $itemRoot "descriptor-download")
             $descriptorExtract = Join-Path $itemRoot "descriptor"
             Expand-SafeZip $descriptorZip $descriptorExtract @("predecessor-descriptor.json") $Script:MaxOuterArtifactCompressedBytes $Script:MaxManifestJsonBytes
@@ -588,7 +656,67 @@ function Invoke-AcquireAndMaterialize {
             Expand-SafeZip $packageZipOuter $packageExtract @("publication-package.manifest.json", "publication-package.result.json", "publication-package.zip") $Script:MaxOuterArtifactCompressedBytes $Script:MaxTotalInnerUncompressedBytes
             Test-DescriptorPackage $descriptor $packageExtract | Out-Null
             $descriptors += $descriptor
+    }
+    return $descriptors
+}
+
+function Invoke-RepositoryMergeAcquisition {
+    param([Parameter(Mandatory = $true)][object[]]$Bindings,[Parameter(Mandatory = $true)][string]$WorkRoot)
+    if (-not [string]::IsNullOrEmpty([string]$env:AI02_ARTIFACT_READ_TOKEN) -or -not [string]::IsNullOrEmpty([string]$env:GH_TOKEN) -or -not [string]::IsNullOrEmpty([string]$env:GITHUB_TOKEN)) { Stop-Chain "Repository-merge acquisition must be credentialless." }
+    if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) { Stop-Chain "EvidenceDirectory is required for repository-merge acquisition." }
+    $workspaceHead=@(Invoke-CheckpointGit @("rev-parse","HEAD") "CHILD_EXECUTION_BASE_MISMATCH")
+    if($workspaceHead.Count-ne 1-or$workspaceHead[0]-ne$RecoveryRepositorySha){Stop-Chain "Repository workspace does not match the immutable recovery SHA."}
+    New-Item -ItemType Directory -Force -Path $EvidenceDirectory | Out-Null
+    $summary=$null;$previousPublicationPath="";$ownership=@();$lastCheckpointPath="";$repositoryIndex=0
+    foreach($binding in $Bindings){
+        if($binding.sourceType -ne "AUTHORITATIVE_REPOSITORY_MERGE"){continue}
+        $prefix=Join-Path $EvidenceDirectory ([string]$repositoryIndex)
+        $checkpointPath=$prefix+"-checkpoint.json";$descriptorPath=$prefix+"-descriptor.json";$resultPath=$prefix+"-result.json";$publicationPath=$prefix+"-publication.json"
+        Write-BoundEvidence $binding.checkpointEvidenceBase64 $checkpointPath $binding.aggregateFileSha256
+        Write-BoundEvidence $binding.descriptorEvidenceBase64 $descriptorPath $binding.descriptorSha256
+        Write-BoundEvidence $binding.packageResultEvidenceBase64 $resultPath $binding.resultSha256
+        if($binding.checkpointSchemaVersion -eq "1.0"){
+            if($null-ne$summary){Stop-Chain "Legacy checkpoint cannot follow another checkpoint."}
+            $summary=Test-LegacyCheckpointEvidence $checkpointPath $descriptorPath $resultPath
+        }else{
+            if($null-eq$summary-or[string]::IsNullOrWhiteSpace($previousPublicationPath)){Stop-Chain "Repository-merge lineage evidence is incomplete."}
+            $summary=Test-CheckpointV2Evidence $checkpointPath $summary $previousPublicationPath $descriptorPath $resultPath
         }
+        Test-RepositoryBindingSummary $binding $summary
+        $publication=[pscustomobject][ordered]@{sourceType="AUTHORITATIVE_REPOSITORY_MERGE";repository=[string]$binding.repository;mergeCommit=[string]$binding.mergeCommit;orderedMergeParents=@($binding.orderedMergeParents);publishedProductionHead=[string]$binding.publishedProductionHead;checkpointAggregateStateDigest=[string]$binding.aggregateStateDigest;checkpointAggregateFileSha256=[string]$binding.aggregateFileSha256;productionFiles=@(Sort-OrdinalByPath @($binding.productionFiles)|ForEach-Object{ConvertTo-CanonicalCheckpointFile $_})}
+        Write-Utf8CanonicalJson $publication $publicationPath
+        $publication=Read-JsonBounded $publicationPath
+        $canonicalPublication=Assert-ParentPublication $publication $summary
+        Test-ParentPublicationGitBinding $canonicalPublication $summary $RecoveryRepositorySha
+        foreach($file in @($binding.productionFiles)){
+            $target=Join-Path $WorkspacePath ([string]$file.path).Replace('/',[IO.Path]::DirectorySeparatorChar)
+            Assert-RegularMode100644 $target "Repository predecessor $($file.path)" $WorkspacePath ([string]$file.path)
+            Write-ImmutableGitBlob $WorkspacePath ([string]$file.gitBlobId) $target
+            if((Get-Item -LiteralPath $target).Length-ne[int64]$file.size-or(Get-Sha256 $target)-ne$file.sha256){Stop-Chain "Repository predecessor materialization mismatch."}
+        }
+        $ownership+=@($summary.descriptor.ownedFiles|ForEach-Object{[ordered]@{path=[string]$_.path;ownerTaskId=[string]$summary.terminalTaskId;phase=[string]$summary.terminalPhase;mode=[string]$_.mode;size=[int64]$_.size;sha256=[string]$_.sha256}})
+        $previousPublicationPath=$publicationPath;$lastCheckpointPath=$checkpointPath;$repositoryIndex++
+    }
+    if($repositoryIndex-eq 0){return $null}
+    Copy-Item -LiteralPath $lastCheckpointPath -Destination $AggregateStatePath
+    $baseline=[ordered]@{schemaVersion="2.0";sourceType="AUTHORITATIVE_REPOSITORY_MERGE";recoveryRepositorySha=$RecoveryRepositorySha;checkpointSchemaVersion=[string]$summary.checkpoint.schemaVersion;aggregateStateDigest=[string]$summary.aggregateStateDigest;predecessorFiles=@(Sort-OrdinalByPath $ownership)}
+    Write-Utf8CanonicalJson $baseline $BaselinePath
+    return $summary
+}
+
+function Invoke-AcquireAndMaterialize {
+    Assert-Matches $RecoveryRepositorySha '^[0-9a-f]{40}$' "RecoveryRepositorySha"
+    $bindings=@(Read-PredecessorBindings)
+    $route=Get-PredecessorBindingRoute $bindings
+    $token=[string]$env:AI02_ARTIFACT_READ_TOKEN
+    $workRoot = Join-Path ([IO.Path]::GetTempPath()) ("ai02-chain-acquire-" + [Guid]::NewGuid().ToString("N"))
+    try {
+        if($route-eq"AUTHORITATIVE_REPOSITORY_MERGE"){
+            $summary=Invoke-RepositoryMergeAcquisition $bindings $workRoot
+            return [pscustomobject]@{schemaVersion="2.0";sourceType=$route;recoveryRepositorySha=$RecoveryRepositorySha;aggregateStateDigest=$summary.aggregateStateDigest;predecessorCount=$bindings.Count;repositoryWriteCredentialAvailableToDeveloper=$false}
+        }
+        $descriptors=@(Invoke-ActionsArtifactAcquisition $bindings $token $workRoot)
+        if($descriptors.Count-ne$bindings.Count){Stop-Chain "Mixed predecessor source acquisition is not supported by this phase."}
         $aggregate = New-AggregateState $RecoveryRepositorySha $descriptors
         foreach ($index in 0..($descriptors.Count - 1)) { Materialize-ValidatedPackage $descriptors[$index] (Join-Path (Join-Path $workRoot ([string]$bindings[$index].runId)) "package") $WorkspacePath }
         Write-Utf8CanonicalJson $aggregate $AggregateStatePath
@@ -1121,6 +1249,11 @@ switch ($Mode) {
         $aggregate | ConvertTo-Json -Depth 20
     }
     "AppendDescriptor" { Add-DescriptorToAggregate | ConvertTo-Json -Depth 20 }
+    "ClassifyBindings" {
+        $bindings=@(Read-PredecessorBindings)
+        $route=Get-PredecessorBindingRoute $bindings
+        [pscustomobject]@{status="PASS";route=$route;bindingCount=$bindings.Count;requiresArtifactReadCredential=($route-ne"AUTHORITATIVE_REPOSITORY_MERGE");repositoryWriteCredentialAvailableToDeveloper=$false} | ConvertTo-Json -Depth 5
+    }
     "AcquireAndMaterialize" { Invoke-AcquireAndMaterialize | ConvertTo-Json -Depth 20 }
     "ValidatePostClaude" {
         $baseline = Assert-BaselineUnchanged $BaselinePath $WorkspacePath $ExpectedBaselineSha256 $AggregateStatePath $ExpectedAggregateStateSha256
