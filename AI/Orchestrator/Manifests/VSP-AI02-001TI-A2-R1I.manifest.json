@@ -182,7 +182,7 @@
   },
   "focusedValidation": {
     "minimumSemanticCaseCount": 52,
-    "r1iFocusedTestCount": 47,
+    "r1iFocusedTestCount": 49,
     "artifactDeveloperRegressionStatus": "PASS",
     "p2Pm1Agv2RegressionTestCount": 172,
     "requiredInfrastructureAreas": ["SKELETON", "COMPLETION_GUARD", "HARNESS", "PROMPT_RENDERING", "REGRESSION"],

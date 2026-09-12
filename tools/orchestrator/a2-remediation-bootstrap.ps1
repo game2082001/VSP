@@ -168,22 +168,43 @@ $expectedRoot = Join-Path $TrustedContextFixtureRoot "expected"
 $caseDirectories = @(Get-ChildItem -LiteralPath $inputRoot -Directory | Sort-Object Name)
 if ($caseDirectories.Count -lt 52) { throw "A2 harness requires at least 52 semantic cases." }
 
-$results = [Collections.Generic.List[object]]::new()
+$expectations = @{}
+$expectedFileRecords = @()
 foreach ($caseDirectory in $caseDirectories) {
     $expectedPath = Join-Path $expectedRoot ($caseDirectory.Name + ".json")
-    $expected = Get-Content -LiteralPath $expectedPath -Raw | ConvertFrom-Json
-    $runEvidence = @()
-    foreach ($repeat in 1..2) {
-        $caseOutput = Join-Path ([IO.Path]::GetTempPath()) ("a2-evidence-" + [Guid]::NewGuid().ToString("N") + ".json")
-        try {
-            & $ValidatorPath `
-                -PolicyPath $PolicyPath `
-                -PolicySchemaPath $PolicySchemaPath `
-                -RequestSchemaPath $RequestSchemaPath `
-                -DecisionSchemaPath $DecisionSchemaPath `
-                -TrustedContextFixtureRoot $caseDirectory.FullName `
-                -OutputEvidencePath $caseOutput | Out-Null
-            if (-not $?) { throw "Validator execution failed." }
+    if (-not (Test-Path -LiteralPath $expectedPath -PathType Leaf)) { throw "A2 harness expected result missing." }
+    $expectedBytes = [IO.File]::ReadAllBytes($expectedPath)
+    $expectations[$caseDirectory.Name] = [Text.Encoding]::UTF8.GetString($expectedBytes) | ConvertFrom-Json
+    $expectedFileRecords += [pscustomobject]@{
+        name = Split-Path -Leaf $expectedPath
+        contentBase64 = [Convert]::ToBase64String($expectedBytes)
+    }
+}
+
+# Expected outcomes remain only in this trusted parent process while validators run.
+# The candidate receives an isolated copy of one input case and cannot traverse to the oracle.
+Remove-Item -LiteralPath $expectedRoot -Recurse -Force
+$hostExecutable = [Environment]::ProcessPath
+$results = [Collections.Generic.List[object]]::new()
+try {
+    foreach ($caseDirectory in $caseDirectories) {
+        $expected = $expectations[$caseDirectory.Name]
+        $runEvidence = @()
+        foreach ($repeat in 1..2) {
+            $caseSandboxParent = Join-Path ([IO.Path]::GetTempPath()) ("a2-case-" + [Guid]::NewGuid().ToString("N"))
+            $isolatedCaseRoot = Join-Path $caseSandboxParent "fixture"
+            $caseOutput = Join-Path $caseSandboxParent "evidence.json"
+            New-Item -ItemType Directory -Force -Path $caseSandboxParent | Out-Null
+            Copy-Item -LiteralPath $caseDirectory.FullName -Destination $isolatedCaseRoot -Recurse
+            try {
+                & $hostExecutable -NoProfile -NonInteractive -File $ValidatorPath `
+                    -PolicyPath $PolicyPath `
+                    -PolicySchemaPath $PolicySchemaPath `
+                    -RequestSchemaPath $RequestSchemaPath `
+                    -DecisionSchemaPath $DecisionSchemaPath `
+                    -TrustedContextFixtureRoot $isolatedCaseRoot `
+                    -OutputEvidencePath $caseOutput | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "Validator execution failed." }
             if (-not (Test-Path -LiteralPath $caseOutput -PathType Leaf)) { throw "Validator did not create evidence." }
             if ((Get-Item -LiteralPath $caseOutput).Length -gt 1048576) { throw "Validator evidence exceeds the approved sanitized evidence ceiling." }
             $evidenceBytes = [IO.File]::ReadAllBytes($caseOutput)
@@ -212,13 +233,19 @@ foreach ($caseDirectory in $caseDirectories) {
                 @($evidence.findingCodes) -cnotcontains [string]$expected.requiredFindingCode) {
                 throw "Required finding code missing for case $($caseDirectory.Name)."
             }
-            $runEvidence += (($evidence | ConvertTo-Json -Depth 30 -Compress))
-        } finally {
-            Remove-Item -LiteralPath $caseOutput -Force -ErrorAction SilentlyContinue
+                $runEvidence += (($evidence | ConvertTo-Json -Depth 30 -Compress))
+            } finally {
+                Remove-Item -LiteralPath $caseSandboxParent -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
+        if ($runEvidence[0] -cne $runEvidence[1]) { throw "Nondeterministic evidence for case $($caseDirectory.Name)." }
+        $results.Add([pscustomobject]@{ caseId = $caseDirectory.Name; status = "PASS" })
     }
-    if ($runEvidence[0] -cne $runEvidence[1]) { throw "Nondeterministic evidence for case $($caseDirectory.Name)." }
-    $results.Add([pscustomobject]@{ caseId = $caseDirectory.Name; status = "PASS" })
+} finally {
+    New-Item -ItemType Directory -Force -Path $expectedRoot | Out-Null
+    foreach ($record in $expectedFileRecords) {
+        [IO.File]::WriteAllBytes((Join-Path $expectedRoot $record.name), [Convert]::FromBase64String($record.contentBase64))
+    }
 }
 
 $summary = [ordered]@{

@@ -89,7 +89,7 @@ function Invoke-Bootstrap {
     return (& $scriptUnderTest @arguments | Out-String).Trim()
 }
 
-function Set-CompletedStub {
+function Set-OracleCopyingStub {
     param([Parameter(Mandatory = $true)][string] $Path)
     $stub = @'
 param(
@@ -124,6 +124,59 @@ $expected = Get-Content -LiteralPath (Join-Path $fixtureRoot "expected/$caseId.j
 } | ConvertTo-Json -Depth 8 | ForEach-Object { [IO.File]::WriteAllText($OutputEvidencePath, $_ + "`n", [Text.UTF8Encoding]::new($false)) }
 '@
     Write-Utf8NoBom -Path $Path -Text $stub
+}
+
+function Set-ControlledPassingStub {
+    param(
+        [Parameter(Mandatory = $true)][string] $Path,
+        [Parameter(Mandatory = $true)][string] $FixtureRoot
+    )
+    $mapping = [ordered]@{}
+    foreach ($caseDirectory in @(Get-ChildItem -LiteralPath (Join-Path $FixtureRoot "inputs") -Directory | Sort-Object Name)) {
+        $fingerprintText = @(Get-ChildItem -LiteralPath $caseDirectory.FullName -Recurse -File | Sort-Object FullName | ForEach-Object {
+            ([IO.Path]::GetRelativePath($caseDirectory.FullName, $_.FullName).Replace('\','/') + ':' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())
+        }) -join "`n"
+        $fingerprint = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($fingerprintText))).ToLowerInvariant()
+        $mapping[$fingerprint] = Get-Content -LiteralPath (Join-Path $FixtureRoot ("expected/" + $caseDirectory.Name + ".json")) -Raw | ConvertFrom-Json
+    }
+    $mappingBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($mapping | ConvertTo-Json -Depth 10 -Compress)))
+    $stub = @'
+param(
+    [Parameter(Mandatory = $true)][string] $PolicyPath,
+    [Parameter(Mandatory = $true)][string] $PolicySchemaPath,
+    [Parameter(Mandatory = $true)][string] $RequestSchemaPath,
+    [Parameter(Mandatory = $true)][string] $DecisionSchemaPath,
+    [Parameter(Mandatory = $true)][string] $TrustedContextFixtureRoot,
+    [Parameter(Mandatory = $true)][string] $OutputEvidencePath
+)
+Set-StrictMode -Version Latest
+$mapping = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('__MAPPING_BASE64__')) | ConvertFrom-Json -AsHashtable
+$fingerprintText = @(Get-ChildItem -LiteralPath $TrustedContextFixtureRoot -Recurse -File | Sort-Object FullName | ForEach-Object {
+    ([IO.Path]::GetRelativePath($TrustedContextFixtureRoot, $_.FullName).Replace('\','/') + ':' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())
+}) -join "`n"
+$fingerprint = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($fingerprintText))).ToLowerInvariant()
+$expected = $mapping[$fingerprint]
+if ($null -eq $expected) { throw 'Unknown controlled test vector.' }
+[ordered]@{
+    validatorSchemaVersion = "1.0"
+    policyVersion = "vsp-ai02-intake-v1"
+    result = $expected.result
+    canonicalFailureCategory = $expected.canonicalFailureCategory
+    findingCodes = if ([string]::IsNullOrWhiteSpace([string]$expected.requiredFindingCode)) { @() } else { @([string]$expected.requiredFindingCode) }
+    checkIds = @("controlled-harness-test-double")
+    taskId = "VSP-AI02-001TI-A2-R1"
+    repository = "game2082001/VSP"
+    computedRequestSha256 = "0" * 64
+    approvedFileMetadata = @()
+    trustedSourceIdentity = [ordered]@{ sourceSha = "0" * 40 }
+    trustedArtifactIdentity = [ordered]@{ artifactId = "1" }
+    predecessorTaskPhaseSequence = [ordered]@{ taskId = "VSP-AI02-001TI-A1D-VALIDATE"; phase = "A1"; sequence = 1 }
+    predecessorDescriptorSha256 = "1" * 64
+    parentAggregateStateDigest = "sha256:" + ("2" * 64)
+    validatorVersion = "controlled-harness-test-double"
+} | ConvertTo-Json -Depth 8 | ForEach-Object { [IO.File]::WriteAllText($OutputEvidencePath, $_ + "`n", [Text.UTF8Encoding]::new($false)) }
+'@
+    Write-Utf8NoBom -Path $Path -Text $stub.Replace('__MAPPING_BASE64__', $mappingBase64)
 }
 
 try {
@@ -189,7 +242,7 @@ try {
     Assert-Fails "credential access rejected" "environment or credential" { Invoke-Bootstrap $first ValidateCompletion $baselineHash }
 
     Set-Content -LiteralPath (Join-Path (Split-Path -Parent $first.manifest) "extra.txt") -Value extra
-    Set-CompletedStub -Path $first.output
+    Set-OracleCopyingStub -Path $first.output
     Assert-Fails "extra changed file rejected" "changed-file set" { Invoke-Bootstrap $first ValidateCompletion $baselineHash }
     Remove-Item -LiteralPath (Join-Path (Split-Path -Parent $first.manifest) "extra.txt") -Force
 
@@ -203,17 +256,22 @@ try {
     Assert-Fails "predecessor mutation rejected" "baseline changed" { Invoke-Bootstrap $first ValidateCompletion $baselineHash }
     [IO.File]::WriteAllBytes($first.baseline, $originalBaseline)
 
-    Set-CompletedStub -Path $first.output
+    Set-ControlledPassingStub -Path $first.output -FixtureRoot (Join-Path $first.runtime "fixtures")
     Add-Content -LiteralPath $first.output -Value "`nAdd-Content -LiteralPath (Join-Path `$TrustedContextFixtureRoot 'request.json') -Value ' '"
-    Assert-Fails "validator cannot mutate test vectors during harness" "integrity" { Invoke-Bootstrap $first ValidateCompletion $baselineHash }
+    $isolatedMutationCompletion = Invoke-Bootstrap $first ValidateCompletion $baselineHash | ConvertFrom-Json
+    Assert-Equal "PASS" $isolatedMutationCompletion.result "validator receives only an isolated input copy"
+    Assert-True ([Convert]::ToBase64String([IO.File]::ReadAllBytes($runtimeRequest)) -ceq [Convert]::ToBase64String($originalRuntimeRequest)) "isolated validator cannot mutate original test vectors"
     Remove-Item -LiteralPath $first.output -Force
     Invoke-Bootstrap $first Prepare | Out-Null
 
-    Set-CompletedStub -Path $first.output
+    Set-ControlledPassingStub -Path $first.output -FixtureRoot (Join-Path $first.runtime "fixtures")
     Add-Content -LiteralPath $first.output -Value "`nAdd-Content -LiteralPath `$PSCommandPath -Value '# runtime mutation'"
     Assert-Fails "validator cannot mutate itself during harness" "changed during semantic execution" { Invoke-Bootstrap $first ValidateCompletion $baselineHash }
 
-    Set-CompletedStub -Path $first.output
+    Set-OracleCopyingStub -Path $first.output
+    Assert-Fails "validator cannot read sibling expected-result oracle" "Validator did not create evidence" { Invoke-Bootstrap $first ValidateCompletion $baselineHash }
+
+    Set-ControlledPassingStub -Path $first.output -FixtureRoot (Join-Path $first.runtime "fixtures")
     $completion = Invoke-Bootstrap $first ValidateCompletion $baselineHash | ConvertFrom-Json
     Assert-Equal "PASS" $completion.result "completed file proceeds through harness"
     Assert-Equal 52 ([int]$completion.semanticCaseCount) "completed harness semantic count"

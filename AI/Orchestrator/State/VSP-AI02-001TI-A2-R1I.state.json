@@ -56,7 +56,7 @@
     "staticAnalysisSoleProof": false
   },
   "focusedValidation": {
-    "r1iFocusedTestsPassed": 47,
+    "r1iFocusedTestsPassed": 49,
     "r1iFocusedTestsFailed": 0,
     "semanticCasesRepresented": 52,
     "artifactDeveloperRegressionStatus": "PASS",
@@ -64,7 +64,7 @@
     "p2Pm1Agv2TestsFailed": 0,
     "releaseBuildStatus": "PASS",
     "releaseBuildErrors": 0,
-    "releaseBuildWarnings": 0
+    "releaseBuildBaselineWarnings": 5
   },
   "claudeBoundary": {
     "allowedTools": ["Read", "Write", "Edit"],
