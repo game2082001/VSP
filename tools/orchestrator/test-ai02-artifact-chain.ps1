@@ -38,6 +38,24 @@ function Expect-Fail([string]$Name, [scriptblock]$Action) {
     catch { $script:passed++; "PASS: $Name" }
 }
 
+function Assert-ChangedFileSetReject([hashtable]$Arguments, [string]$OutputDirectory) {
+    try {
+        & $tool @Arguments 2>&1 | Out-Null
+        throw "expected changed-file set rejection"
+    } catch {
+        $message = $_.Exception.Message
+        if ($message -notmatch 'child changed files does not exactly match the approved set') {
+            throw "unexpected rejection: $message"
+        }
+        if ($message -match 'empty array') {
+            throw "PowerShell parameter binding rejected the legitimate empty failure state"
+        }
+    }
+    if (Test-Path -LiteralPath $OutputDirectory) {
+        throw "failed child packaging created output"
+    }
+}
+
 function New-Package {
     param([string]$Root, [string]$Phase, [string]$Parent, [string]$TaskId, [hashtable]$Contents = @{}, [string[]]$ExtraZipPaths = @(), [string]$ExecutionSha = $recoverySha)
     New-Item -ItemType Directory -Force -Path $Root | Out-Null
@@ -329,9 +347,26 @@ try {
     & git -C $childWorkspace init --quiet; & git -C $childWorkspace config user.name "Synthetic Test"; & git -C $childWorkspace config user.email "synthetic@example.invalid"; & git -C $childWorkspace commit --allow-empty -m base --quiet
     $childState=Join-Path $root "child-state.json"; $childBaseline=Join-Path $root "child-base.json"
     Invoke-Chain @{ Mode="MaterializeLocal"; RecoveryRepositorySha=$recoverySha; DescriptorPaths=@($a1.DescriptorPath); ArtifactDirectories=@($a1.Root); WorkspacePath=$childWorkspace; AggregateStatePath=$childState; BaselinePath=$childBaseline } | Out-Null
-    $childOutput=Join-Path $childWorkspace $phaseFiles.A2[0]; New-Item -ItemType Directory -Force (Split-Path -Parent $childOutput)|Out-Null; [IO.File]::WriteAllText($childOutput,"child-owned",[Text.UTF8Encoding]::new($false))
     $childManifestPath=Join-Path $root "child-manifest.json"; Write-Json ([ordered]@{taskId="VSP-AI02-001TI-A2";classification="CRITICAL";repository="game2082001/VSP";repositoryTransport=[ordered]@{approvedFiles=$phaseFiles.A2}}) $childManifestPath
+    $zeroOutput=Join-Path $root "zero-child-output"
+    Expect-Pass "phased child zero actual changes reaches deterministic exact-set rejection" { Assert-ChangedFileSetReject @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=$zeroOutput } $zeroOutput }
+    $missingOutput=Join-Path $root "missing-child-output"
+    Expect-Pass "phased child missing expected file rejects without package output" { Assert-ChangedFileSetReject @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=$missingOutput } $missingOutput }
+    $unauthorizedOnly=Join-Path $childWorkspace "unauthorized-only.txt"; [IO.File]::WriteAllText($unauthorizedOnly,"unauthorized",[Text.UTF8Encoding]::new($false))
+    $unauthorizedOutput=Join-Path $root "unauthorized-child-output"
+    Expect-Pass "phased child unauthorized-only actual set rejects" { Assert-ChangedFileSetReject @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=$unauthorizedOutput } $unauthorizedOutput }
+    Remove-Item -LiteralPath $unauthorizedOnly
+    $wrongPath=Join-Path $childWorkspace "tools/orchestrator/wrong-artifact-intake-contract.ps1"; New-Item -ItemType Directory -Force (Split-Path -Parent $wrongPath)|Out-Null; [IO.File]::WriteAllText($wrongPath,"wrong-path",[Text.UTF8Encoding]::new($false))
+    $wrongPathOutput=Join-Path $root "wrong-path-child-output"
+    Expect-Pass "phased child wrong-path-only actual set rejects" { Assert-ChangedFileSetReject @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=$wrongPathOutput } $wrongPathOutput }
+    $childOutput=Join-Path $childWorkspace $phaseFiles.A2[0]; New-Item -ItemType Directory -Force (Split-Path -Parent $childOutput)|Out-Null; [IO.File]::WriteAllText($childOutput,"child-owned",[Text.UTF8Encoding]::new($false))
+    $extraOutput=Join-Path $root "extra-child-output"
+    Expect-Pass "phased child expected plus unauthorized extra rejects" { Assert-ChangedFileSetReject @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=$extraOutput } $extraOutput }
+    Remove-Item -LiteralPath $wrongPath
     Expect-Pass "child changes exclude materialized predecessor files" { Invoke-Chain @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=(Join-Path $root "child-output") } }
+    Expect-Pass "successful phased child package contract remains semantically compatible" { $result=Get-Content (Join-Path $root "child-output/publication-package.result.json") -Raw|ConvertFrom-Json;if($result.taskId-ne"VSP-AI02-001TI-A2"-or@($result.changedFiles).Count-ne1-or$result.changedFiles[0].path-ne$phaseFiles.A2[0]-or$result.repositoryWriteCredentialAvailableToDeveloper-ne$false-or$result.productOwnerManualTransport-ne$false){throw "successful package contract changed"} }
+    & git -C $childWorkspace add -- $phaseFiles.A2[0]; [IO.File]::AppendAllText($childOutput,"-working-tree",[Text.UTF8Encoding]::new($false))
+    Expect-Pass "staged and working-tree observations of one path normalize to one actual entry" { Invoke-Chain @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=(Join-Path $root "normalized-child-output") } }
     & git -C $childWorkspace add -- $phaseFiles.A2[0]; & git -C $childWorkspace update-index --chmod=+x -- $phaseFiles.A2[0]
     Expect-Fail "executable Git mode child output rejected" { Invoke-Chain @{ Mode="PackageChild"; WorkspacePath=$childWorkspace; BaselinePath=$childBaseline; ManifestPath=$childManifestPath; OutputDirectory=(Join-Path $root "executable-output") } }
     Expect-Pass "A1 lineage authorizes A2 child before Claude" { Invoke-Chain @{Mode="ValidateChildAuthorization";ChildTaskId="VSP-AI02-001TI-A2";ChildPhase="A2";Sequence=2;RecoveryRepositorySha=$recoverySha;ManifestPath=$childManifestPath;BaselinePath=$childBaseline} }

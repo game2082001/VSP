@@ -146,7 +146,7 @@ function Test-ManifestClassification {
             }
         }
         "CRITICAL" {
-            $approvedCodexBootstrapTasks = @("VSP-AI02-001T", "VSP-AI02-001TI-B1", "VSP-AI02-001TI-A1-DS1", "VSP-AI02-001TI-A1D-POLICY", "VSP-AI02-001TI-A1D-GEN", "VSP-AI02-001TI-A1D-VALIDATEF", "VSP-AI02-001TI-A-P2-AGV2", "VSP-AI02-001TI-A-P2-PM1")
+            $approvedCodexBootstrapTasks = @("VSP-AI02-001T", "VSP-AI02-001TI-B1", "VSP-AI02-001TI-A1-DS1", "VSP-AI02-001TI-A1D-POLICY", "VSP-AI02-001TI-A1D-GEN", "VSP-AI02-001TI-A1D-VALIDATEF", "VSP-AI02-001TI-A-P2-AGV2", "VSP-AI02-001TI-A-P2-PM1", "VSP-AI02-001TI-A-P2-PM1-R1")
             if ($Manifest.taskId -in $approvedCodexBootstrapTasks -and
                 $Manifest.bootstrapException.authorized -eq $true -and
                 $Manifest.bootstrapException.taskId -eq $Manifest.taskId -and
@@ -270,6 +270,71 @@ function Test-A2ExecutableAuthorization {
     if ($expectedFiles.Count -ne 0) { throw "Manifest validation failed: executable A2 predecessor file set mismatch." }
 }
 
+function Test-Pm1R1Authorization {
+    param([Parameter(Mandatory = $true)] $Manifest)
+    if ($Manifest.taskId -ne "VSP-AI02-001TI-A-P2-PM1-R1") { return }
+
+    $expectedFiles = @(
+        "tools/orchestrator/ai02-artifact-chain.ps1",
+        "tools/orchestrator/test-ai02-artifact-chain.ps1",
+        "AI/Orchestrator/Manifests/VSP-AI02-001TI-A-P2-PM1-R1.manifest.json",
+        "AI/Orchestrator/State/VSP-AI02-001TI-A-P2-PM1-R1.state.json",
+        "tools/orchestrator/task-manifest.ps1"
+    )
+    $actualFiles = @($Manifest.approvedFiles)
+    if ($Manifest.authorizedSourceSha -ne "11375031aa3d4d98497bb48b60c39e37031983bb" -or $actualFiles.Count -ne $expectedFiles.Count) {
+        throw "Manifest validation failed: PM1-R1 source or exact five-file allowlist mismatch."
+    }
+    foreach ($path in $expectedFiles) {
+        if ($actualFiles -cnotcontains $path) { throw "Manifest validation failed: PM1-R1 exact five-file allowlist mismatch." }
+    }
+
+    $contract = $Manifest.failurePathContract
+    if ($contract.function -ne "Assert-ExactSet" -or
+        $contract.script -ne "tools/orchestrator/ai02-artifact-chain.ps1" -or
+        $contract.allowEmptyActualCollection -ne $true -or
+        $contract.emptyActualExpectedDisposition -ne "CHANGED_FILE_SET_MISMATCH_REJECT" -or
+        $contract.emptyActualMayPass -ne $false -or
+        $contract.packageCreatedOnMismatch -ne $false -or
+        $contract.descriptorCreatedOnMismatch -ne $false -or
+        $contract.checkpointCreatedOnMismatch -ne $false -or
+        $contract.successfulPackagingSemanticsChanged -ne $false -or
+        $contract.rawPowerShellExceptionNormative -ne $false) {
+        throw "Manifest validation failed: PM1-R1 failure-path contract mismatch."
+    }
+
+    $validation = $Manifest.focusedValidation
+    if ([int]$validation.preR1TestCount -ne 165 -or [int]$validation.newR1RegressionCount -ne 7 -or [int]$validation.expectedFinalTestCount -ne 172) {
+        throw "Manifest validation failed: PM1-R1 focused-test accounting mismatch."
+    }
+
+    $ledger = $Manifest.permanentA2AttemptLedger
+    if ($ledger.runId -ne "34699028049" -or
+        $ledger.sourceSha -ne "11375031aa3d4d98497bb48b60c39e37031983bb" -or
+        $ledger.claudeSessionId -ne "59f378db-aa23-4124-8d54-d18a3dfba2da" -or
+        $ledger.disposition -ne "CLAUDE_ACTION_SUCCESS / REQUIRED_A2_OUTPUT_NOT_CREATED / ZERO_WORKING_TREE_CHANGES / ROOT_CAUSE_UNRESOLVED" -or
+        [int]$ledger.initialSemanticAttemptsConsumed -ne 1 -or
+        [int]$ledger.causeSpecificRemediationsConsumed -ne 0 -or
+        [int]$ledger.remainingCauseSpecificRemediations -ne 1 -or
+        $ledger.automaticRetry -ne $false -or $ledger.thirdAttemptAuthorized -ne $false -or
+        $ledger.pm1R1ConsumesA2SemanticAttempt -ne $false -or
+        $ledger.a2Readiness -ne "A2_R1_NOT_READY_ROOT_CAUSE_UNRESOLVED") {
+        throw "Manifest validation failed: PM1-R1 permanent A2 attempt ledger mismatch."
+    }
+
+    $boundaries = $Manifest.credentialAndAuthorityBoundaries
+    if ($boundaries.claudeRepositoryWriteCredential -ne $false -or
+        $boundaries.repositoryMergeArtifactReadCredential -ne $false -or
+        $boundaries.persistedCheckoutCredentials -ne $false -or
+        $boundaries.directBranchAuthority -ne $false -or
+        $boundaries.directPullRequestAuthority -ne $false -or
+        $boundaries.mergeAuthority -ne $false -or
+        $boundaries.repositoryTransportSoleAutomatedProductionWriteBoundary -ne $true -or
+        $boundaries.productOwnerSoleMergeAuthority -ne $true) {
+        throw "Manifest validation failed: PM1-R1 credential or authority boundary mismatch."
+    }
+}
+
 function Test-TaskManifest {
     param([Parameter(Mandatory = $true)] $Manifest)
 
@@ -340,6 +405,7 @@ function Test-TaskManifest {
 
     Test-ManifestClassification -Manifest $Manifest
     Test-A2ExecutableAuthorization -Manifest $Manifest
+    Test-Pm1R1Authorization -Manifest $Manifest
 }
 
 function New-OrchestratorStateFromManifest {
