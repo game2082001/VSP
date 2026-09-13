@@ -65,6 +65,8 @@ Publication verification uses only immutable local Git objects. It requires a tw
 
 The schema 2.0 operations create or validate checkpoint evidence only. PM1 routes and materializes predecessor sources, then consumes those AGV2 operations without redefining the checkpoint model. For a repository-merge A2 child, the immutable A1 v1 checkpoint and A1 publication are verified separately; after the child package is built, AGV2 creates the A2 schema 2.0 checkpoint with the actual A2 execution SHA. The A1 checkpoint bytes and historical execution SHA are never rewritten.
 
+The original `VSP-AI02-001TI-A2` semantic attempt budget is exhausted and remains historical. The deterministic replacement path freezes `VSP-AI02-001TI-A2-VAL1` as the only additional A2 sequence-2 child identity that may appear in schema 2.0 checkpoint evidence. This compatibility rule is intentionally narrow: it does not relax phase, sequence, predecessor count, lineage, owned files, publication evidence, or descriptor canonicalization, and it does not admit arbitrary replacement task IDs.
+
 ## Materialization and child changes
 
 The trusted phase runner performs these steps:

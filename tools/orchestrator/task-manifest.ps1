@@ -146,7 +146,7 @@ function Test-ManifestClassification {
             }
         }
         "CRITICAL" {
-            $approvedCodexBootstrapTasks = @("VSP-AI02-001T", "VSP-AI02-001TI-B1", "VSP-AI02-001TI-A1-DS1", "VSP-AI02-001TI-A1D-POLICY", "VSP-AI02-001TI-A1D-GEN", "VSP-AI02-001TI-A1D-VALIDATEF", "VSP-AI02-001TI-A-P2-AGV2", "VSP-AI02-001TI-A-P2-PM1", "VSP-AI02-001TI-A-P2-PM1-R1", "VSP-AI02-001TI-A2-R1I")
+            $approvedCodexBootstrapTasks = @("VSP-AI02-001T", "VSP-AI02-001TI-B1", "VSP-AI02-001TI-A1-DS1", "VSP-AI02-001TI-A1D-POLICY", "VSP-AI02-001TI-A1D-GEN", "VSP-AI02-001TI-A1D-VALIDATEF", "VSP-AI02-001TI-A-P2-AGV2", "VSP-AI02-001TI-A-P2-PM1", "VSP-AI02-001TI-A-P2-PM1-R1", "VSP-AI02-001TI-A2-R1I", "VSP-AI02-001TI-A2-GEN1")
             if ($Manifest.taskId -in $approvedCodexBootstrapTasks -and
                 $Manifest.bootstrapException.authorized -eq $true -and
                 $Manifest.bootstrapException.taskId -eq $Manifest.taskId -and
@@ -418,6 +418,82 @@ function Test-A2R1InfrastructureAuthorization {
     }
 }
 
+function Test-A2Gen1Authorization {
+    param([Parameter(Mandatory = $true)] $Manifest)
+    if ($Manifest.taskId -ne "VSP-AI02-001TI-A2-GEN1") { return }
+
+    $expectedFiles = @(
+        ".github/workflows/ai02-deterministic-artifact-builder.yml",
+        "tools/orchestrator/generate-artifact-intake-validator.ps1",
+        "tools/orchestrator/test-generate-artifact-intake-validator.ps1",
+        "tools/orchestrator/a2-validator-semantic-harness.ps1",
+        "tools/orchestrator/test-a2-validator-semantic-harness.ps1",
+        "tools/orchestrator/ai02-artifact-chain.ps1",
+        "tools/orchestrator/test-ai02-artifact-chain.ps1",
+        "AI/Orchestrator/PHASED_ARTIFACT_CHAINING.md",
+        "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2-GEN1.manifest.json",
+        "AI/Orchestrator/State/VSP-AI02-001TI-A2-GEN1.state.json",
+        "tools/orchestrator/task-manifest.ps1"
+    )
+    $actualFiles = @($Manifest.approvedFiles)
+    if ($Manifest.authorizedSourceSha -ne "e969928c568bbe1b0bb25b355abf2cfe33fd4e55" -or $actualFiles.Count -ne $expectedFiles.Count) {
+        throw "Manifest validation failed: A2-GEN1 source or exact eleven-file allowlist mismatch."
+    }
+    foreach ($path in $expectedFiles) {
+        if ($actualFiles -cnotcontains $path) { throw "Manifest validation failed: A2-GEN1 exact eleven-file allowlist mismatch." }
+    }
+    if ($Manifest.bootstrapException.authorized -ne $true -or
+        $Manifest.normalRequiredPrimaryDeveloper -ne "Claude Code Primary Developer" -or
+        $Manifest.primaryDeveloper.role -ne "Codex Development Agent" -or
+        $Manifest.claudeCrossReview.required -ne $true) {
+        throw "Manifest validation failed: A2-GEN1 bootstrap role boundary mismatch."
+    }
+    if ($Manifest.replacementArchitecture.selected -ne "GENERATED_NORMATIVE_CONTRACT_TABLES_PLUS_GENERIC_TRUSTED_RUNTIME" -or
+        $Manifest.replacementArchitecture.productionOutputPath -ne "tools/orchestrator/artifact-intake-contract.ps1" -or
+        $Manifest.replacementArchitecture.productionValidatorCommittedDuringGen1 -ne $false -or
+        $Manifest.replacementArchitecture.repositoryTransportInvoked -ne $false -or
+        $Manifest.replacementArchitecture.val1Executed -ne $false) {
+        throw "Manifest validation failed: A2-GEN1 replacement architecture boundary mismatch."
+    }
+    $budget = $Manifest.gen1Budget
+    if ([int]$budget.initialImplementationAttempts -ne 1 -or
+        [int]$budget.maximumCauseSpecificRemediations -ne 1 -or
+        [int]$budget.maximumTotalAttempts -ne 2 -or
+        $budget.automaticRetry -ne $false -or
+        $budget.thirdAttemptAuthorized -ne $false -or
+        $budget.recordsAsOriginalA2SemanticAttempt -ne $false) {
+        throw "Manifest validation failed: A2-GEN1 budget mismatch."
+    }
+    if ($Manifest.val1Identity.taskId -ne "VSP-AI02-001TI-A2-VAL1" -or
+        $Manifest.val1Identity.phase -ne "A2" -or [int]$Manifest.val1Identity.sequence -ne 2 -or
+        [int]$Manifest.val1Identity.predecessorCount -ne 1 -or
+        $Manifest.val1Identity.predecessorSource -ne "AUTHORITATIVE_REPOSITORY_MERGE") {
+        throw "Manifest validation failed: A2-GEN1 VAL1 identity mismatch."
+    }
+    if ($Manifest.a1Lineage.productionMerge -ne "aa53c00d5e4125a53f8f835220bf6d6b2e911b14" -or
+        $Manifest.a1Lineage.publishedHead -ne "cb7dbf0cfbcb0f715001588cdd6da97264e19d06" -or
+        $Manifest.a1Lineage.descriptorSha256 -ne "c1595130a63ffb3eaba0facbb4c0f1e73c5dbf17db098ea5052ca23ff021a253" -or
+        $Manifest.a1Lineage.parentAggregateStateDigest -ne "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1") {
+        throw "Manifest validation failed: A2-GEN1 A1 lineage mismatch."
+    }
+    if ($Manifest.originalA2State.status -ne "BLOCKED" -or
+        $Manifest.originalA2State.attemptBudget -ne "2 / 2 EXHAUSTED" -or
+        $Manifest.originalA2State.gen1IsAttempt3 -ne $false -or
+        $Manifest.originalA2State.gen1IsA2R2 -ne $false) {
+        throw "Manifest validation failed: A2-GEN1 original A2 state mismatch."
+    }
+    $boundaries = $Manifest.boundaries
+    if ($boundaries.productionValidatorCommitted -ne $false -or
+        $boundaries.repositoryTransportInvoked -ne $false -or
+        $boundaries.productionBranchCreated -ne $false -or
+        $boundaries.productionPullRequestCreated -ne $false -or
+        $boundaries.pr79Changed -ne $false -or
+        $boundaries.a3Started -ne $false -or
+        $boundaries.localAiCalled -ne $false) {
+        throw "Manifest validation failed: A2-GEN1 prohibited boundary mismatch."
+    }
+}
+
 function Test-A2R1FinalAuthorization {
     param([Parameter(Mandatory = $true)] $Manifest)
     if ($Manifest.taskId -ne "VSP-AI02-001TI-A2-R1") { return }
@@ -649,6 +725,7 @@ function Test-TaskManifest {
     Test-Pm1R1Authorization -Manifest $Manifest
     Test-A2R1InfrastructureAuthorization -Manifest $Manifest
     Test-A2R1FinalAuthorization -Manifest $Manifest
+    Test-A2Gen1Authorization -Manifest $Manifest
 }
 
 function New-OrchestratorStateFromManifest {

@@ -1097,8 +1097,11 @@ function Get-CheckpointChildFromEvidence {
     $descriptor = $DescriptorEvidence.value
     Assert-Descriptor $descriptor
     if (-not (Test-ByteArrayEqual $DescriptorEvidence.bytes (Get-CanonicalJsonBytes (ConvertTo-CanonicalDescriptor $descriptor)))) { Stop-Checkpoint "CHECKPOINT_CANONICALIZATION_MISMATCH" }
-    $expectedTask = @{ A2="VSP-AI02-001TI-A2"; A3="VSP-AI02-001TI-A3" }[[string]$descriptor.phase]
-    if ([string]::IsNullOrWhiteSpace($expectedTask) -or $descriptor.childTaskId -ne $expectedTask) { Stop-Checkpoint "CHILD_DESCRIPTOR_MISMATCH" }
+    $expectedTasks = @{
+        A2 = @("VSP-AI02-001TI-A2", "VSP-AI02-001TI-A2-VAL1")
+        A3 = @("VSP-AI02-001TI-A3")
+    }[[string]$descriptor.phase]
+    if ($null -eq $expectedTasks -or @($expectedTasks | Where-Object { $_ -ceq [string]$descriptor.childTaskId }).Count -ne 1) { Stop-Checkpoint "CHILD_DESCRIPTOR_MISMATCH" }
     $resultHash = Test-PackageResultEvidence $descriptor $ResultPath
     return [ordered]@{
         taskId=[string]$descriptor.childTaskId; phase=[string]$descriptor.phase; sequence=[int]$descriptor.sequence
