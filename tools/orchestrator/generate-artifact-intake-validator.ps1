@@ -306,6 +306,8 @@ try {
     `$trusted = `$trustedDoc.value
     `$result = `$null
     if (-not (Test-JsonEqual `$request.policy `$projection) -or -not (Test-JsonEqual `$decision.policy `$projection)) { `$result = Stop-Validation "SCHEMA_VALIDATION_FAILED" "POLICY_PROJECTION_MISMATCH" }
+    elseif (`$request.taskId -cne "VSP-AI02-001TI-A2-VAL1" -or `$decision.taskId -cne `$request.taskId) { `$result = Stop-Validation "MANIFEST_OR_STATE_INVALID" "TASK_ID_MISMATCH" }
+    elseif (`$request.authorization.manifestPath -cne "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2-VAL1.manifest.json" -or `$request.authorization.statePath -cne "AI/Orchestrator/State/VSP-AI02-001TI-A2-VAL1.state.json") { `$result = Stop-Validation "MANIFEST_OR_STATE_INVALID" "GOVERNANCE_PATH_MISMATCH" }
     elseif (`$request.repository -cne `$policy.identity.repository.exactValue -or `$decision.repository -cne `$policy.identity.repository.exactValue) { `$result = Stop-Validation "MANIFEST_OR_STATE_INVALID" "REPOSITORY_MISMATCH" }
     elseif (`$trusted.sourceSha -cne `$request.expectedSourceSha) { `$result = Stop-Validation "STALE_BASE" "AUTHORIZED_SOURCE_SHA_MISMATCH" }
     elseif (`$requestDoc.sha256 -cne `$decision.requestReference.requestSha256) { `$result = Stop-Validation "DIGEST_MISMATCH" "REQUEST_REFERENCE_SHA_MISMATCH" }

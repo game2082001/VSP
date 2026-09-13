@@ -42,7 +42,7 @@ try {
     Assert-True ([int]$summary2.semanticCaseCount -eq [int]$summary1.semanticCaseCount) "harness repeat case count stable"
 
     $caseIds = @($summary1.cases | ForEach-Object { $_.id })
-    foreach ($required in @("01-valid-first-use", "02-replay-rejected", "03-stale-base", "04-changed-files-empty", "path-07", "semantic-predecessor-task", "semantic-descriptor", "semantic-aggregate")) {
+    foreach ($required in @("01-valid-first-use", "02-replay-rejected", "03-stale-base", "04-changed-files-empty", "path-07", "semantic-arbitrary-task-id", "semantic-decision-task-mismatch", "semantic-manifest-path", "semantic-state-path", "semantic-predecessor-task", "semantic-descriptor", "semantic-aggregate")) {
         Assert-True ($caseIds -contains $required) "required semantic case present: $required"
     }
     Assert-True (@($summary1.cases | Where-Object { $_.result -eq "ACCEPTED_FOR_TRANSPORT" }).Count -gt 0) "PASS vectors are represented"
