@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "VSP-AI02-001TI-A2-GEN1",
+  "title": "Deterministic Trusted Intake Validator Replacement Implementation",
+  "classification": "CRITICAL",
+  "repository": "game2082001/VSP",
+  "baseBranch": "main",
+  "authorizedSourceSha": "e969928c568bbe1b0bb25b355abf2cfe33fd4e55",
+  "normalRequiredPrimaryDeveloper": "Claude Code Primary Developer",
+  "bootstrapException": {
+    "authorized": true,
+    "taskId": "VSP-AI02-001TI-A2-GEN1",
+    "scope": "Implement only deterministic generated validator infrastructure, corrected semantic harness, read-only builder workflow, and the narrow VAL1 checkpoint compatibility extension."
+  },
+  "approvedScope": [
+    "Implement GENERATED_NORMATIVE_CONTRACT_TABLES_PLUS_GENERIC_TRUSTED_RUNTIME for staged validator generation.",
+    "Implement the corrected six-section projection harness and a minimum 52-case semantic matrix.",
+    "Add a read-only deterministic artifact builder workflow.",
+    "Accept exactly VSP-AI02-001TI-A2-VAL1 as the approved replacement A2 sequence-2 checkpoint identity."
+  ],
+  "outOfScope": [
+    "Production validator publication, Repository Transport, VAL1 execution, original A2 attempt 3, A2-R2, A3, PR 79 changes, A1 policy/schema/template changes, aggregate/predecessor schema changes, and Local AI."
+  ],
+  "primaryDeveloper": {
+    "role": "Codex Development Agent",
+    "adapter": "codex",
+    "assignedBy": "Product Owner",
+    "contextId": "root",
+    "runId": ""
+  },
+  "independentReviewer": {
+    "required": true,
+    "role": "Separate Codex Independent Reviewer",
+    "adapter": "codex",
+    "contextId": ""
+  },
+  "claudeCrossReview": {
+    "required": true,
+    "status": "PENDING",
+    "runId": "",
+    "reason": "CRITICAL replacement validator generation and trusted-runtime security boundary requires mandatory Claude Security Cross Review."
+  },
+  "stopConditions": [
+    "GitHub main differs from authorizedSourceSha before implementation.",
+    "Any changed file lies outside the exact eleven-file GEN1 allowlist.",
+    "Production artifact-intake-contract.ps1 is committed by GEN1.",
+    "Generator output is nondeterministic or requires hidden duplicate policy constants.",
+    "Corrected harness cannot self-validate or exposes expected outcome oracle to the validator.",
+    "VAL1 compatibility requires schema, phase, sequence, predecessor, lineage, or arbitrary identity relaxation.",
+    "Repository Transport, VAL1 execution, PR 79, A3, or Local AI starts.",
+    "Windows CI, Separate Codex Independent Review, or mandatory Claude Security Cross Review fails or has unresolved findings."
+  ],
+  "productOwnerAuthorization": {
+    "authorized": true,
+    "authorizedBy": "Product Owner",
+    "authorizedAtUtc": "2026-09-13T00:00:00Z",
+    "evidenceSource": "Conversation",
+    "evidenceUrl": "https://github.com/game2082001/VSP/commit/e969928c568bbe1b0bb25b355abf2cfe33fd4e55",
+    "approvalSummary": "Product Owner approved DS1 replacement architecture and authorized GEN1 implementation only."
+  },
+  "executionAuthorization": {
+    "implementation": true,
+    "localValidation": true,
+    "commit": true,
+    "pushFeatureBranch": true,
+    "openOrUpdatePr": true,
+    "ciGate": true,
+    "automatedReviewGate": true,
+    "requiredIndependentReview": true,
+    "inScopeRemediation": true,
+    "remediationCommitPushAndGates": true
+  },
+  "approvedFiles": [
+    ".github/workflows/ai02-deterministic-artifact-builder.yml",
+    "tools/orchestrator/generate-artifact-intake-validator.ps1",
+    "tools/orchestrator/test-generate-artifact-intake-validator.ps1",
+    "tools/orchestrator/a2-validator-semantic-harness.ps1",
+    "tools/orchestrator/test-a2-validator-semantic-harness.ps1",
+    "tools/orchestrator/ai02-artifact-chain.ps1",
+    "tools/orchestrator/test-ai02-artifact-chain.ps1",
+    "AI/Orchestrator/PHASED_ARTIFACT_CHAINING.md",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2-GEN1.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A2-GEN1.state.json",
+    "tools/orchestrator/task-manifest.ps1"
+  ],
+  "replacementArchitecture": {
+    "selected": "GENERATED_NORMATIVE_CONTRACT_TABLES_PLUS_GENERIC_TRUSTED_RUNTIME",
+    "runtime": "PowerShell",
+    "productionOutputPath": "tools/orchestrator/artifact-intake-contract.ps1",
+    "productionValidatorCommittedDuringGen1": false,
+    "repositoryTransportInvoked": false,
+    "val1Executed": false
+  },
+  "gen1Budget": {
+    "initialImplementationAttempts": 1,
+    "maximumCauseSpecificRemediations": 1,
+    "maximumTotalAttempts": 2,
+    "automaticRetry": false,
+    "thirdAttemptAuthorized": false,
+    "recordsAsOriginalA2SemanticAttempt": false
+  },
+  "originalA2State": {
+    "status": "BLOCKED",
+    "reason": "SEMANTIC_ATTEMPT_BUDGET_EXHAUSTED / REPLACEMENT_ARCHITECTURE_REQUIRED",
+    "attemptBudget": "2 / 2 EXHAUSTED",
+    "gen1IsAttempt3": false,
+    "gen1IsA2R2": false,
+    "historicalRuns": [
+      "34699028049 = CLAUDE_ACTION_SUCCESS / REQUIRED_A2_OUTPUT_NOT_CREATED / ZERO_WORKING_TREE_CHANGES / ROOT_CAUSE_UNRESOLVED",
+      "34707372888 = CLAUDE_ACTION_SUCCESS / SUBSTANTIVE_A2_OUTPUT_CREATED / STRUCTURAL_COMPLETION_GUARDS_PASS / FOCUSED_SEMANTIC_MATRIX_FAIL_CASE_01 / NO_VALID_PACKAGE / NO_CHECKPOINT / FINAL_REMEDIATION_EXHAUSTED"
+    ]
+  },
+  "val1Identity": {
+    "taskId": "VSP-AI02-001TI-A2-VAL1",
+    "phase": "A2",
+    "sequence": 2,
+    "predecessorCount": 1,
+    "predecessorSource": "AUTHORITATIVE_REPOSITORY_MERGE"
+  },
+  "a1Lineage": {
+    "productionMerge": "aa53c00d5e4125a53f8f835220bf6d6b2e911b14",
+    "publishedHead": "cb7dbf0cfbcb0f715001588cdd6da97264e19d06",
+    "descriptorSha256": "c1595130a63ffb3eaba0facbb4c0f1e73c5dbf17db098ea5052ca23ff021a253",
+    "parentAggregateStateDigest": "sha256:a29ea66e53f3645ca38c0b2b6e2880cb472a3f37bc1fea15b01980bea2a2caa1"
+  },
+  "normativeInputs": [
+    "AI/Orchestrator/Policy/artifact-intake-policy.json",
+    "AI/Orchestrator/Policy/artifact-intake-policy.schema.json",
+    "AI/Orchestrator/Templates/artifact-intake-request.schema.json",
+    "AI/Orchestrator/Templates/artifact-intake-request.template.json",
+    "AI/Orchestrator/Templates/artifact-intake-decision.schema.json",
+    "AI/Orchestrator/Templates/artifact-intake-decision.template.json",
+    "AI/Orchestrator/Templates/ai02-predecessor-binding.schema.json",
+    "AI/Orchestrator/Templates/ai02-aggregate-state.schema.json",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A-P2-PM1.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A-P2-PM1.state.json",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A-P2-PM1-R1.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A-P2-PM1-R1.state.json",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A-P2-AGV2.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A-P2-AGV2.state.json",
+    "AI/Orchestrator/Manifests/VSP-AI02-001TI-A2-R1.manifest.json",
+    "AI/Orchestrator/State/VSP-AI02-001TI-A2-R1.state.json"
+  ],
+  "boundaries": {
+    "productionValidatorCommitted": false,
+    "originalA2AttemptBudgetChanged": false,
+    "originalA2ThirdAttemptCreated": false,
+    "val1Executed": false,
+    "repositoryTransportInvoked": false,
+    "productionBranchCreated": false,
+    "productionPullRequestCreated": false,
+    "pr79Changed": false,
+    "a3Started": false,
+    "localAiCalled": false
+  },
+  "repositoryTransport": {
+    "required": false,
+    "requestPath": "",
+    "approvedFiles": [],
+    "invoked": false
+  }
+}

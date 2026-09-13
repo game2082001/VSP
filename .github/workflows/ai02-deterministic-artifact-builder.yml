@@ -1,0 +1,105 @@
+name: AI02 Deterministic Artifact Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: Governed replacement task id to validate
+        required: true
+        type: choice
+        options:
+          - VSP-AI02-001TI-A2-GEN1
+          - VSP-AI02-001TI-A2-VAL1
+      source_sha:
+        description: Product Owner-authorized immutable execution base
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - .github/workflows/ai02-deterministic-artifact-builder.yml
+      - tools/orchestrator/generate-artifact-intake-validator.ps1
+      - tools/orchestrator/test-generate-artifact-intake-validator.ps1
+      - tools/orchestrator/a2-validator-semantic-harness.ps1
+      - tools/orchestrator/test-a2-validator-semantic-harness.ps1
+      - tools/orchestrator/ai02-artifact-chain.ps1
+      - tools/orchestrator/test-ai02-artifact-chain.ps1
+      - AI/Orchestrator/PHASED_ARTIFACT_CHAINING.md
+      - AI/Orchestrator/Manifests/VSP-AI02-001TI-A2-GEN1.manifest.json
+      - AI/Orchestrator/State/VSP-AI02-001TI-A2-GEN1.state.json
+      - tools/orchestrator/task-manifest.ps1
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-artifact-builder:
+    name: Deterministic validator generation and harness
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Assert read-only workflow boundary
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            if ("${{ inputs.task_id }}" -notin @("VSP-AI02-001TI-A2-GEN1", "VSP-AI02-001TI-A2-VAL1")) {
+              throw "Unsupported deterministic builder task id."
+            }
+            if ("${{ inputs.source_sha }}" -notmatch "^[0-9a-f]{40}$") {
+              throw "source_sha must be a lowercase 40-character Git SHA."
+            }
+          }
+          "repositoryWriteCredentialAvailableToDeveloper=false" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "repositoryTransportInvoked=false" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+      - name: Run GEN1 generator tests
+        shell: pwsh
+        run: ./tools/orchestrator/test-generate-artifact-intake-validator.ps1
+
+      - name: Run GEN1 semantic harness tests
+        shell: pwsh
+        run: ./tools/orchestrator/test-a2-validator-semantic-harness.ps1
+
+      - name: Generate staged validator twice
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "ai02-deterministic-builder"
+          $one = Join-Path $stage "one"
+          $two = Join-Path $stage "two"
+          New-Item -ItemType Directory -Force -Path $one,$two | Out-Null
+          $e1 = ./tools/orchestrator/generate-artifact-intake-validator.ps1 -OutputDirectory $one | ConvertFrom-Json
+          $e2 = ./tools/orchestrator/generate-artifact-intake-validator.ps1 -OutputDirectory $two | ConvertFrom-Json
+          if ($e1.generatedSha256 -ne $e2.generatedSha256 -or $e1.generatedByteSize -ne $e2.generatedByteSize) {
+            throw "Deterministic generation mismatch."
+          }
+          $validator = Join-Path $one "tools/orchestrator/artifact-intake-contract.ps1"
+          $harnessOut = Join-Path $stage "semantic-harness"
+          $harness = ./tools/orchestrator/a2-validator-semantic-harness.ps1 -ValidatorPath $validator -OutputDirectory $harnessOut | ConvertFrom-Json
+          if ($harness.result -ne "PASS" -or [int]$harness.semanticCaseCount -lt 52) {
+            throw "Semantic harness did not pass."
+          }
+          @{
+            status = "PASS"
+            taskId = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.task_id }}" } else { "VSP-AI02-001TI-A2-GEN1" }
+            sourceSha = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.source_sha }}" } else { "${{ github.sha }}" }
+            generatedSha256 = $e1.generatedSha256
+            generatedByteSize = $e1.generatedByteSize
+            semanticCaseCount = [int]$harness.semanticCaseCount
+            repositoryWriteCredentialAvailableToDeveloper = $false
+            repositoryTransportInvoked = $false
+          } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $stage "deterministic-builder-evidence.json") -Encoding utf8NoBOM
+          "generatedSha256=$($e1.generatedSha256)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "generatedByteSize=$($e1.generatedByteSize)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "semanticCaseCount=$($harness.semanticCaseCount)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+      - name: Upload deterministic builder evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai02-deterministic-builder-evidence
+          path: ${{ runner.temp }}/ai02-deterministic-builder/deterministic-builder-evidence.json
+          if-no-files-found: error
